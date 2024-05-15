@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "HunterStrategy.h"
 #include "HunterAiObjectContext.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -94,6 +95,9 @@ void HunterStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode(
         "no ammo",
         NextAction::array(0, new NextAction("say::no ammo", ACTION_NORMAL), NULL)));
+
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_THE_MONGOOSE);
+    InitMissingConsumableTrigger(triggers, ITEM_FLASK_OF_DISTILLED_WISDOM);
 }
 
 void HunterStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

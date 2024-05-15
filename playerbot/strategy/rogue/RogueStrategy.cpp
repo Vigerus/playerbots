@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "RogueMultipliers.h"
 #include "RogueStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -90,6 +91,7 @@ void RogueStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 void RogueStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ClassStrategy::InitNonCombatTriggers(triggers);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_THE_MONGOOSE);
 }
 
 void RogueStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

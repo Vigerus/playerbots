@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "MageMultipliers.h"
 #include "MageStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -121,6 +122,9 @@ void MageStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode(
         "no mana gem",
         NextAction::array(0, new NextAction("conjure mana gem", ACTION_NORMAL), NULL)));
+
+    InitMissingConsumableTrigger(triggers, ITEM_GREATER_ARCANE_ELIXIR);
+    InitMissingConsumableTrigger(triggers, ITEM_FLASK_OF_SUPREME_POWER);
 }
 
 void MageStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)
