@@ -3,6 +3,8 @@
 #include "playerbot/strategy/values/PositionValue.h"
 #include "PositionAction.h"
 
+#pragma optimize("", off)
+
 using namespace ai;
 
 void TellPosition(PlayerbotAI* ai, Player* requester, std::string name, ai::PositionEntry pos)
@@ -49,12 +51,12 @@ bool PositionAction::Execute(Event& event)
 
     std::string name = params[0];
     std::string action = params[1];
-	ai::PositionEntry pos = posMap[name];
-	if (action == "?")
-	{
-	    TellPosition(ai, requester, name, pos);
-	    return true;
-	}
+    ai::PositionEntry& pos = posMap[name];
+    if (action == "?")
+    {
+        TellPosition(ai, requester, name, pos);
+        return true;
+    }
 
     std::vector<std::string> coords = split(action, ',');
     if (coords.size() == 3)
@@ -69,7 +71,7 @@ bool PositionAction::Execute(Event& event)
 
 	if (action == "set")
 	{
-        pos.Set(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), ai->GetBot()->GetMapId());
+       pos.Set(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), ai->GetBot()->GetMapId());
 	    posMap[name] = pos;
 
 	    std::ostringstream out; out << "Position " << name << " is set";
@@ -93,7 +95,9 @@ bool PositionAction::Execute(Event& event)
 bool MoveToPositionAction::Execute(Event& event)
 {
     Player* requester = event.getOwner() ? event.getOwner() : GetMaster();
-	ai::PositionEntry pos = context->GetValue<ai::PositionMap&>("position")->Get()[qualifier];
+
+    ai::PositionMap& posMap = context->GetValue<ai::PositionMap&>("position")->Get();
+    ai::PositionEntry& pos = posMap[qualifier];
     if (!pos.isSet())
     {
         std::ostringstream out; out << "Position " << qualifier << " is not set";
@@ -106,7 +110,9 @@ bool MoveToPositionAction::Execute(Event& event)
 
 bool MoveToPositionAction::isUseful()
 {
-    ai::PositionEntry pos = context->GetValue<ai::PositionMap&>("position")->Get()[qualifier];
+    ai::PositionMap& posMap = context->GetValue<ai::PositionMap&>("position")->Get();
+    ai::PositionEntry& pos = posMap[qualifier];
+
     float distance = AI_VALUE2(float, "distance", std::string("position_") + qualifier);
     return pos.isSet() && distance > ai->GetRange("follow") && IsMovingAllowed();
 }
@@ -165,17 +171,17 @@ bool SetReturnPositionAction::isUseful()
     return posMap["return"].isSet() && !posMap["random"].isSet();
 }
 
-
 bool ReturnAction::isUseful()
 {
-    ai::PositionEntry pos = context->GetValue<ai::PositionMap&>("position")->Get()[qualifier];
+   ai::PositionMap& posMap = context->GetValue<ai::PositionMap&>("position")->Get();
+   ai::PositionEntry& pos = posMap[qualifier];
     return pos.isSet() && AI_VALUE2(float, "distance", "position_random") > ai->GetRange("follow");
 }
 
 bool ReturnToStayPositionAction::isPossible()
 {
     PositionMap& posMap = AI_VALUE(PositionMap&, "position");
-    PositionEntry stayPosition = posMap["stay"];
+    PositionEntry& stayPosition = posMap["stay"];
     if (stayPosition.isSet())
     {
         const float distance = bot->GetDistance(stayPosition.x, stayPosition.y, stayPosition.z);
@@ -197,7 +203,7 @@ bool ReturnToStayPositionAction::isPossible()
 bool ReturnToPullPositionAction::isPossible()
 {
     PositionMap& posMap = AI_VALUE(PositionMap&, "position");
-    PositionEntry stayPosition = posMap["pull"];
+    PositionEntry& stayPosition = posMap["pull"];
     if (stayPosition.isSet())
     {
         PullStrategy* strategy = PullStrategy::Get(ai);
@@ -227,3 +233,4 @@ bool ReturnToPullPositionAction::isPossible()
     return false;
 }
 
+#pragma optimize("", on)

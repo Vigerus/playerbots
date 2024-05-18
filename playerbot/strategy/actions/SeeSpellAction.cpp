@@ -13,6 +13,7 @@
 #include "RtscAction.h"
 #include "playerbot/TravelMgr.h"
 
+#pragma optimize("", off)
 
 using namespace ai;
 
@@ -219,7 +220,7 @@ bool SeeSpellAction::MoveToSpell(Player* requester, WorldPosition& spellPosition
     if (ai->HasStrategy("stay", ai->GetState()))
     {
         PositionMap& posMap = AI_VALUE(PositionMap&, "position");
-        PositionEntry stayPosition = posMap["stay"];
+        PositionEntry& stayPosition = posMap["stay"];
 
         stayPosition.Set(spellPosition.getX(), spellPosition.getY(), spellPosition.getZ(), spellPosition.getMapId());
         posMap["stay"] = stayPosition;
@@ -228,7 +229,7 @@ bool SeeSpellAction::MoveToSpell(Player* requester, WorldPosition& spellPosition
     else if (ai->HasStrategy("guard", ai->GetState()))
     {
         PositionMap& posMap = AI_VALUE(PositionMap&, "position");
-        PositionEntry guardPosition = posMap["guard"];
+        PositionEntry& guardPosition = posMap["guard"];
 
         guardPosition.Set(spellPosition.getX(), spellPosition.getY(), spellPosition.getZ(), spellPosition.getMapId());
         posMap["guard"] = guardPosition;
@@ -241,7 +242,7 @@ bool SeeSpellAction::MoveToSpell(Player* requester, WorldPosition& spellPosition
         if (formation->getName() == "custom")
         {
             PositionMap& posMap = AI_VALUE(PositionMap&, "position");
-            PositionEntry followPosition = posMap["follow"];
+            PositionEntry& followPosition = posMap["follow"];
 
             spellPosition -= WorldPosition(requester);
             spellPosition.rotateXY(-1 * requester->GetOrientation());
@@ -270,3 +271,5 @@ void SeeSpellAction::SetFormationOffset(Player* requester, WorldPosition& spellP
         spellPosition += formationLocation;
     }
 }
+
+#pragma optimize("", on)

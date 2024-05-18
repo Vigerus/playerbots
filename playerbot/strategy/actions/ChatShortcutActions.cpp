@@ -10,7 +10,7 @@ using namespace ai;
 void ReturnPositionResetAction::ResetPosition(std::string posName)
 {
     ai::PositionMap& posMap = context->GetValue<ai::PositionMap&>("position")->Get();
-    ai::PositionEntry pos = posMap[posName];
+    ai::PositionEntry& pos = posMap[posName];
     pos.Reset();
     posMap[posName] = pos;
 }
@@ -18,7 +18,7 @@ void ReturnPositionResetAction::ResetPosition(std::string posName)
 void ReturnPositionResetAction::SetPosition(WorldPosition wPos, std::string posName)
 {
     ai::PositionMap& posMap = context->GetValue<ai::PositionMap&>("position")->Get();
-    ai::PositionEntry pos = posMap[posName];
+    ai::PositionEntry& pos = posMap[posName];
     pos.Set(wPos);
     posMap[posName] = pos;
 }
@@ -46,7 +46,7 @@ bool FollowChatShortcutAction::Execute(Event& event)
         ai->ChangeStrategy("-passive,-follow", BotState::BOT_STATE_COMBAT);
 
     ai::PositionMap& posMap = context->GetValue<ai::PositionMap&>("position")->Get();
-    ai::PositionEntry pos = posMap["return"];
+    ai::PositionEntry& pos = posMap["return"];
     pos.Reset();
     posMap["return"] = pos;
 
@@ -57,7 +57,7 @@ bool FollowChatShortcutAction::Execute(Event& event)
 
     if (formation->getName() == "custom") //If in custom formation set relative position to current position.
     {
-        ai::PositionEntry pos = posMap["follow"];
+        ai::PositionEntry& pos = posMap["follow"];
 
         WorldPosition relPos(bot);
 

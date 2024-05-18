@@ -556,7 +556,7 @@ bool UseAction::UseGameObject(Player* requester, Event& event, GameObject* gameO
         return false;
     }
 
-    if (gameObject->GetGoType() == GAMEOBJECT_TYPE_CHEST)
+    if (gameObject->GetGoType() == GAMEOBJECT_TYPE_CHEST || gameObject->GetGoType() == GAMEOBJECT_TYPE_TRAP)
     {
         SET_AI_VALUE(LootObject, "loot target", LootObject(bot, guid));
 
