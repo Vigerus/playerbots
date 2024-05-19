@@ -201,6 +201,8 @@ namespace ai
             creators["move style"] = &ChatActionContext::move_style;
 
             creators["jump"] = &ChatActionContext::jump;
+            creators["getmaster"] = [](PlayerbotAI* ai){ return new GetMasterAction(ai); };
+            creators["setmaster"] = [](PlayerbotAI* ai) { return new SetMasterAction(ai); };
         }
 
     private:

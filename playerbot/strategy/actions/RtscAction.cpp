@@ -8,9 +8,9 @@ using namespace ai;
 bool RTSCAction::Execute(Event& event)
 {
 	std::string command = event.getParam();
-	Player* requester = event.getOwner() ? event.getOwner() : GetMaster();
+	Player* requester = event.getOwner();
 
-	if (!requester)
+	if (!requester || requester != GetMaster())
 		return false;
 
 	if (command != "reset" && !requester->HasSpell(RTSC_MOVE_SPELL))

@@ -5,6 +5,8 @@
 #include "playerbot/strategy/values/PositionValue.h"
 #include "playerbot/strategy/values/Formations.h"
 
+#pragma optimize("", off)
+
 using namespace ai;
 
 void ReturnPositionResetAction::ResetPosition(std::string posName)
@@ -231,3 +233,6 @@ bool MaxDpsChatShortcutAction::Execute(Event& event)
     ai->TellPlayerNoFacing(requester, "Max DPS!");
     return true;
 }
+
+
+#pragma optimize("", on)

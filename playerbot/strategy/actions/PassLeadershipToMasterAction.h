@@ -52,5 +52,69 @@ namespace ai
         {
             return ai->HasRealPlayerMaster() && bot->GetGroup() && bot->GetGroup()->IsLeader(bot->GetObjectGuid());
         }
-    };    
+    };
+
+
+    class GetMasterAction : public ChatCommandAction
+    {
+    public:
+       GetMasterAction(PlayerbotAI* ai) : ChatCommandAction(ai, "getmaster")
+       {
+       }
+
+       virtual bool Execute(Event& event) override
+       {
+          std::string message;
+
+          if (Player* master = GetMaster())
+          {
+              message += "My master is ";
+              message += master->GetName();
+          }
+          else
+          {
+              message = "I have no master";
+          }
+
+          ai->TellPlayerNoFacing(event.getOwner(), message);
+          return true;
+       }
+
+       virtual bool isUseful()
+       {
+          return true;
+       }
+
+       bool isUsefulWhenStunned() override { return true; }
+    };
+
+    class SetMasterAction : public ChatCommandAction
+    {
+    public:
+       SetMasterAction(PlayerbotAI* ai) : ChatCommandAction(ai, "setmaster")
+       {
+       }
+
+       virtual bool Execute(Event& event) override
+       {
+          std::string message;
+
+          if (Player* master = GetMaster())
+          {
+             ai->TellPlayerNoFacing(event.getOwner(), "You are no longer my master");
+          }
+
+          ai->SetMaster(event.getOwner());
+          ai->TellPlayerNoFacing(event.getOwner(), "You are my new master");
+          return true;
+       }
+
+       virtual bool isUseful()
+       {
+          return true;
+       }
+
+       bool isUsefulWhenStunned() override { return true; }
+    };
+
 }

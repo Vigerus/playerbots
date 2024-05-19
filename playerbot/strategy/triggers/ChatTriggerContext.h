@@ -134,6 +134,8 @@ namespace ai
             creators["bg free"] = &ChatTriggerContext::bg_free;
             creators["move style"] = &ChatTriggerContext::move_style;
             creators["jump"] = &ChatTriggerContext::jump;
+            creators["getmaster"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "getmaster"); };
+            creators["setmaster"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "setmaster"); };
         }
 
     private:
