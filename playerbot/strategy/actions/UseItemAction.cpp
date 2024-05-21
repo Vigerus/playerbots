@@ -140,6 +140,23 @@ bool BotUseItemSpell::OpenLockCheck()
     return false;
 }
 
+bool IsFoodOrDrink(const ItemPrototype* proto, uint32 spellCategory)
+{
+    return proto->Class == ITEM_CLASS_CONSUMABLE &&
+           (proto->SubClass == ITEM_SUBCLASS_FOOD || proto->SubClass == ITEM_SUBCLASS_CONSUMABLE) &&
+           proto->Spells[0].SpellCategory == spellCategory;
+}
+
+bool IsFood(const ItemPrototype* proto)
+{
+    return IsFoodOrDrink(proto, 11);
+}
+
+bool IsDrink(const ItemPrototype* proto)
+{
+    return IsFoodOrDrink(proto, 59);
+}
+
 bool UseAction::Execute(Event& event)
 {
     Player* requester = event.getOwner();
@@ -175,14 +192,25 @@ bool UseAction::Execute(Event& event)
     }
     else
     {
-        std::vector<uint32> items = chat->parseItemsUnordered(name, false, true);
+        std::vector<uint32> items = chat->parseItemsUnordered(name, false);
+        if (items.empty())
+        {
+            std::list<Item*> inventoryItems = AI_VALUE2(std::list<Item*>, "inventory items", name);
+            for (Item* inventoryItem : inventoryItems)
+            {
+                if (inventoryItem)
+                {
+                    items.push_back(inventoryItem->GetEntry());
+                }
+            }
+        }
+
         if (!items.empty())
         {
-            itemID = *items.begin();
+            itemID = items[0];
             if (items.size() > 1)
             {
-                const uint32 targetItemID = *std::next(items.begin(), 1);
-                targetItem = bot->GetItemByEntry(targetItemID);
+                targetItem = bot->GetItemByEntry(items[1]);
             }
         }
 
@@ -244,7 +272,7 @@ bool UseAction::UseItem(Player* requester, uint32 itemId, Item* target)
     return UseItemInternal(requester, itemId, nullptr, nullptr, target);
 }
 
-bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarget, GameObject* gameObjectTarget, Item* itemTarget)
+bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unit, GameObject* gameObject, Item* item)
 {
     // Check for valid item ID
     const ItemPrototype* proto = sObjectMgr.GetItemPrototype(itemId);
@@ -261,13 +289,13 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
     }
 
     // If bot has no item cheat (or it is a questgiver item) it needs an item to cast
-    Item* item = nullptr;
-    if (!ai->HasCheat(BotCheatMask::item) || proto->StartQuest > 0)
+    Item* itemUsed = nullptr;
+    if (!ai->HasCheat(BotCheatMask::item) || proto->StartQuest > 0 || proto->Class == ITEM_CLASS_QUEST || itemId == 6948)
     {
         std::list<Item*> items = AI_VALUE2(std::list<Item*>, "inventory items", ChatHelper::formatQItem(itemId));
         if (!items.empty())
         {
-            item = items.front();
+            itemUsed = items.front();
         }
         else
         {
@@ -285,14 +313,14 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
     // Check for items that give quests on use (must have item in inventory)
     if (proto->StartQuest > 0)
     {
-        return UseQuestGiverItem(requester, item);
+        return UseQuestGiverItem(requester, itemUsed);
     }
 
 #ifndef MANGOSBOT_ZERO
     // Check for gem items
     if (proto->Class == ITEM_CLASS_GEM)
     {
-        return UseGemItem(requester, itemTarget, item, true);
+        return UseGemItem(requester, item, itemUsed, true);
     }
 #endif
 
@@ -308,6 +336,10 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
 
         return false;
     }
+
+    Unit* unitTarget = nullptr;
+    Item* itemTarget = nullptr;
+    GameObject* gameObjectTarget = nullptr;
 
     uint8 successCasts = 0;
     for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
@@ -344,7 +376,8 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
         if (spellTargets == 0)
         {
             // Unit target
-            if ((proto->Class == ITEM_CLASS_CONSUMABLE && proto->SubClass == ITEM_SUBCLASS_SCROLL) || // Scrolls
+            if ((spellInfo->EffectImplicitTargetA[0] == TARGET_UNIT) || // Unit Target
+                (proto->Class == ITEM_CLASS_CONSUMABLE && proto->SubClass == ITEM_SUBCLASS_SCROLL) || // Scrolls
                 (proto->Class == ITEM_CLASS_TRADE_GOODS && proto->SubClass == ITEM_SUBCLASS_EXPLOSIVES) || // Explosives
                 (spellData.SpellCategory == 150) || // First aid
                 (spellData.SpellCategory == 831)) // Soulstone 
@@ -353,40 +386,53 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
             }
 
             // Location target
-            if (proto->Class == ITEM_CLASS_TRADE_GOODS && proto->SubClass == ITEM_SUBCLASS_EXPLOSIVES) // Explosives
+            if ((spellInfo->EffectImplicitTargetA[0] == TARGET_ENUM_UNITS_ENEMY_AOE_AT_DEST_LOC) || // Hostile Aoe Spell
+                (proto->Class == ITEM_CLASS_TRADE_GOODS && proto->SubClass == ITEM_SUBCLASS_EXPLOSIVES)) // Explosives
             {
                 spellTargets |= TARGET_FLAG_DEST_LOCATION;
+            }
+
+            // No target
+            if (spellTargets == 0 && 
+                (spellInfo->EffectImplicitTargetA[0] == TARGET_NONE || // No target
+                 spellInfo->EffectImplicitTargetA[0] == TARGET_UNIT_CASTER)) // Self Target
+            {
+                validTarget = true;
             }
         }
 
         if (spellTargets & TARGET_FLAG_DEST_LOCATION)
         {
-            if (unitTarget)
+            if (unit)
             {
-                targets.setDestination(unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ());
+                unitTarget = unit;
+                targets.setDestination(unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
                 validTarget = true;
             }
-            else if (gameObjectTarget && gameObjectTarget->IsSpawned())
+            else if (gameObject && gameObject->IsSpawned())
             {
-                targets.setDestination(unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ());
+                gameObjectTarget = gameObject;
+                targets.setDestination(unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
                 validTarget = true;
             }
         }
         
         if (spellTargets & TARGET_FLAG_UNIT && !validTarget)
         {
-            if (unitTarget)
+            if (unit)
             {
-                targets.setUnitTarget(unitTarget);
+                unitTarget = unit;
+                targets.setUnitTarget(unit);
                 validTarget = true;
             }
         }
         
         if (spellTargets & TARGET_FLAG_GAMEOBJECT && !validTarget)
         {
-            if (gameObjectTarget && gameObjectTarget->IsSpawned())
+            if (gameObject && gameObject->IsSpawned())
             {
-                targets.setGOTarget(gameObjectTarget);
+                gameObjectTarget = gameObject;
+                targets.setGOTarget(gameObject);
                 targets.m_targetMask = TARGET_FLAG_GAMEOBJECT;
                 validTarget = true;
             }
@@ -394,9 +440,10 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
 
         if (spellTargets & TARGET_FLAG_ITEM && !validTarget)
         {
-            if (itemTarget)
+            if (item)
             {
-                targets.setItemTarget(itemTarget);
+                itemTarget = item;
+                targets.setItemTarget(item);
                 validTarget = true;
             }
             else
@@ -437,10 +484,10 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
             spell->m_clientCast = true;
 
             // Spend the item if used in the spell
-            if (item)
+            if (itemUsed)
             {
-                spell->SetCastItem(item);
-                item->SetUsedInSpell(true);
+                spell->SetCastItem(itemUsed);
+                itemUsed->SetUsedInSpell(true);
             }
 
             if (sServerFacade.isMoving(bot))
@@ -461,7 +508,16 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
             {
                 bot->RemoveSpellCooldown(*spellInfo, false);
                 bot->AddCooldown(*spellInfo, proto, false);
-                SetDuration(ai->GetSpellCastDuration(spell));
+
+                if (IsFood(proto) || IsDrink(proto))
+                {
+                    SetDuration(24000);
+                }
+                else
+                {
+                    SetDuration(ai->GetSpellCastDuration(spell));
+                }
+
                 ++successCasts;
             }
             else
@@ -501,9 +557,9 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unitTarg
             }
 
             // Stackable
-            if (item && proto->Stackable > 1)
+            if (itemUsed && proto->Stackable > 1)
             {
-                uint32 count = item->GetCount();
+                uint32 count = itemUsed->GetCount();
                 if (count > 1)
                 {
                     replyArgs["%amount"] = count;

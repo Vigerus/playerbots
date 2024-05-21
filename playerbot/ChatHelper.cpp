@@ -282,16 +282,31 @@ uint32 ChatHelper::parseMoney(std::string& text)
     return copper;
 }
 
-ItemIds ChatHelper::parseItems(const std::string& text, bool validate, bool parseItemNames)
+ItemIds ChatHelper::parseItems(const std::string& text, bool validate)
 {
-    std::vector<uint32> itemIDsUnordered = parseItemsUnordered(text, validate, parseItemNames);
+    std::vector<uint32> itemIDsUnordered = parseItemsUnordered(text, validate);
     return ItemIds(itemIDsUnordered.begin(), itemIDsUnordered.end());
 }
 
-std::vector<uint32> ChatHelper::parseItemsUnordered(const std::string& text, bool validate, bool parseItemNames)
+std::vector<uint32> ChatHelper::parseItemsUnordered(const std::string& text, bool validate)
 {
-    // Replace all item links with item ids
     std::string textCpy = text;
+
+    // Remove gameobject links
+    if (textCpy.find("Hfound:") != -1)
+    {
+        std::vector<std::string> goLinks = findSubstringsBetween(textCpy, "|c", "|r", true);
+        for (const std::string& goLink : goLinks)
+        {
+            std::vector<std::string> goIDs = findSubstringsBetween(goLink, "Hfound:", ":");
+            if (!goIDs.empty())
+            {
+                replaceSubstring(textCpy, goLink, "");
+            }
+        }
+    }
+
+    // Replace all item links with item ids
     if (textCpy.find("Hitem:") != -1)
     {
         std::vector<std::string> itemLinks = findSubstringsBetween(textCpy, "|c", "|r", true);
@@ -300,7 +315,9 @@ std::vector<uint32> ChatHelper::parseItemsUnordered(const std::string& text, boo
             std::vector<std::string> itemIDs = findSubstringsBetween(itemLink, "Hitem:", ":");
             if (!itemIDs.empty())
             {
-                replaceSubstring(textCpy, itemLink, itemIDs[0]);
+                std::ostringstream itemIDWithSpaces;
+                itemIDWithSpaces << " " << itemIDs[0] << " ";
+                replaceSubstring(textCpy, itemLink, itemIDWithSpaces.str());
             }
         }
     }
@@ -309,7 +326,9 @@ std::vector<uint32> ChatHelper::parseItemsUnordered(const std::string& text, boo
     for (const std::string& itemStr : splitString(textCpy, " "))
     {
         if (itemStr.empty())
+        {
             continue;
+        }
 
         if (isNumeric(itemStr))
         {
@@ -317,16 +336,6 @@ std::vector<uint32> ChatHelper::parseItemsUnordered(const std::string& text, boo
             if (!validate || sObjectMgr.GetItemPrototype(itemID) != nullptr)
             {
                 itemIds.push_back(std::stoi(itemStr));
-            }
-        }
-        else if (parseItemNames)
-        {
-            std::string itemName = itemStr;
-            WorldDatabase.escape_string(itemName);
-            auto queryResult = WorldDatabase.PQuery("SELECT entry FROM item_template WHERE name LIKE '%s'", itemName.c_str());
-            if (queryResult)
-            {
-                itemIds.push_back(queryResult->Fetch()->GetUInt16());
             }
         }
     }
