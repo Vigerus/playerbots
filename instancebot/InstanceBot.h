@@ -2,6 +2,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include <log4cxx/logger.h>
+#include <log4cxx/basicconfigurator.h>
+#include <log4cxx/propertyconfigurator.h>
+#include <log4cxx/helpers/exception.h>
+
 #include "Entities/ObjectGuid.h"
 #include "Common.h"
 
@@ -29,6 +34,8 @@ namespace instancebot
       std::list<std::string> HandlePlayerbotCommand(char const* args, Player* master = NULL);
 
    private:
+      log4cxx::LoggerPtr m_logger;
+
       Map* mp_map;
       std::unordered_map<ObjectGuid, PlayerData*> m_map;
 

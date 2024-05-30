@@ -1,5 +1,6 @@
 #include "InstanceBot.h"
 #include "Entities/Player.h"
+#include "Log/LogHelper.h"
 
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/ServerFacade.h"
@@ -17,8 +18,11 @@ namespace instancebot {
    };
 
    InstanceBot::InstanceBot(Map* map) :
+      m_logger(log4cxx::Logger::getLogger("InstanceBot")),
       mp_map(map)
    {
+      CCLOG_TRACE(m_logger) << " ctor";
+
       m_dungeon_strat = "brd_arena_run";
 
       // buffs to all
