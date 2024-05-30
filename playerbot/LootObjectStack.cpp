@@ -251,6 +251,26 @@ bool LootObject::IsLootPossible(Player* bot)
                     }
                 }
             }
+            
+            // herb-like quest objects
+            if (skillId == SKILL_HERBALISM && reqSkillValue == 1)
+            {
+                if (sObjectMgr.IsGameObjectForQuests(guid.GetEntry()))
+                {
+                    if (go->ActivateToQuest(bot))
+                    {
+                        bool hasQuestItems = false;
+                        for (auto& entry : GAI_VALUE2(std::list<uint32>, "entry loot list", -go->GetEntry()))
+                        {
+                            if (IsNeededForQuest(bot, entry))
+                            {
+                                hasQuestItems = true;
+                            }
+                        }
+                        return hasQuestItems || go->GetLootState() != GO_READY;
+                    }
+                }
+            }
         }
     }
 

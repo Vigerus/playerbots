@@ -12,6 +12,7 @@
 #include "playerbot/strategy/values/LootStrategyValue.h"
 #include "playerbot/strategy/values/ItemUsageValue.h"
 #include "playerbot/ServerFacade.h"
+#include "playerbot/strategy/values/SharedValueContext.h"
 
 
 using namespace ai;
@@ -124,7 +125,23 @@ bool OpenLootAction::DoLoot(LootObject& lootObject)
         return ai->HasSkill(SKILL_MINING) ? ai->CastSpell(MINING, bot) : false;
 
     if (lootObject.skillId == SKILL_HERBALISM)
-        return ai->HasSkill(SKILL_HERBALISM) ? ai->CastSpell(HERB_GATHERING, bot) : false;
+    {
+        // herb-like quest objects
+        bool isForQuest = false;
+        if (go && sObjectMgr.IsGameObjectForQuests(lootObject.guid.GetEntry()))
+        {
+            if (go->ActivateToQuest(bot))
+            {
+                std::list<uint32> lootItems = GAI_VALUE2(std::list<uint32>, "entry loot list", -go->GetEntry());
+                isForQuest = !lootItems.empty() || go->GetLootState() != GO_READY;
+            }
+        }
+
+        if (!isForQuest)
+        {
+            return ai->HasSkill(SKILL_HERBALISM) ? ai->CastSpell(HERB_GATHERING, bot) : false;
+        }
+    }
 
     uint32 spellId = GetOpeningSpell(lootObject);
     if (!spellId)
