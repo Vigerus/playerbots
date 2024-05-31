@@ -5,6 +5,7 @@
 #include "PlayerbotDbStore.h"
 #include <cstdlib>
 #include <iostream>
+#include "Log/LogHelper.h"
 
 #include "LootObjectStack.h"
 #include "strategy/values/Formations.h"
@@ -13,8 +14,17 @@ INSTANTIATE_SINGLETON_1(PlayerbotDbStore);
 
 using namespace ai;
 
+PlayerbotDbStore::PlayerbotDbStore() :
+    m_logger(log4cxx::Logger::getLogger("PlayerbotDbStore"))
+{
+}
+
+PlayerbotDbStore::~PlayerbotDbStore() {}
+
 void PlayerbotDbStore::Load(PlayerbotAI *ai)
 {
+    CCLOG_TRACE(m_logger) << "Source:[ENGINE] " << "Loading data for " << ai->GetBot()->GetName();
+
     uint64 guid = ai->GetBot()->GetObjectGuid().GetRawValue();
 
     auto results = CharacterDatabase.PQuery("SELECT `key`,`value` FROM `ai_playerbot_db_store` WHERE `guid` = '%lu'", guid);
@@ -44,6 +54,8 @@ void PlayerbotDbStore::Load(PlayerbotAI *ai)
 
 void PlayerbotDbStore::Save(PlayerbotAI *ai)
 {
+    CCLOG_TRACE(m_logger) << "Source:[ENGINE] " << "Saving data for " << ai->GetBot()->GetName();
+
     uint64 guid = ai->GetBot()->GetObjectGuid().GetRawValue();
 
     Reset(ai);
