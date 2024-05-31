@@ -7,6 +7,8 @@
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/PerformanceMonitor.h"
 
+#include "Log/LogHelper.h"
+
 #ifdef BUILD_ELUNA
 #include "LuaEngine/LuaEngine.h"
 #endif
@@ -698,7 +700,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
     }
 
     std::string lastActionName = prevExecutedAction ? prevExecutedAction->getName() : "";
-    if (sPlayerbotAIConfig.CanLogAction(ai, action->getName(), true, lastActionName))
+    if (true)
     {
         std::ostringstream out;
         out << "do: ";
@@ -723,13 +725,18 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
             }
         }
 
-        if (ai->GetMaster())
+        CCLOG_TRACE(ai->GetLogger()) << " Source:[" << ai->GetBot()->GetName() << "] " << out.str().c_str();
+
+        if (sPlayerbotAIConfig.CanLogAction(ai, action->getName(), true, lastActionName))
         {
-            ai->TellPlayerNoFacing(ai->GetMaster(), out, PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, true, false);
-        }
-        else
-        {
-            ai->GetBot()->Say(out.str(), (ai->GetBot()->GetTeam() == ALLIANCE ? LANG_COMMON : LANG_ORCISH));
+           if (ai->GetMaster())
+           {
+              ai->TellPlayerNoFacing(ai->GetMaster(), out, PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, true, false);
+           }
+           else
+           {
+              ai->GetBot()->Say(out.str(), (ai->GetBot()->GetTeam() == ALLIANCE ? LANG_COMMON : LANG_ORCISH));
+           }
         }
     }
 

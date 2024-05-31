@@ -21,7 +21,7 @@ namespace instancebot {
       m_logger(log4cxx::Logger::getLogger("InstanceBot")),
       mp_map(map)
    {
-      CCLOG_TRACE(m_logger) << " ctor";
+      CCLOG_TRACE(m_logger) << " Source:[InstanceBot] ctor";
 
       m_dungeon_strat = "brd_arena_run";
 

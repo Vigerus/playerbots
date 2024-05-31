@@ -1,5 +1,6 @@
 
 #include "playerbot/playerbot.h"
+#include "Log/LogHelper.h"
 
 #include "ReactionEngine.h"
 #include <iomanip>
@@ -224,7 +225,7 @@ bool ReactionEngine::ListenAndExecute(Action* action, Event& event)
         }
     }
 
-    if (ai->HasStrategy("debug", BotState::BOT_STATE_NON_COMBAT))
+    if (true)
     {
         std::ostringstream out;
         out << "do: ";
@@ -245,7 +246,10 @@ bool ReactionEngine::ListenAndExecute(Action* action, Event& event)
         if(actionExecuted)
             out << " (duration: " << ((float)incomingReaction.GetDuration() / IN_MILLISECONDS) << "s)";
 
-        ai->TellPlayerNoFacing(ai->GetMaster(), out);
+        if (ai->HasStrategy("debug", BotState::BOT_STATE_NON_COMBAT))
+           ai->TellPlayerNoFacing(ai->GetMaster(), out);
+
+        CCLOG_TRACE(ai->GetLogger()) << " Source:[" << ai->GetBot()->GetName() << "] " << out.str().c_str();
     }
 
     actionExecuted = actionExecutionListeners.OverrideResult(action, actionExecuted, event);
