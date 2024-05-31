@@ -5,6 +5,11 @@ class PlayerbotMgr;
 class ChatHandler;
 class PerformanceMonitorOperation;
 
+#include <log4cxx/logger.h>
+#include <log4cxx/basicconfigurator.h>
+#include <log4cxx/propertyconfigurator.h>
+#include <log4cxx/helpers/exception.h>
+
 class PlayerbotAIBase
 {
 public:
@@ -13,7 +18,9 @@ public:
 public:
     bool IsActive() const;
     virtual void UpdateAI(uint32 elapsed);
-    
+
+    const log4cxx::LoggerPtr& GetLogger() const;
+
     uint32 GetAIInternalUpdateDelay() const { return aiInternalUpdateDelay; }
 
 protected:
@@ -23,8 +30,10 @@ protected:
     void ResetAIInternalUpdateDelay() { aiInternalUpdateDelay = 0U; }
     void IncreaseAIInternalUpdateDelay(uint32 delay);
     void YieldAIInternalThread(bool minimal = false);
-    
+
 protected:
-	uint32 aiInternalUpdateDelay;
+    log4cxx::LoggerPtr m_logger;
+
+    uint32 aiInternalUpdateDelay = 0;
     PerformanceMonitorOperation* totalPmo = nullptr;
 };

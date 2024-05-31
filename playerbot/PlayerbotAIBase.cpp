@@ -2,9 +2,12 @@
 #include "playerbot/playerbot.h"
 #include "playerbot/PlayerbotAIConfig.h"
 
+#include "Log/LogHelper.h"
+
 using namespace ai;
 
-PlayerbotAIBase::PlayerbotAIBase() : aiInternalUpdateDelay(0)
+PlayerbotAIBase::PlayerbotAIBase() : 
+    m_logger(log4cxx::Logger::getLogger("PlayerbotAI"))
 {
 }
 
@@ -59,4 +62,10 @@ void PlayerbotAIBase::YieldAIInternalThread(bool minimal)
 bool PlayerbotAIBase::IsActive() const
 {
     return (int)aiInternalUpdateDelay < (int)sPlayerbotAIConfig.maxWaitForMove;
+}
+
+
+const log4cxx::LoggerPtr& PlayerbotAIBase::GetLogger() const
+{
+   return m_logger;
 }
