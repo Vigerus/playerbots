@@ -136,6 +136,7 @@ namespace ai
             creators["jump"] = &ChatTriggerContext::jump;
             creators["getmaster"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "getmaster"); };
             creators["setmaster"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "setmaster"); };
+            creators["lootcouncil"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "lootcouncil"); };
         }
 
     private:

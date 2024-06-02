@@ -203,6 +203,7 @@ namespace ai
             creators["jump"] = &ChatActionContext::jump;
             creators["getmaster"] = [](PlayerbotAI* ai){ return new GetMasterAction(ai); };
             creators["setmaster"] = [](PlayerbotAI* ai) { return new SetMasterAction(ai); };
+            creators["lootcouncil"] = [](PlayerbotAI* ai) { return new LootCouncilAction(ai); };
         }
 
     private:

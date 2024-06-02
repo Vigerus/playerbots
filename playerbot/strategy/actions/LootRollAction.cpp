@@ -225,3 +225,176 @@ bool AutoLootRollAction::Execute(Event& event)
 
     return RollOnItemInSlot(vote, currentRoll->first, currentRoll->second);
 }
+
+std::vector<uint32> LootCouncilAction::StringToSlots(const std::string& str)
+{
+   uint32 slot = ChatHelper::parseSlot(str);
+
+   if (slot != EQUIPMENT_SLOT_END)
+   {
+      return { slot };
+   }
+
+   std::vector<uint32> slots;
+
+   if (str == "finger" || str == "ring")
+   {
+      slots.push_back(EQUIPMENT_SLOT_FINGER1);
+      slots.push_back(EQUIPMENT_SLOT_FINGER2);
+   }
+   else if (str == "trinket")
+   {
+      slots.push_back(EQUIPMENT_SLOT_TRINKET1);
+      slots.push_back(EQUIPMENT_SLOT_TRINKET2);
+   }
+   else if (str == "weapon")
+   {
+      slots.push_back(EQUIPMENT_SLOT_MAINHAND);
+      slots.push_back(EQUIPMENT_SLOT_OFFHAND);
+      slots.push_back(EQUIPMENT_SLOT_RANGED);
+   }
+
+   return slots;
+}
+
+std::vector<uint32> LootCouncilAction::InventoryTypeToSlots(InventoryType inv_type)
+{
+   std::vector<uint32> slots;
+
+   switch (inv_type)
+   {
+   case INVTYPE_HEAD:
+      slots.push_back(EQUIPMENT_SLOT_HEAD);
+      break;
+   case INVTYPE_NECK:
+      slots.push_back(EQUIPMENT_SLOT_NECK);
+      break;
+   case INVTYPE_SHOULDERS:
+      slots.push_back(EQUIPMENT_SLOT_SHOULDERS);
+      break;
+   case INVTYPE_CHEST:
+      slots.push_back(EQUIPMENT_SLOT_CHEST);
+      break;
+   case INVTYPE_WAIST:
+      slots.push_back(EQUIPMENT_SLOT_WAIST);
+      break;
+   case INVTYPE_LEGS:
+      slots.push_back(EQUIPMENT_SLOT_LEGS);
+      break;
+   case INVTYPE_FEET:
+      slots.push_back(EQUIPMENT_SLOT_FEET);
+      break;
+   case INVTYPE_WRISTS:
+      slots.push_back(EQUIPMENT_SLOT_WRISTS);
+      break;
+   case INVTYPE_HANDS:
+      slots.push_back(EQUIPMENT_SLOT_HANDS);
+      break;
+   case INVTYPE_FINGER:
+      slots.push_back(EQUIPMENT_SLOT_FINGER1);
+      slots.push_back(EQUIPMENT_SLOT_FINGER2);
+      break;
+   case INVTYPE_TRINKET:
+      slots.push_back(EQUIPMENT_SLOT_TRINKET1);
+      slots.push_back(EQUIPMENT_SLOT_TRINKET2);
+      break;
+   case INVTYPE_CLOAK:
+      slots.push_back(EQUIPMENT_SLOT_BACK);
+      break;
+   case INVTYPE_RANGED:
+   case INVTYPE_WEAPON:
+   case INVTYPE_SHIELD:
+   case INVTYPE_2HWEAPON:
+   case INVTYPE_WEAPONMAINHAND:
+   case INVTYPE_WEAPONOFFHAND:
+   case INVTYPE_THROWN:
+   case INVTYPE_RANGEDRIGHT:
+      slots.push_back(EQUIPMENT_SLOT_MAINHAND);
+      slots.push_back(EQUIPMENT_SLOT_OFFHAND);
+      slots.push_back(EQUIPMENT_SLOT_RANGED);
+      break;
+   default:
+      break;
+   }
+
+   return slots;
+}
+
+std::string LootCouncilAction::LinkItemsForSlots(const std::vector<uint32>& slots)
+{
+   std::ostringstream ss;
+
+   for (uint32 slot : slots)
+   {
+      Item* pItem = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+      if (!pItem)
+      {
+         continue;
+      }
+
+      std::string item = ChatHelper::formatItem(pItem);
+
+      ss << " " << item;
+   }
+
+   return ss.str();
+}
+
+bool LootCouncilAction::Execute(Event& event)
+{
+   if (Player* requester = event.getOwner())
+   {
+      std::string text = event.getParam();
+
+      std::ostringstream ss;
+
+      if (ChatHelper::startswith(text, "link"))
+      {
+         std::vector<std::string> s = ChatHelper::splitString(text, " ");
+
+         if (s.size() != 2)
+         {
+            return false;
+         }
+
+         std::vector<uint32> slots = StringToSlots(s[1]);
+
+         ss << LinkItemsForSlots(slots);
+      }
+      else
+      {
+         std::set<std::string> qualifiers = ChatHelper::parseItemQualifiers(text);
+         for (auto qualifier : qualifiers)
+         {
+            ItemQualifier itemQualifier(qualifier);
+            ItemUsage usage = AI_VALUE2(ItemUsage, "item usage", itemQualifier.GetQualifier());
+
+            if (usage != ItemUsage::ITEM_USAGE_EQUIP &&
+               usage != ItemUsage::ITEM_USAGE_KEEP)
+            {
+               continue;
+            }
+
+            ItemPrototype const* proto = itemQualifier.GetProto();
+            
+            if (proto == nullptr)
+            {
+               continue;
+            }
+
+            InventoryType inv_type = (InventoryType)proto->InventoryType;
+            ss << "I need, i have: " << LinkItemsForSlots(InventoryTypeToSlots(inv_type));
+         }
+      }
+
+      ai->TellPlayerNoFacing(requester, ss.str());
+      return true;
+   }
+
+   return false;
+}
+
+bool LootCouncilAction::isPossible()
+{
+   return true;
+}

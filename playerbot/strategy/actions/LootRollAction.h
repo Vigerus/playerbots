@@ -87,4 +87,17 @@ namespace ai
         virtual std::vector<std::string> GetUsedValues() { return { "item usage", "force item usage" }; }
 #endif 
     };
+
+    class LootCouncilAction : public QueryItemUsageAction
+    {
+       public:
+         LootCouncilAction(PlayerbotAI* ai, std::string name = "lootcouncil") : QueryItemUsageAction(ai, name) {}
+         virtual bool Execute(Event& event) override;
+         virtual bool isPossible();
+      private:
+         std::vector<uint32> StringToSlots(const std::string& str);
+         std::vector<uint32> InventoryTypeToSlots(InventoryType inv_type);
+
+         std::string LinkItemsForSlots(const std::vector<uint32>& slots);
+    };
 }
