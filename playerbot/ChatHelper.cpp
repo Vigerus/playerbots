@@ -977,3 +977,20 @@ bool ChatHelper::startswith(const std::string& str, const std::string& prefix)
    }
    return str.compare(0, prefix.length(), prefix) == 0;
 }
+
+std::string ChatHelper::trim(const std::string& str)
+{
+   auto start = std::find_if_not(str.begin(), str.end(), [](unsigned char ch) {
+      return std::isspace(ch);
+      });
+
+   auto end = std::find_if_not(str.rbegin(), str.rend(), [](unsigned char ch) {
+      return std::isspace(ch);
+      }).base();
+
+      if (start >= end) {
+         return "";
+      }
+
+      return std::string(start, end);
+}
