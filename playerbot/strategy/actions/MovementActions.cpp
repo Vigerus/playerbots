@@ -396,7 +396,7 @@ bool MovementAction::MoveTo(uint32 mapId, float x, float y, float z, bool idle, 
 
                     for (auto node : route.getNodes())
                     {
-                        routeList += node->getName() + "-";
+                        routeList += node->getName() + (node == route.getNodes().back() ? "" : "-");
                     }
 
                     if (!routeList.empty())
@@ -417,11 +417,11 @@ bool MovementAction::MoveTo(uint32 mapId, float x, float y, float z, bool idle, 
 
     if (movePath.empty() && movePosition.distance(startPosition) > maxDist)
     {
+        PathFinder pathfinder(mover);
         //Use standard pathfinder to find a route. 
-        PathFinder path(mover);
-        path.calculate(movePosition.getX(), movePosition.getY(), movePosition.getZ(), false);
-        PathType type = path.getPathType();
-        PointsArray& points = path.getPath();
+        pathfinder.calculate(movePosition.getX(), movePosition.getY(), movePosition.getZ(), false);
+        PathType type = pathfinder.getPathType();
+        PointsArray& points = pathfinder.getPath();
         movePath.addPath(startPosition.fromPointsArray(points));
     }
 
