@@ -382,7 +382,7 @@ bool LootCouncilAction::Execute(Event& event)
 
       std::ostringstream ss;
 
-      if (ChatHelper::startswith(text, "link"))
+      if (text.find("link") == 0)
       {
          std::vector<std::string> s = ChatHelper::splitString(text, " ");
 
