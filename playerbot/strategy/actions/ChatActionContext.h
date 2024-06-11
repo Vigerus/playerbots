@@ -130,6 +130,7 @@ namespace ai
             creators["home"] = &ChatActionContext::home;
             creators["destroy"] = &ChatActionContext::destroy;
             creators["reset ai"] = &ChatActionContext::reset_ai;
+            creators["save ai"] = [](PlayerbotAI* ai) { return new SaveAiAction(ai); };
             creators["reset strats"] = &ChatActionContext::reset_strats;
             creators["reset values"] = &ChatActionContext::reset_values;
             creators["reset ai soft"] = &ChatActionContext::reset_ai_soft;

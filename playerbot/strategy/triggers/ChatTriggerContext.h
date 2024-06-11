@@ -60,6 +60,7 @@ namespace ai
             creators["chat"] = &ChatTriggerContext::chat;
             creators["accept"] = &ChatTriggerContext::accept;
             creators["home"] = &ChatTriggerContext::home;
+            creators["save ai"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "save ai"); };
             creators["reset ai"] = &ChatTriggerContext::reset_ai;
             creators["reset strats"] = &ChatTriggerContext::reset_strats;
             creators["reset values"] = &ChatTriggerContext::reset_values;

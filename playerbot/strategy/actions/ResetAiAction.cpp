@@ -25,8 +25,8 @@ void ResetAiAction::ResetStrategies()
 
     ai->ResetStrategies(loadStrats);
 
-    if (fullReset)
-        sPlayerbotDbStore.Save(ai);
+//     if (fullReset)
+//         sPlayerbotDbStore.Save(ai);
 }
 
 void ResetAiAction::ResetValues()
@@ -61,6 +61,12 @@ void ResetAiAction::ResetValues()
         if(fullReset)
             CharacterDatabase.PExecute("DELETE FROM `ai_playerbot_db_store` WHERE `guid` = '%lu' and `key` = 'value'", guid);
     }
+}
+
+bool SaveAiAction::Execute(Event& event)
+{
+   sPlayerbotDbStore.Save(ai);
+   return true;
 }
 
 bool ResetStratsAction::Execute(Event& event)

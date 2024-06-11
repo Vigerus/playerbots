@@ -53,6 +53,7 @@ ChatCommandHandlerStrategy::ChatCommandHandlerStrategy(PlayerbotAI* ai) : PassTr
     supported.push_back("chat");
     supported.push_back("home");
     supported.push_back("destroy");
+    supported.push_back("save ai");
     supported.push_back("reset ai");
     supported.push_back("reset strats");
     supported.push_back("reset values");
