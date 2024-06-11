@@ -12,22 +12,26 @@ bool ChangeCombatStrategyAction::Execute(Event& event)
     text = text.empty() ? getName() : text;
 
     ai->ChangeStrategy(text, BotState::BOT_STATE_COMBAT);
-//     if (event.getSource() == "co")
-//     {
-//         std::vector<std::string> splitted = split(text, ',');
-//         for (std::vector<std::string>::iterator i = splitted.begin(); i != splitted.end(); i++)
-//         {
-//             const char* name = i->c_str();
-//             switch (name[0])
-//             {
-//                 case '+':
-//                 case '-':
-//                 case '~':
-//                     sPlayerbotDbStore.Save(ai);
-//                     break;
-//             }
-//         }
-//     }
+
+    if (!sPlayerbotAIConfig.bExplicitDbStoreSave)
+    {
+       if (event.getSource() == "co")
+       {
+          std::vector<std::string> splitted = split(text, ',');
+          for (std::vector<std::string>::iterator i = splitted.begin(); i != splitted.end(); i++)
+          {
+             const char* name = i->c_str();
+             switch (name[0])
+             {
+             case '+':
+             case '-':
+             case '~':
+                sPlayerbotDbStore.Save(ai);
+                break;
+             }
+          }
+       }
+    }
 
     if (text.find("?") != std::string::npos)
     {
@@ -44,22 +48,26 @@ bool ChangeNonCombatStrategyAction::Execute(Event& event)
     text = text.empty() ? getName() : text;
 
     ai->ChangeStrategy(text, BotState::BOT_STATE_NON_COMBAT);
-//     if (event.getSource() == "nc")
-//     {
-//         std::vector<std::string> splitted = split(text, ',');
-//         for (std::vector<std::string>::iterator i = splitted.begin(); i != splitted.end(); i++)
-//         {
-//             const char* name = i->c_str();
-//             switch (name[0])
-//             {
-//                 case '+':
-//                 case '-':
-//                 case '~':
-//                     sPlayerbotDbStore.Save(ai);
-//                     break;
-//             }
-//         }
-//     }
+
+    if (!sPlayerbotAIConfig.bExplicitDbStoreSave)
+    {
+       if (event.getSource() == "nc")
+       {
+          std::vector<std::string> splitted = split(text, ',');
+          for (std::vector<std::string>::iterator i = splitted.begin(); i != splitted.end(); i++)
+          {
+             const char* name = i->c_str();
+             switch (name[0])
+             {
+             case '+':
+             case '-':
+             case '~':
+                sPlayerbotDbStore.Save(ai);
+                break;
+             }
+          }
+       }
+    }
 
     if (text.find("?") != std::string::npos)
     {
@@ -109,24 +117,27 @@ bool ChangeAllStrategyAction::Execute(Event& event)
 
     ai->ChangeStrategy(strategyName, BotState::BOT_STATE_ALL);
 
-//     if (event.getSource() == "nc" || event.getSource() == "co")
-//     {
-//         std::vector<std::string> splitted = split(text, ',');
-//         for (std::vector<std::string>::iterator i = splitted.begin(); i != splitted.end(); i++)
-//         {
-//             const char* name = i->c_str();
-//             switch (name[0])
-//             {
-//                 case '+':
-//                 case '-':
-//                 case '~':
-//                 {
-//                     sPlayerbotDbStore.Save(ai);
-//                     break;
-//                 }
-//             }
-//         }
-//     }
+    if (!sPlayerbotAIConfig.bExplicitDbStoreSave)
+    {
+       if (event.getSource() == "nc" || event.getSource() == "co")
+       {
+          std::vector<std::string> splitted = split(text, ',');
+          for (std::vector<std::string>::iterator i = splitted.begin(); i != splitted.end(); i++)
+          {
+             const char* name = i->c_str();
+             switch (name[0])
+             {
+             case '+':
+             case '-':
+             case '~':
+             {
+                sPlayerbotDbStore.Save(ai);
+                break;
+             }
+             }
+          }
+       }
+    }
 
     if (text.find("?") != std::string::npos)
     {

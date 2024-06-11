@@ -21,14 +21,14 @@ public:
         return instance;
     }
 
-    void Save(PlayerbotAI *ai);
-    void Load(PlayerbotAI *ai);
-    void Reset(PlayerbotAI *ai);
+    void Save(PlayerbotAI *ai, std::string preset = "");
+    void Load(PlayerbotAI *ai, std::string preset = "");
+    void Reset(PlayerbotAI *ai, std::string preset = "");
 
 private:
     log4cxx::LoggerPtr m_logger;
 
-    void SaveValue(uint64 guid, std::string key, std::string value);
+    void SaveValue(uint64 guid, std::string preset, std::string key, std::string value);
     std::string FormatStrategies(std::string type, std::list<std::string_view> strategies);
 };
 

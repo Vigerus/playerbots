@@ -146,11 +146,14 @@ void PlayerbotHolder::LogoutPlayerBot(uint32 guid)
         if (!ai)
             return;
 
-//         Group *group = bot->GetGroup();
-//         if (group && !bot->InBattleGround() && !bot->InBattleGroundQueue() && ai->HasActivePlayerMaster())
-//         {
-//             sPlayerbotDbStore.Save(ai);
-//         }
+        if (!sPlayerbotAIConfig.bExplicitDbStoreSave)
+        {
+           Group* group = bot->GetGroup();
+           if (group && !bot->InBattleGround() && !bot->InBattleGroundQueue() && ai->HasActivePlayerMaster())
+           {
+              sPlayerbotDbStore.Save(ai);
+           }
+        }
         sLog.outDebug("Bot %s logging out", bot->GetName());
         bot->SaveToDB();
 
@@ -236,11 +239,15 @@ void PlayerbotHolder::DisablePlayerBot(uint32 guid)
         MotionMaster& mm = *bot->GetMotionMaster();
         mm.Clear();
 
-//         Group* group = bot->GetGroup();
-//         if (group && !bot->InBattleGround() && !bot->InBattleGroundQueue() && bot->GetPlayerbotAI()->HasActivePlayerMaster())
-//         {
-//             sPlayerbotDbStore.Save(bot->GetPlayerbotAI());
-//         }
+        if (!sPlayerbotAIConfig.bExplicitDbStoreSave)
+        {
+           Group* group = bot->GetGroup();
+           if (group && !bot->InBattleGround() && !bot->InBattleGroundQueue() && bot->GetPlayerbotAI()->HasActivePlayerMaster())
+           {
+              sPlayerbotDbStore.Save(bot->GetPlayerbotAI());
+           }
+        }
+
         sLog.outDebug("Bot %s logged out", bot->GetName());
         bot->SaveToDB();
 
