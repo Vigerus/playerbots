@@ -70,7 +70,7 @@ public:
 
     uint32 openGoSpell;
     bool randomBotAutologin;
-    bool botAutologin;
+    uint32 botAutologin;
     std::string randomBotMapsAsString;
     std::vector<uint32> randomBotMaps;
     std::list<uint32> randomBotQuestItems;
@@ -252,7 +252,7 @@ public:
     std::string GetTimestampStr();
 
     bool hasLog(std::string fileName) { return std::find(allowedLogFiles.begin(), allowedLogFiles.end(), fileName) != allowedLogFiles.end(); };
-    bool openLog(std::string fileName, char const* mode = "a");
+    bool openLog(std::string fileName, char const* mode = "a", bool haslog = false);
     bool isLogOpen(std::string fileName) { auto it = logFiles.find(fileName); return it != logFiles.end() && it->second.second;}
     void log(std::string fileName, const char* str, ...);
 
