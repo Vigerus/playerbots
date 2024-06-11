@@ -25,12 +25,16 @@ set(bots_PCH "${CMAKE_CURRENT_SOURCE_DIR}/botpch.h")
 file(GLOB Playerbot_Source ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/*.h)
     source_group("Player Bot" FILES ${Playerbot_Source})
 
+file(GLOB Instancebot_Source ${CMAKE_CURRENT_SOURCE_DIR}/instancebot/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/instancebot/*.h)
+    source_group("Instance Bot" FILES ${Instancebot_Source})
+
 file(GLOB AHbot_Source ${CMAKE_CURRENT_SOURCE_DIR}/ahbot/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/ahbot/*.h)
     source_group("AH Bot" FILES ${AHbot_Source})
 
 #Define base source library
 set(LIBRARY_SRCS
     ${Playerbot_Source}
+    ${Instancebot_Source}
     ${AHbot_Source}
     ${bots_PCH}
     ${CMAKE_CURRENT_SOURCE_DIR}/botpch.cpp
