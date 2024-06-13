@@ -107,6 +107,20 @@ std::list<GameObject*> TellLosAction::FilterGameObjects(Player* requester, const
             }
          }
          break;
+      case LosModifierType::FilterRange:
+         {
+            auto it = gameobjects.begin();
+            while (it != gameobjects.end())
+            {
+               if ((*it)->GetGOInfo()->name != mod.param)
+               {
+                  it = gameobjects.erase(it);
+                  continue;
+               }
+               ++it;
+            }
+         }
+      break;
       case LosModifierType::SortRange:
          {
             std::vector<std::pair<float, GameObject*>> distanceObjectPairs;
@@ -151,6 +165,7 @@ void TellLosAction::TellGameObjects(Player* requester, std::string title, const 
    ai->TellPlayer(requester, title);
 
    bool bShowRange = std::find_if(mods.begin(), mods.end(), [](const LosModifierStruct& el){ return el.typ == LosModifierType::ShowRange; }) != mods.end();
+   bool bShowGuid = std::find_if(mods.begin(), mods.end(), [](const LosModifierStruct& el) { return el.typ == LosModifierType::ShowGuid; }) != mods.end();
 
    for (GameObject* go : gos)
    {  
@@ -165,6 +180,15 @@ void TellLosAction::TellGameObjects(Player* requester, std::string title, const 
          ss << " " << distance << "m";
       }
 
+      if (bShowGuid)
+      {
+         ss << " " << std::to_string(go->GetGUIDLow());
+      }
+
+      //requester->GetSession()->SendPlaySpellVisual(go->GetObjectGuid(), 6372);
+      WorldPosition spellPosition(go);
+      Creature* wpCreature = ai->GetBot()->SummonCreature(15631, spellPosition.getX(), spellPosition.getY(), spellPosition.getZ(), spellPosition.getO(), TEMPSPAWN_TIMED_DESPAWN, 2000.0f);
+      wpCreature->SetObjectScale(0.5f);
 
       ai->TellPlayer(requester, ss.str());
    }
@@ -194,6 +218,10 @@ std::vector<LosModifierStruct> TellLosAction::ParseLosModifiers(const std::strin
       {
          mods.emplace_back(LosModifierStruct{ LosModifierType::SortRange, "" });
       }
+      else if (param.find("filter:range") == 0)
+      {
+         mods.emplace_back(LosModifierStruct{ LosModifierType::FilterRange, "" });
+      }
       else if (param.find("filter:first") == 0)
       {
          mods.emplace_back(LosModifierStruct{ LosModifierType::FilterFirst, "" });
@@ -201,6 +229,10 @@ std::vector<LosModifierStruct> TellLosAction::ParseLosModifiers(const std::strin
       else if (param.find("show:range") == 0)
       {
          mods.emplace_back(LosModifierStruct{ LosModifierType::ShowRange, "" });
+      }
+      else if (param.find("show:guid") == 0)
+      {
+         mods.emplace_back(LosModifierStruct{ LosModifierType::ShowGuid, "" });
       }
    }
 

@@ -25,21 +25,46 @@ std::list<GuidPosition> GameObjectsValue::Calculate()
 
 std::list<GuidPosition> EntryFilterValue::Calculate()
 {
-    std::vector<std::string> pair = getMultiQualifiers(getQualifier(), ",");
+   std::list<GuidPosition> result;
 
-    std::list<GuidPosition> guidList = AI_VALUE(std::list<GuidPosition>, pair[0]);
-    std::vector<std::string> entryList = getMultiQualifiers(AI_VALUE(std::string ,pair[1]), ",");
+   std::vector<std::string> pair = getMultiQualifiers(getQualifier(), ",");
 
-    std::list<GuidPosition> result;
-    
-    for (auto guid : guidList)
+    if (pair.size() == 2)
     {
-        for (auto entry : entryList)
-            if (guid.GetEntry() == stoi(entry))
+       std::list<GuidPosition> guidList = AI_VALUE_SAFE(std::list<GuidPosition>, pair[0]);
+       std::vector<std::string> entryList = getMultiQualifiers(AI_VALUE_SAFE(std::string, pair[1]), ",");
+
+       for (auto guid : guidList)
+       {
+          for (auto entry : entryList)
+             if (guid.GetEntry() == stoi(entry))
                 result.push_back(guid);
+       }
     }
 
     return result;
+}
+
+std::list<GuidPosition> GuidFilterValue::Calculate()
+{
+   std::list<GuidPosition> result;
+
+   std::vector<std::string> pair = getMultiQualifiers(getQualifier(), ",");
+
+   if (pair.size() == 2)
+   {
+      std::list<GuidPosition> guidList = AI_VALUE_SAFE(std::list<GuidPosition>, pair[0]);
+      std::vector<std::string> entryList = getMultiQualifiers(AI_VALUE_SAFE(std::string, pair[1]), ",");
+
+      for (auto guid : guidList)
+      {
+         for (auto entry : entryList)
+            if (guid.GetCounter() == stoi(entry))
+               result.push_back(guid);
+      }
+   }
+
+   return result;
 }
 
 std::list<GuidPosition> RangeFilterValue::Calculate()

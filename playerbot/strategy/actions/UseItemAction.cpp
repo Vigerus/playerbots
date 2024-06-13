@@ -222,6 +222,11 @@ bool UseAction::Execute(Event& event)
         name = getName();
     }
 
+    if (name.empty())
+    {
+       name = getQualifier();
+    }
+
     MakeVerbose(requester != nullptr);
 
     uint32 itemID = 0;

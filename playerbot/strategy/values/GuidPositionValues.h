@@ -33,6 +33,24 @@ namespace ai
 #endif 
     };
 
+    class GuidFilterValue : public GuidPositionListCalculatedValue, public Qualified
+    {
+    public:
+       GuidFilterValue(PlayerbotAI* ai, std::string name = "guid filter") : GuidPositionListCalculatedValue(ai, name, 1), Qualified() {}
+
+       virtual std::list<GuidPosition> Calculate();
+
+#ifdef GenerateBotHelp
+       virtual std::string GetHelpName() { return "guid filter"; } //Must equal iternal name
+       virtual std::string GetHelpTypeName() { return "guid"; }
+       virtual std::string GetHelpDescription()
+       {
+          return "This value will returns only the ObjectGuids of specific entries.";
+       }
+       virtual std::vector<std::string> GetUsedValues() { return { }; }
+#endif 
+    };
+
     class RangeFilterValue : public GuidPositionListCalculatedValue, public Qualified
     {
     public:
