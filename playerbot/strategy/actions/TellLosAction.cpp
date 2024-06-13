@@ -195,7 +195,7 @@ void TellLosAction::TellGameObjects(Player* requester, std::string title, const 
 
       if (bShowRange)
       {
-         float distance = sqrtf(requester->GetDistance(go));
+         float distance = requester->GetDistance(go);
 
          ss << " " << distance << "m";
       }
