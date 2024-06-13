@@ -8,6 +8,7 @@ using namespace ai;
 
 constexpr std::string_view GOS_PARAM = "gos";
 constexpr std::string_view GAMEOBJECTS_PARAM = "game objects";
+constexpr std::string_view HIGHLIGHT_PARAM = "highlight";
 
 constexpr std::string_view FILTER_NAME_PARAM = "filter:name:";
 
@@ -52,6 +53,25 @@ bool TellLosAction::Execute(Event& event)
     if (param.empty() || param == "players")
     {
         ListUnits(requester, "--- Friendly players ---", AI_VALUE(std::list<ObjectGuid>, "nearest friendly players"));
+    }
+
+    if (param.find(HIGHLIGHT_PARAM) == 0)
+    {
+       std::list<ObjectGuid> goguids = ChatHelper::parseGameobjects(param.substr(HIGHLIGHT_PARAM.size()));
+
+       if (goguids.size())
+       {
+          std::list<GameObject*> objects = GoGuidListToObjList(ai, goguids);
+
+          for (GameObject* go : objects)
+          {
+             WorldPosition spellPosition(go);
+             Creature* wpCreature = ai->GetBot()->SummonCreature(15631, spellPosition.getX(), spellPosition.getY(), spellPosition.getZ(), spellPosition.getO(), TEMPSPAWN_TIMED_DESPAWN, 2000.0f);
+             wpCreature->SetObjectScale(0.5f);
+          }
+       }
+
+       return true;
     }
 
     return true;
