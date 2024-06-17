@@ -725,7 +725,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
             }
         }
 
-        CCLOG_TRACE(ai->GetLogger()) << " Source:[" << ai->GetBot()->GetName() << "] " << out.str().c_str();
+        //CCLOG_TRACE(ai->GetLogger()) << " Source:[" << ai->GetBot()->GetName() << "] " << out.str().c_str();
 
         if (sPlayerbotAIConfig.CanLogAction(ai, action->getName(), true, lastActionName))
         {
