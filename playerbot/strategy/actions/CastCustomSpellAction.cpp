@@ -49,17 +49,33 @@ bool CastCustomSpellAction::Execute(Event& event)
         return true;
     }
 
+    // Grab the first game object or unit from the parameters as target.
     GameObject* gameObjectTarget = nullptr;
     std::list<ObjectGuid> gos = chat->parseGameobjects(text);
     if (!gos.empty())
     {
         for (auto go : gos)
         {
-            if (!gameObjectTarget)
+            if (go.IsGameObject())
+            {
                 gameObjectTarget = ai->GetGameObject(go);
 
-            if(gameObjectTarget)
-                chat->eraseAllSubStr(text, chat->formatWorldobject(gameObjectTarget));
+                if (gameObjectTarget)
+                {
+                    chat->eraseAllSubStr(text, chat->formatWorldobject(gameObjectTarget));
+                    break;
+                }
+            }
+            else if (go.IsUnit())
+            {
+                target = ai->GetUnit(go);
+
+                if (target)
+                {
+                    chat->eraseAllSubStr(text, chat->formatWorldobject(target));
+                    break;
+                }
+            }
         }
 
         ltrim(text);
@@ -169,13 +185,24 @@ bool CastCustomSpellAction::Execute(Event& event)
     if (!pSpellInfo->EffectItemType[0])
     {
         replyStr << BOT_TEXT("cast_spell_command_spell");
+
+        replyArgs["%spell"] = ChatHelper::formatSpell(pSpellInfo);
     }
     else
     {
         replyStr << BOT_TEXT("cast_spell_command_craft");
-    }
 
-    replyArgs["%spell"] = ChatHelper::formatSpell(pSpellInfo);
+        uint32 newItemId = pSpellInfo->EffectItemType[0];
+
+        if (!newItemId)
+            replyArgs["%spell"] = ChatHelper::formatSpell(pSpellInfo);
+        else
+        {
+
+            ItemPrototype const* proto = ObjectMgr::GetItemPrototype(newItemId);
+            replyArgs["%spell"] = ChatHelper::formatItem(proto);
+        }
+    }    
 
     if (bot->GetTrader())
     {
@@ -229,7 +256,7 @@ bool CastCustomSpellAction::Execute(Event& event)
             ai->HandleCommand(CHAT_MSG_WHISPER, cmd.str(), *requester);
 
             replyStr << " " << BOT_TEXT("cast_spell_command_amount");
-            replyArgs["%amount"] = castCount - 1;
+            replyArgs["%amount"] = std::to_string(castCount - 1);
         }
 
         ai->TellPlayerNoFacing(requester, BOT_TEXT2(replyStr.str(), replyArgs), PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, false);
@@ -665,7 +692,7 @@ bool DisenchantRandomItemAction::Execute(Event& event)
 
         if(didCast)
         {
-            ai->TellPlayer(requester, "Disenchanting " + chat->formatQItem(item), PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, false);
+            ai->TellPlayer(requester, "Disenchanting " + chat->formatItem(ObjectMgr::GetItemPrototype(item)), PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, false);
         }
 
         return didCast;

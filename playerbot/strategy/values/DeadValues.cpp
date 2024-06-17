@@ -75,15 +75,15 @@ GuidPosition BestGraveyardValue::Calculate()
         return AI_VALUE2(GuidPosition, "graveyard", "self");
 
     //Revive near travel target if it's far away from last death.
-    if (AI_VALUE2(GuidPosition, "graveyard", "travel") && AI_VALUE2(GuidPosition, "graveyard", "travel").fDist(corpse) > sPlayerbotAIConfig.sightDistance)
+    if (AI_VALUE2(GuidPosition, "graveyard", "travel") && AI_VALUE2(GuidPosition, "graveyard", "travel").fDist(corpse) > sPlayerbotAIConfig.reactDistance)
         return AI_VALUE2(GuidPosition, "graveyard", "travel");
 
     //Revive near Inn.
-    if (deathCount < 10)
+    if (deathCount < 15)
         return AI_VALUE2(GuidPosition, "graveyard", "home bind");
 
     //Revive at spawn.
-    return AI_VALUE2(GuidPosition, "graveyard", "start");    
+    return AI_VALUE2(GuidPosition, "graveyard", "start");
 }
 
 bool ShouldSpiritHealerValue::Calculate()
@@ -91,11 +91,11 @@ bool ShouldSpiritHealerValue::Calculate()
     uint32 deathCount = AI_VALUE(uint32, "death count");
     uint8 durability = AI_VALUE(uint8, "durability");
 
-    if (!ai->HasActivePlayerMaster()) //Only use spirit healers with direct command with active master.
+    if (ai->HasActivePlayerMaster()) //Only use spirit healers with direct command with active master.
         return false;
 
     //Nothing to lose
-    if (deathCount > 2 && durability < 10 && ai->HasAura(SPELL_ID_PASSIVE_RESURRECTION_SICKNESS, bot))
+    if (deathCount > 2 && durability < 10 && (ai->HasAura(SPELL_ID_PASSIVE_RESURRECTION_SICKNESS, bot) || ai->HasCheat(BotCheatMask::repair)))
         return true;
 
     Corpse* corpse = bot->GetCorpse();
@@ -113,30 +113,42 @@ bool ShouldSpiritHealerValue::Calculate()
     if (deathCount < 5)
         return false;
 
-    //Try to get to a safe place.
-    if (deathCount > 15)
+    //Try to get to a safe place 
+    if ((deathCount > 10 && durability < 10) || deathCount > 15)
+        return true;
+
+    //If there are enemies near grave and corpse we go to corpse first.
+    if (AI_VALUE2(bool, "manual bool", "enemies near graveyard"))
+        return false;
+
+    //Enemies near corpse so try grave first.
+    if (AI_VALUE2(bool, "manual bool", "enemies near corpse"))
         return true;
 
     GuidPosition graveyard = AI_VALUE(GuidPosition, "best graveyard");
 
     float corpseDistance = WorldPosition(bot).fDist(corpse);
-    float graveYardDistance = WorldPosition(bot).fDist(corpse);
+    float graveYardDistance = WorldPosition(bot).fDist(graveyard);
     bool corpseInSight = corpseDistance < sPlayerbotAIConfig.sightDistance;
     bool graveInSight = graveYardDistance < sPlayerbotAIConfig.sightDistance;
     bool enemiesNear = !AI_VALUE(std::list<ObjectGuid>, "possible targets").empty();
 
     if (enemiesNear)
     {
-        //Grave may be saver to ress at.
-        if (!graveInSight && corpseInSight) 
+        if (graveInSight)
+        {
+            SET_AI_VALUE2(bool, "manual bool", "enemies near graveyard", true);
+            return false;
+        }
+        if (corpseInSight)
+        {
+            SET_AI_VALUE2(bool, "manual bool", "enemies near graveyard", true);
             return true;
-
-        //Generally prefer corpse.
-        return false; 
+        }
     }
-
-    //We keep dying at corpse so try grave.
-    if (graveInSight && !corpseInSight) 
+    
+    //If grave is near and no ress sickness go there.
+    if (graveInSight && !corpseInSight && ai->HasCheat(BotCheatMask::repair))
         return true;
 
     //Stick to corpse.

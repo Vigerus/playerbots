@@ -205,7 +205,6 @@ void TellLosAction::TellGameObjects(Player* requester, std::string title, const 
          ss << " " << std::to_string(go->GetGUIDLow());
       }
 
-      //requester->GetSession()->SendPlaySpellVisual(go->GetObjectGuid(), 6372);
       WorldPosition spellPosition(go);
       Creature* wpCreature = ai->GetBot()->SummonCreature(15631, spellPosition.getX(), spellPosition.getY(), spellPosition.getZ(), spellPosition.getO(), TEMPSPAWN_TIMED_DESPAWN, 2000.0f);
       wpCreature->SetObjectScale(0.5f);
