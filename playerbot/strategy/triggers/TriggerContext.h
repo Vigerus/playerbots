@@ -14,6 +14,7 @@
 #include "StuckTriggers.h"
 #include "BotStateTriggers.h"
 #include "PullTriggers.h"
+#include "RtscTriggers.h"
 #include "OnyxiasLairDungeonTriggers.h"
 #include "MoltenCoreDungeonTriggers.h"
 #include "KarazhanDungeonTriggers.h"

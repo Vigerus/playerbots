@@ -37,6 +37,13 @@ namespace ai
         uint32 mapID;
     };
 
+    class IsBossEngagedTrigger : public CalculatedValue<bool>, public Qualified
+    {
+    public:
+       IsBossEngagedTrigger(PlayerbotAI* ai, std::string name = "is boss engaged") : CalculatedValue<bool>(ai, name), Qualified() {}
+       virtual bool Calculate() override;
+    };
+
     class StartBossFightTrigger : public Trigger
     {
     public:

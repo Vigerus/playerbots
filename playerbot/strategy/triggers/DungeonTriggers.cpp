@@ -48,6 +48,26 @@ bool LeaveDungeonTrigger::IsActive()
     return false;
 }
 
+bool IsBossEngagedTrigger::Calculate()
+{
+   uint32 bossID = atoi(getQualifier().c_str());
+
+   const std::list<ObjectGuid> attackers = AI_VALUE(std::list<ObjectGuid>, "attackers");
+   for (const ObjectGuid& attackerGuid : attackers)
+   {
+      if (Unit* attacker = ai->GetUnit(attackerGuid))
+      {
+         const uint32 entryID = attacker->GetEntry();
+         if (entryID == bossID)
+         {
+            return true;
+         }
+      }
+   }
+
+   return false;
+}
+
 bool StartBossFightTrigger::IsActive()
 {
     // Don't trigger if strategy already set

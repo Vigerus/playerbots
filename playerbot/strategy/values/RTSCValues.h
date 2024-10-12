@@ -32,4 +32,11 @@ namespace ai
         virtual std::string Save() { return value.to_string(); }
         virtual bool Load(std::string text) { value = WorldPosition(text); return true; }
     };
+
+    class RtscIsPlayerCloseValue : public CalculatedValue<bool>, public Qualified
+    {
+    public:
+       RtscIsPlayerCloseValue(PlayerbotAI* ai, std::string name = "is rtsc close") : CalculatedValue(ai, name), Qualified() {};
+       virtual bool Calculate() override;
+    };
 }

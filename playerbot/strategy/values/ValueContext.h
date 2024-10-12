@@ -395,6 +395,9 @@ namespace ai
 
             creators["party tank without lifebloom"] = &ValueContext::party_tank_without_lifebloom;
             creators["move style"] = &ValueContext::move_style;
+
+            creators["is rtsc close"] = [](PlayerbotAI* ai) { return new RtscIsPlayerCloseValue(ai); };
+            creators["is boss engaged"] = [](PlayerbotAI* ai) { return new IsBossEngagedTrigger(ai); };
         }
 
     private:
