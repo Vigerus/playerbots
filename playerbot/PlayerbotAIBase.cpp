@@ -17,9 +17,7 @@ void PlayerbotAIBase::UpdateAIInternal(uint32 elapsed, bool minimal)
 
 void PlayerbotAIBase::UpdateAI(uint32 elapsed)
 {
-    if (totalPmo)
-        totalPmo->finish();
-
+    // intentional: this will keep monitoring the whole loop and collect on the next unique_ptr swap
     totalPmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAIBase::FullTick");
     
     if (aiInternalUpdateDelay > elapsed)

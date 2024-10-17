@@ -175,138 +175,150 @@ void PlayerbotFactory::Randomize(bool incremental, bool syncWithMaster)
     bool isRandomBot = sRandomPlayerbotMgr.IsRandomBot(bot) && bot->GetPlayerbotAI() && !bot->GetPlayerbotAI()->HasRealPlayerMaster() && !bot->GetPlayerbotAI()->IsInRealGuild();
 
     sLog.outDetail("Resetting player...");
-    PerformanceMonitorOperation* pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Reset");
-    //ClearSkills();
-    ClearSpells();
-
-    if (!incremental && isRandomBot)
     {
-        ClearInventory();
-        ResetQuests();
-        bot->resetTalents(true);
-        CancelAuras();
+       auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Reset");
+       //ClearSkills();
+       ClearSpells();
+
+       if (!incremental && isRandomBot)
+       {
+          ClearInventory();
+          ResetQuests();
+          bot->resetTalents(true);
+          CancelAuras();
+       }
+       if (isRealRandomBot)
+       {
+          if (bot->GetLevel() > level)
+          {
+             bot->SetLevel(level);
+             //Reset xp and xp for next level.
+             bot->SetUInt32Value(PLAYER_XP, 0);
+             bot->SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sObjectMgr.GetXPForLevel(level));
+          }
+
+          InitQuests(specialQuestIds);
+          bot->learnQuestRewardedSpells();
+
+          // clear inventory and set level after getting xp and quest rewards
+          ClearInventory();
+          if (bot->GetLevel() > level)
+          {
+             bot->SetLevel(level);
+             //Reset xp and xp for next level.
+             bot->SetUInt32Value(PLAYER_XP, 0);
+             bot->SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sObjectMgr.GetXPForLevel(level));
+          }
+       }
     }
-    if (isRealRandomBot)
+
     {
-        if (bot->GetLevel() > level)
-        {
-            bot->SetLevel(level);
-            //Reset xp and xp for next level.
-            bot->SetUInt32Value(PLAYER_XP, 0);
-            bot->SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sObjectMgr.GetXPForLevel(level));
-        }
-
-        InitQuests(specialQuestIds);
-        bot->learnQuestRewardedSpells();
-
-        // clear inventory and set level after getting xp and quest rewards
-        ClearInventory();
-        if (bot->GetLevel() > level)
-        {
-            bot->SetLevel(level);
-            //Reset xp and xp for next level.
-            bot->SetUInt32Value(PLAYER_XP, 0);
-            bot->SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sObjectMgr.GetXPForLevel(level));
-        }
+       auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Bags");
+       sLog.outDetail("Initializing bags...");
+       InitBags();
     }
-    if (pmo) pmo->finish();
 
-    pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Bags");
-    sLog.outDetail("Initializing bags...");
-    InitBags();
-    if (pmo) pmo->finish();
-
-    pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Spells1");
-    sLog.outDetail("Initializing spells (step 1)...");
-    InitAvailableSpells();
-    if (pmo) pmo->finish();
+    {
+       auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Spells1");
+       sLog.outDetail("Initializing spells (step 1)...");
+       InitAvailableSpells();
+    }
 
     sLog.outDetail("Initializing skills (step 1)...");
-    pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Skills1");
-    InitSkills();
-    InitTradeSkills();
-    if (pmo) pmo->finish();
+    {
+       auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Skills1");
+       InitSkills();
+       InitTradeSkills();
+    }
 
-    pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Talents");
-    sLog.outDetail("Initializing talents...");
-    //InitTalentsTree(incremental);
-    //sRandomPlayerbotMgr.SetValue(bot->GetGUIDLow(), "specNo", 0);
-    ai->DoSpecificAction("auto talents");
+    {
+       auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Talents");
+       sLog.outDetail("Initializing talents...");
+       //InitTalentsTree(incremental);
+       //sRandomPlayerbotMgr.SetValue(bot->GetGUIDLow(), "specNo", 0);
+       ai->DoSpecificAction("auto talents");
 
-    if (!incremental && isRandomBot)
-        sPlayerbotDbStore.Reset(ai);
+       if (!incremental && isRandomBot)
+          sPlayerbotDbStore.Reset(ai);
 
-    ai->ResetStrategies(incremental); // fix wrong stored strategy
-    if (pmo) pmo->finish();
+       ai->ResetStrategies(incremental); // fix wrong stored strategy
+    }
 
-    pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Spells2");
-    sLog.outDetail("Initializing spells (step 2)...");
-    InitAvailableSpells();
-    InitSpecialSpells();
-    if (pmo) pmo->finish();
+    {
+       auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Spells2");
+       sLog.outDetail("Initializing spells (step 2)...");
+       InitAvailableSpells();
+       InitSpecialSpells();
+    }
 
     if (isRealRandomBot)
     {
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Mounts");
+        auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Mounts");
         sLog.outDetail("Initializing mounts...");
         InitMounts();
-        if (pmo) pmo->finish();
     }
 
-    pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Skills2");
-    sLog.outDetail("Initializing skills (step 2)...");
-    UpdateTradeSkills();
-    if (pmo) pmo->finish();
+    {
+       auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Skills2");
+       sLog.outDetail("Initializing skills (step 2)...");
+       UpdateTradeSkills();
+    }
 
     if (isRealRandomBot)
     {
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Reputations");
+        auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Reputations");
         sLog.outDetail("Initializing reputations...");
         InitReputations();
-        if (pmo) pmo->finish();
     }
 
-    pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Equip");
-    sLog.outDetail("Initializing equipmemt...");
-    if (bot->GetLevel() >= sPlayerbotAIConfig.minEnchantingBotLevel)
     {
-        sLog.outDetail("Initializing enchant templates...");
-        LoadEnchantContainer();
-    }
+       auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Equip");
+       sLog.outDetail("Initializing equipmemt...");
+       if (bot->GetLevel() >= sPlayerbotAIConfig.minEnchantingBotLevel)
+       {
+          sLog.outDetail("Initializing enchant templates...");
+          LoadEnchantContainer();
+       }
 
-    InitEquipment(incremental, syncWithMaster);
-    InitGems();
-    if (pmo) pmo->finish();
+       InitEquipment(incremental, syncWithMaster);
+       InitGems();
+    }
 
     if (isRandomBot)
     {
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Ammo");
-        sLog.outDetail("Initializing ammo...");
-        InitAmmo();
-        if (pmo) pmo->finish();
+       {
+          auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Ammo");
+          sLog.outDetail("Initializing ammo...");
+          InitAmmo();
+       }
 
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Food");
-        sLog.outDetail("Initializing food...");
-        InitFood();
-        if (pmo) pmo->finish();
+       {
+          auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Food");
+          sLog.outDetail("Initializing food...");
+          InitFood();
+       }
 
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Potions");
-        sLog.outDetail("Initializing potions...");
-        InitPotions();
-        if (pmo) pmo->finish();
+       {
+          auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Potions");
+          sLog.outDetail("Initializing potions...");
+          InitPotions();
 
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Reagents");
-        sLog.outDetail("Initializing reagents...");
-        InitReagents();
-        if (pmo) pmo->finish();
+       }
+
+       {
+          auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Reagents");
+          sLog.outDetail("Initializing reagents...");
+          InitReagents();
+       }
     }
 
     if (!incremental)
     {
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Consumables");
-        sLog.outDetail("Initializing consumables...");
-        AddConsumables();
-        if (pmo) pmo->finish();
+       {
+          auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Consumables");
+          sLog.outDetail("Initializing consumables...");
+          AddConsumables();
+       }
     }
 
     if (!incremental && isRandomBot)
@@ -316,31 +328,31 @@ void PlayerbotFactory::Randomize(bool incremental, bool syncWithMaster)
         InitSecondEquipmentSet();
         if (pmo) pmo->finish();*/
 
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Inventory");
-        sLog.outDetail("Initializing inventory...");
-        InitInventory();
-        if (pmo) pmo->finish();
+       {
+          auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Inventory");
+          sLog.outDetail("Initializing inventory...");
+          InitInventory();
+       }
     }
 
     if (isRandomBot)
     {
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Guilds & ArenaTeams");
+        auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Guilds & ArenaTeams");
         sLog.outDetail("Initializing guilds & ArenaTeams");
         InitGuild();
 #ifndef MANGOSBOT_ZERO
         if (bot->GetLevel() >= 70)
             InitArenaTeam();
 #endif
-        if (pmo) pmo->finish();
     }
 
-	if (bot->GetLevel() >= 10) {
-		pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Pet");
-		sLog.outDetail("Initializing pet...");
-		InitPet();
-        InitPetSpells();
-		if (pmo) pmo->finish();
-	}
+   if (bot->GetLevel() >= 10)
+   {
+      auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Pet");
+      sLog.outDetail("Initializing pet...");
+      InitPet();
+      InitPetSpells();
+   }
 
     if (isRandomBot)
     {
@@ -357,18 +369,16 @@ void PlayerbotFactory::Randomize(bool incremental, bool syncWithMaster)
 
     if (isRandomBot)
     {
-        pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_TaxiNodes");
+        auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_TaxiNodes");
         sLog.outDetail("Initializing taxi...");
         InitTaxiNodes();
-        if (pmo) pmo->finish();
     }
 
-    pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Save");
+    auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Save");
     sLog.outDetail("Saving to DB...");
     if (sRandomPlayerbotMgr.GetDatabaseDelay("CharacterDatabase") < 10 * IN_MILLISECONDS)
         bot->SaveToDB();
     sLog.outDetail("Done.");
-    if (pmo) pmo->finish();
 }
 
 void PlayerbotFactory::Refresh()

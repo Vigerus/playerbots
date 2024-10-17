@@ -5,6 +5,8 @@ class PlayerbotMgr;
 class ChatHandler;
 class PerformanceMonitorOperation;
 
+#include <memory>
+
 #include <log4cxx/logger.h>
 #include <log4cxx/basicconfigurator.h>
 #include <log4cxx/propertyconfigurator.h>
@@ -35,5 +37,5 @@ protected:
     log4cxx::LoggerPtr m_logger;
 
     uint32 aiInternalUpdateDelay = 0;
-    PerformanceMonitorOperation* totalPmo = nullptr;
+    std::unique_ptr<PerformanceMonitorOperation> totalPmo;
 };
