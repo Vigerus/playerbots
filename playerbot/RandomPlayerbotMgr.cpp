@@ -1098,7 +1098,10 @@ void RandomPlayerbotMgr::CheckBgQueue()
         BgCheckTimer = time(nullptr);
     }
 
-    sLog.outBasic("Checking BG Queue...");
+    if (sPlayerbotAIConfig.logRandomBotJoinLfg)
+    {
+        sLog.outBasic("Checking BG Queue...");
+    }
 
     for (int i = BG_BRACKET_ID_FIRST; i < MAX_BATTLEGROUND_BRACKETS; ++i)
     {
@@ -1421,7 +1424,11 @@ void RandomPlayerbotMgr::CheckBgQueue()
         }
     }
 
-    sLog.outBasic("BG Queue check finished");
+    if (sPlayerbotAIConfig.logRandomBotJoinLfg)
+    {
+        sLog.outBasic("BG Queue check finished");
+    }
+
     return;
 }
 
@@ -1430,7 +1437,10 @@ void RandomPlayerbotMgr::CheckLfgQueue()
     if (!LfgCheckTimer || time(NULL) > (LfgCheckTimer + 30))
         LfgCheckTimer = time(NULL);
 
-    sLog.outBasic("Checking LFG Queue...");
+    if (sPlayerbotAIConfig.logRandomBotJoinLfg)
+    {
+       sLog.outBasic("Checking LFG Queue...");
+    }
 
     // Clear LFG list
     LfgDungeons[HORDE].clear();
@@ -1586,10 +1596,13 @@ void RandomPlayerbotMgr::CheckLfgQueue()
     */
 #endif
 
-    if (LfgDungeons[ALLIANCE].size() || LfgDungeons[HORDE].size())
-        sLog.outBasic("LFG Queue check finished. There are real players in queue.");
-    else
-        sLog.outBasic("LFG Queue check finished. No real players in queue.");
+    if (sPlayerbotAIConfig.logRandomBotJoinLfg)
+    {
+       if (LfgDungeons[ALLIANCE].size() || LfgDungeons[HORDE].size())
+          sLog.outBasic("LFG Queue check finished. There are real players in queue.");
+       else
+          sLog.outBasic("LFG Queue check finished. No real players in queue.");
+    }
     return;
 }
 
