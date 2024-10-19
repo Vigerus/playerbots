@@ -302,20 +302,6 @@ public:
 
     std::vector<worldBuff> worldBuffs;
 
-    struct guildBuff {
-      uint32 spellId;
-      uint32 guildId;
-    };
-
-    std::vector<guildBuff> guildBuffs;
-
-    struct personalBuff {
-       uint32 spellId;
-       std::string name;
-    };
-
-    std::vector<personalBuff> personalBuffs;
-
     int commandServerPort;
     bool perfMonEnabled;
     bool bExplicitDbStoreSave = false;

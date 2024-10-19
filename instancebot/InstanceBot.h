@@ -39,9 +39,6 @@ namespace instancebot
       Map* mp_map;
       std::unordered_map<ObjectGuid, PlayerData*> m_map;
 
-      std::unordered_map<uint32, std::vector<uint8>>  m_buffstoclass;
-      std::unordered_map<uint32, std::vector<uint8>>  m_itemstoclass;
-
       uint32 m_progress = 0;
       uint32 m_cooldown = 0;
 

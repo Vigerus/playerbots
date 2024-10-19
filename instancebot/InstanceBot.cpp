@@ -8,6 +8,8 @@
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 
+#include "GuildProgressSubsystem.h"
+
 #define ALL_CLASSES 0
 
 namespace instancebot {
@@ -24,61 +26,6 @@ namespace instancebot {
       CCLOG_TRACE(m_logger) << " Source:[InstanceBot] ctor";
 
       m_dungeon_strat = "brd_arena_run";
-
-      // buffs to all
-      // # 15123 - Resist Fire
-      m_buffstoclass[15123] = { ALL_CLASSES };
-      // # 15366 - Songflower Serenade
-      m_buffstoclass[15366] = { ALL_CLASSES };
-      // # 16609 - Warchief Blessing
-      m_buffstoclass[16609] = { ALL_CLASSES };
-      // # 22888 - Rallying Cry of the Dragonslayer
-      m_buffstoclass[22888] = { ALL_CLASSES };
-      // # 24382 - Spirit of Zanza
-      m_buffstoclass[24382] = { ALL_CLASSES };
-      // # 24425 - Spirit of Zandalar
-      m_buffstoclass[24425] = { ALL_CLASSES };
-
-      // #  9206 - Elixir of Giants
-      m_itemstoclass[9206] = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID };
-      // # 13442 - Mighty Rage Potion
-      m_itemstoclass[13442] = { CLASS_WARRIOR };
-      // # 13445 - Elixir of Superior Defense
-      m_itemstoclass[13445] = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID };
-      // # 13446 - Major Healing Potion;
-      m_itemstoclass[13446] = { ALL_CLASSES };
-      // # 13452 - Elixir of the Mongoose
-      m_itemstoclass[13452] = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN};
-      // # 13454 - Greater Arcane Elixir
-      m_itemstoclass[13454] = { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID};
-      // # 13455 - Greater Stoneshield Potion
-      m_itemstoclass[13455] = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID};
-      // # 13457 - Greater Fire Protection Potion
-      m_itemstoclass[13457] = { ALL_CLASSES};
-      // # 13511 - Flask of Distilled Wisdom
-      m_itemstoclass[13511] = { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_HUNTER };
-      // # 13512 - Flask of Supreme Power
-      m_itemstoclass[13512] = { CLASS_MAGE, CLASS_WARLOCK, CLASS_SHAMAN, CLASS_DRUID };
-      // # 13513 - Flask of Chromatic Resistance
-      m_itemstoclass[13513] = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID };
-
-      // # 17333 - Aqual Quintessence
-      m_itemstoclass[17333] = { ALL_CLASSES };
-
-      // 
-      // # 20076 - Zandalar Signet of Mojo
-      m_itemstoclass[20076] = { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID };
-      // # 20077 - Zandalar Signet of Might
-      m_itemstoclass[20077] = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN };
-      // # 20078 - Zandalar Signet of Serenity
-      m_itemstoclass[20078] = { CLASS_PALADIN, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID };
-      // # 20748 - Brilliant Mana Oil
-      m_itemstoclass[20748] = { CLASS_PALADIN, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID };
-      // # 20749 - Brilliant Wizard Oil
-      m_itemstoclass[20749] = { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID };
-
-      // # 21546 - Elixir of Greater Firepower
-      m_itemstoclass[21546] = { CLASS_MAGE, CLASS_WARLOCK };
    }
 
    void InstanceBot::Init()
@@ -125,47 +72,31 @@ namespace instancebot {
 
    std::vector<uint32> InstanceBot::NeedGuildBuffs(Player* player)
    {
-      std::vector<uint32> retVec;
-
-      LfgRoles botRoles = sLFGMgr.CalculateTalentRoles(player);
-
-      if (!sPlayerbotAIConfig.guildBuffs.empty())
+      if (player == nullptr)
       {
-         for (auto& gb : sPlayerbotAIConfig.guildBuffs)
-         {
-            if (player->GetGuildId() != gb.guildId)
-               continue;
+          return { };
+      }
 
-            uint8 classId = player->getClass();
+      std::vector<uint32> retVec;
+      LfgRoles botRoles = sLFGMgr.CalculateTalentRoles(player);
+      uint8 classId = player->getClass();
 
-            auto it1 = m_buffstoclass.find(gb.spellId);
+      // buffs collection
+      for (uint32 spellId : GuildProgressSubsystem::instance().GetGuildBuffsForClass(player->GetGuildId(), classId))
+      {
+          if (player->HasAura(spellId))
+              continue;
 
-            if (it1 != m_buffstoclass.end())
-            {
-               if (std::find(it1->second.begin(), it1->second.end(), ALL_CLASSES) != it1->second.end() ||
-                  std::find(it1->second.begin(), it1->second.end(), classId) != it1->second.end())
-               {
-                  if (player->HasAura(gb.spellId))
-                     continue;
+          retVec.push_back(spellId);
+      }
 
-                  retVec.push_back(gb.spellId);
-               }
-            }
-
-            auto it2 = m_itemstoclass.find(gb.spellId);
-
-            if (it2 != m_itemstoclass.end())
-            {
-               if (std::find(it2->second.begin(), it2->second.end(), ALL_CLASSES) != it2->second.end() ||
-                  std::find(it2->second.begin(), it2->second.end(), classId) != it2->second.end())
-               {
-                  if (player->GetItemByEntry(gb.spellId) == nullptr)
-                  {
-                     player->StoreNewItemInBestSlots(gb.spellId, 1);
-                  }
-               }
-            }
-         }
+      // item generation
+      for (uint32 itemId : GuildProgressSubsystem::instance().GetGuildItemsForClass(player->GetGuildId(), classId))
+      {
+          if (player->GetItemByEntry(itemId) == nullptr)
+          {
+              player->StoreNewItemInBestSlots(itemId, 1);
+          }
       }
 
       return retVec;
