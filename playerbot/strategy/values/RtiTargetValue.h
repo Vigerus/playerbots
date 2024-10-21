@@ -14,7 +14,7 @@ namespace ai
         {}
 
     public:
-        static int GetRtiIndex(std::string rti)
+        static int GetRtiIndex(const std::string& rti)
         {
             int index = -1;
             if(rti == "star") index = 0;
@@ -34,25 +34,30 @@ namespace ai
             if(!group)
                 return NULL;
 
-            std::string rti = AI_VALUE(std::string, type);
-            int index = GetRtiIndex(rti);
+            std::vector<std::string> rti_list = AI_VALUE(std::vector<std::string>, type);
+            for (std::string& rti : rti_list)
+            {
+                int index = GetRtiIndex(rti);
 
-            if (index == -1)
-                return NULL;
+                if (index == -1)
+                    return NULL;
 
-            ObjectGuid guid = group->GetTargetIcon(index);
-            if (!guid)
-                return NULL;
+                ObjectGuid guid = group->GetTargetIcon(index);
+                if (!guid)
+                    return NULL;
 
-            std::list<ObjectGuid> attackers = context->GetValue<std::list<ObjectGuid>>("possible targets")->Get();
-            if (std::find(attackers.begin(), attackers.end(), guid) == attackers.end()) return NULL;
+                std::list<ObjectGuid> attackers = context->GetValue<std::list<ObjectGuid>>("possible targets")->Get();
+                if (std::find(attackers.begin(), attackers.end(), guid) == attackers.end()) return NULL;
 
-            Unit* unit = ai->GetUnit(ObjectGuid(guid));
-            if (!unit || sServerFacade.UnitIsDead(unit) ||
-                !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance, false))
-                return NULL;
+                Unit* unit = ai->GetUnit(ObjectGuid(guid));
+                if (!unit || sServerFacade.UnitIsDead(unit) ||
+                    !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance, false))
+                    return NULL;
 
-            return unit;
+                return unit;
+            }
+
+            return nullptr;
         }
 
     private:

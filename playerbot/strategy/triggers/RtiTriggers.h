@@ -20,8 +20,8 @@ namespace ai
             else
             {
                 // Check for the default rti if the bot is setup to ignore rti targets
-                std::string rti = AI_VALUE(std::string, "rti");
-                if (rti == "none")
+                std::vector<std::string> rti_list = AI_VALUE(std::vector<std::string>, "rti");
+                if (rti_list.empty())
                 {
                     Group* group = bot->GetGroup();
                     if (group)

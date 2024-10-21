@@ -43,13 +43,17 @@ bool FindNonCcTargetStrategy::IsCcTarget(Unit* attacker)
                 if (PAI_VALUE(Unit*,"rti cc target") == attacker)
                     return true;
 
-                std::string rti = PAI_VALUE(std::string,"rti cc");
-                int index = RtiTargetValue::GetRtiIndex(rti);
-                if (index != -1)
+
+                std::vector<std::string> rti_list = PAI_VALUE(std::vector<std::string>,"rti cc");
+                for (const std::string& rti : rti_list)
                 {
-                    uint64 guid = group->GetTargetIcon(index);
-                    if (guid && attacker->GetObjectGuid() == ObjectGuid(guid))
-                        return true;
+                    int index = RtiTargetValue::GetRtiIndex(rti);
+                    if (index != -1)
+                    {
+                        uint64 guid = group->GetTargetIcon(index);
+                        if (guid && attacker->GetObjectGuid() == ObjectGuid(guid))
+                            return true;
+                    }
                 }
             }
         }

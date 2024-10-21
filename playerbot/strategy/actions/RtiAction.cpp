@@ -1,5 +1,6 @@
 
 #include "playerbot/playerbot.h"
+#include "playerbot/Helpers.h"
 #include "RtiAction.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/strategy/values/RtiTargetValue.h"
@@ -28,7 +29,18 @@ bool RtiAction::Execute(Event& event)
         return true;
     }
 
-    context->GetValue<std::string>(type)->Set(text);
+    std::stringstream ss(text);
+    std::string token;
+    std::vector<std::string> rti_list;
+
+    while (std::getline(ss, token, ','))
+    {
+        trim(token);
+        rti_list.push_back(token);
+    }
+
+    context->GetValue<std::vector<std::string>>(type)->Set(rti_list);
+
     std::ostringstream out; out << type << " set to: ";
     AppendRti(out, type);
     ai->TellPlayer(requester, out);
@@ -83,20 +95,18 @@ bool MarkRtiAction::Execute(Event& event)
 
     if (!target) return false;
 
-    std::string rti = AI_VALUE(std::string, "rti");
-
-    // Add the default rti if the bot is setup to ignore rti targets
-    if (rti == "none")
+    std::vector<std::string> rti_list = AI_VALUE(std::vector<std::string>, "rti");
+    if (rti_list.size())
     {
-        rti = "skull";
+        int index = RtiTargetValue::GetRtiIndex(rti_list[0]);
+#ifndef MANGOSBOT_TWO
+        group->SetTargetIcon(index, target->GetObjectGuid());
+#else
+        group->SetTargetIcon(index, bot->GetObjectGuid(), target->GetObjectGuid());
+#endif
+        return true;
     }
 
-    int index = RtiTargetValue::GetRtiIndex(rti);
-#ifndef MANGOSBOT_TWO
-    group->SetTargetIcon(index, target->GetObjectGuid());
-#else
-    group->SetTargetIcon(index, bot->GetObjectGuid(), target->GetObjectGuid());
-#endif
-    return true;
+    return false;
 }
 

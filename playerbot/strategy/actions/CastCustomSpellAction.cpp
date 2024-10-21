@@ -1,5 +1,6 @@
 
 #include "playerbot/playerbot.h"
+#include "playerbot/Helpers.h"
 #include "CastCustomSpellAction.h"
 
 #include "playerbot/PlayerbotAIConfig.h"
@@ -19,14 +20,6 @@ int FindLastSeparator(std::string text, std::string sep)
         pos = text.find_last_of(sep, lastLinkBegin);
 
     return pos;
-}
-
-static inline void ltrim(std::string& s) 
-{
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) 
-    {
-        return !std::isspace(ch);
-    }));
 }
 
 bool CastCustomSpellAction::Execute(Event& event)
