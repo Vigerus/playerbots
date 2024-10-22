@@ -4,31 +4,7 @@
 
 namespace ai
 {
-//    class MissingBuffTrigger : public Trigger
-//    {
-//    public:
-//       MissingBuffTrigger(PlayerbotAI* ai, uint32 itemId, uint32 spellId, std::string name = "missing buff")
-//          : Trigger(ai, name, 5)
-//          , m_itemId(itemId)
-//          , m_spellId(spellId)
-//       {}
-// 
-//       bool IsActive() override
-//       {
-//          if (!bot->HasAura(m_spellId))
-//          {
-//             return bot->GetItemByEntry(m_itemId) != nullptr;
-//          }
-// 
-//          return false;
-//       }
-// 
-//    private:
-//       uint32 m_itemId;
-//       uint32 m_spellId;
-//    };
 
-   
 #define ITEM_ELIXIR_OF_SUPERIOR_DEFENSE 13445
 #define BUFF_ELIXIR_OF_SUPERIOR_DEFENSE 11348
 
@@ -41,6 +17,8 @@ namespace ai
 #define ITEM_GREATER_STONESHIELD_POTION 13455
 #define BUFF_GREATER_STONESHIELD_POTION 17540
 
+#define ITEM_ELIXIR_OF_GREATER_FIREPOWER 21546
+#define BUFF_ELIXIR_OF_GREATER_FIREPOWER 26276
 
 #define ITEM_FLASK_OF_THE_TITANS 13510
 #define BUFF_FLASK_OF_THE_TITANS 17626
@@ -96,12 +74,6 @@ namespace ai
       return { ITEM_FLASK_OF_THE_TITANS, BUFF_FLASK_OF_THE_TITANS };
    }
 
-
-//    struct Consumable {
-//       uint32 itemId;
-//       uint32 spellId;
-//       std::vector<
-//    };
    inline void CreateMissingFlaskToConsumableUseTrigger(std::map<std::string, std::function<Trigger* (PlayerbotAI*)>>& creators)
    {
       creators["use flask"] = [](PlayerbotAI* ai) -> Trigger*
@@ -160,6 +132,15 @@ namespace ai
       triggers.push_back(new TriggerNode(
          ss.str().c_str(),
          NextAction::array(0, new NextAction(ss.str().c_str(), ACTION_HIGH), NULL)));
+   }
+
+   inline void InitMissingFlaskTrigger(std::list<TriggerNode*>& triggers)
+   {
+       std::ostringstream ss;
+       ss << "use flask";
+       triggers.push_back(new TriggerNode(
+           ss.str().c_str(),
+           NextAction::array(0, new NextAction(ss.str().c_str(), ACTION_HIGH), NULL)));
    }
 
 }

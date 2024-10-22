@@ -124,7 +124,7 @@ void MageStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
         NextAction::array(0, new NextAction("conjure mana gem", ACTION_NORMAL), NULL)));
 
     InitMissingConsumableTrigger(triggers, ITEM_GREATER_ARCANE_ELIXIR);
-    InitMissingConsumableTrigger(triggers, ITEM_FLASK_OF_SUPREME_POWER);
+    InitMissingFlaskTrigger(triggers);
 }
 
 void MageStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)
@@ -338,11 +338,19 @@ void MageBuffPveStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& trigger
 void MageBuffRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     BuffRaidStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "mage armor",
+        NextAction::array(0, new NextAction("mage armor", ACTION_HIGH), NULL)));
 }
 
 void MageBuffRaidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     BuffRaidStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "mage armor",
+        NextAction::array(0, new NextAction("mage armor", ACTION_NORMAL), NULL)));
 }
 
 void MageBoostStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)

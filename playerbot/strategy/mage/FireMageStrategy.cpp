@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "MageMultipliers.h"
 #include "FireMageStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -48,6 +49,8 @@ void FireMageStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 void FireMageStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     MageStrategy::InitNonCombatTriggers(triggers);
+
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_GREATER_FIREPOWER);
 }
 
 void FireMageStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

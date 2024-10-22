@@ -9,6 +9,7 @@
 #include "playerbot/strategy/generic/PullStrategy.h"
 #include "MageTriggers.h"
 #include "playerbot/strategy/NamedObjectContext.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 namespace ai
 {
@@ -284,6 +285,11 @@ namespace ai
                 creators["no food"] = &TriggerFactoryInternal::no_food;
                 creators["no drink"] = &TriggerFactoryInternal::no_drink;
                 creators["no mana gem"] = &TriggerFactoryInternal::no_mana_gem;
+
+
+                CreateBuffToConsumableUseTrigger(creators, ITEM_GREATER_ARCANE_ELIXIR, BUFF_GREATER_ARCANE_ELIXIR);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_GREATER_FIREPOWER, BUFF_ELIXIR_OF_GREATER_FIREPOWER);
+                CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
         private:
@@ -412,6 +418,10 @@ namespace ai
                 creators["update pve strats"] = &AiObjectContextInternal::update_pve_strats;
                 creators["update pvp strats"] = &AiObjectContextInternal::update_pvp_strats;
                 creators["update raid strats"] = &AiObjectContextInternal::update_raid_strats;
+
+                CreateUseConsumableAction(creators, ITEM_GREATER_ARCANE_ELIXIR);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_GREATER_FIREPOWER);
+                CreateUseFlaskAction(creators);
             }
 
         private:
