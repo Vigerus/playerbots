@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "DruidMultipliers.h"
 #include "RestorationDruidStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -65,6 +66,8 @@ void RestorationDruidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& tr
     triggers.push_back(new TriggerNode(
         "party member low health",
         NextAction::array(0, new NextAction("regrowth on party", ACTION_MEDIUM_HEAL), NULL)));
+
+    InitMissingConsumableTrigger(triggers, ITEM_MAGEBLOOD_POTION);
 }
 
 void RestorationDruidStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

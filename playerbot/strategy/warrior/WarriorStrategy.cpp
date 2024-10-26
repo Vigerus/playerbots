@@ -1,6 +1,7 @@
 
 #include "playerbot/playerbot.h"
 #include "WarriorStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -85,6 +86,11 @@ void WarriorStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 void WarriorStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ClassStrategy::InitNonCombatTriggers(triggers);
+
+    InitMissingConsumableTrigger(triggers, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_THE_MONGOOSE);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_SUPERIOR_DEFENSE);
+    InitMissingFlaskTrigger(triggers);
 }
 
 void WarriorStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "DruidMultipliers.h"
 #include "TankFeralDruidStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -86,6 +87,10 @@ void TankFeralDruidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& trig
     triggers.push_back(new TriggerNode(
         "has greater blessing of salvation",
         NextAction::array(0, new NextAction("remove greater blessing of salvation", ACTION_EMERGENCY), NULL)));
+
+    InitMissingConsumableTrigger(triggers, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_THE_MONGOOSE);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_SUPERIOR_DEFENSE);
 }
 
 void TankFeralDruidStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

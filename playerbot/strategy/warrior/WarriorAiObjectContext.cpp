@@ -7,6 +7,7 @@
 #include "ProtectionWarriorStrategy.h"
 #include "ArmsWarriorStrategy.h"
 #include "FuryWarriorStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 namespace ai
 {
@@ -243,6 +244,11 @@ namespace ai
                 creators["intercept and far enemy"] = &TriggerFactoryInternal::intercept_and_far_enemy;
                 creators["intercept and rage"] = &TriggerFactoryInternal::intercept_and_rage;
                 creators["recklessness"] = &TriggerFactoryInternal::recklessness;
+
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION, BUFF_MAJOR_TROLLS_BLOOD_POTION);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_THE_MONGOOSE, BUFF_ELIXIR_OF_THE_MONGOOSE);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_SUPERIOR_DEFENSE, BUFF_ELIXIR_OF_SUPERIOR_DEFENSE);
+                CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
         private:
@@ -364,6 +370,11 @@ namespace ai
                 creators["update pve strats"] = &AiObjectContextInternal::update_pve_strats;
                 creators["update pvp strats"] = &AiObjectContextInternal::update_pvp_strats;
                 creators["update raid strats"] = &AiObjectContextInternal::update_raid_strats;
+
+                CreateUseConsumableAction(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_THE_MONGOOSE);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_SUPERIOR_DEFENSE);
+                CreateUseFlaskAction(creators);
             }
 
         private:

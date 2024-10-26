@@ -6,6 +6,7 @@
 #include "DisciplinePriestStrategy.h"
 #include "ShadowPriestStrategy.h"
 #include "HolyPriestStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 namespace ai
 {
@@ -299,6 +300,10 @@ namespace ai
                 creators["mind blast"] = &TriggerFactoryInternal::mind_blast;
                 creators["smite"] = &TriggerFactoryInternal::smite;
                 creators["holy fire"] = &TriggerFactoryInternal::holy_fire;
+
+                CreateBuffToConsumableUseTrigger(creators, ITEM_GREATER_ARCANE_ELIXIR, BUFF_GREATER_ARCANE_ELIXIR);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAGEBLOOD_POTION, BUFF_MAGEBLOOD_POTION);
+                CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
         private:
@@ -428,6 +433,10 @@ namespace ai
                 creators["update pve strats"] = &AiObjectContextInternal::update_pve_strats;
                 creators["update pvp strats"] = &AiObjectContextInternal::update_pvp_strats;
                 creators["update raid strats"] = &AiObjectContextInternal::update_raid_strats;
+
+                CreateUseConsumableAction(creators, ITEM_GREATER_ARCANE_ELIXIR);
+                CreateUseConsumableAction(creators, ITEM_MAGEBLOOD_POTION);
+                CreateUseFlaskAction(creators);
             }
 
         private:

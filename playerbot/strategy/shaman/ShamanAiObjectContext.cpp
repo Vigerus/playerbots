@@ -7,6 +7,7 @@
 #include "ElementalShamanStrategy.h"
 #include "RestorationShamanStrategy.h"
 #include "EnhancementShamanStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 namespace ai
 {
@@ -431,6 +432,12 @@ namespace ai
                 creators["earth shield on party tank"] = &TriggerFactoryInternal::earth_shield_on_party_tank;
                 creators["chain lightning"] = &TriggerFactoryInternal::chain_lightning;
                 creators["stormstrike"] = &TriggerFactoryInternal::stormstrike;
+
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION, BUFF_MAJOR_TROLLS_BLOOD_POTION);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_THE_MONGOOSE, BUFF_ELIXIR_OF_THE_MONGOOSE);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_GREATER_ARCANE_ELIXIR, BUFF_GREATER_ARCANE_ELIXIR);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAGEBLOOD_POTION, BUFF_MAGEBLOOD_POTION);
+                CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
         private:
@@ -554,6 +561,12 @@ namespace ai
                 creators["update pvp strats"] = &AiObjectContextInternal::update_pvp_strats;
                 creators["update raid strats"] = &AiObjectContextInternal::update_raid_strats;
                 creators["earth shield on party tank"] = &AiObjectContextInternal::earth_shield_on_party_tank;
+
+                CreateUseConsumableAction(creators, ITEM_GREATER_ARCANE_ELIXIR);
+                CreateUseConsumableAction(creators, ITEM_MAGEBLOOD_POTION);
+                CreateUseConsumableAction(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_THE_MONGOOSE);
+                CreateUseFlaskAction(creators);
             }
 
         private:

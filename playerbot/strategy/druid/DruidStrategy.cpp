@@ -1,6 +1,7 @@
 
 #include "playerbot/playerbot.h"
 #include "DruidStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -115,6 +116,8 @@ void DruidStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 void DruidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ClassStrategy::InitNonCombatTriggers(triggers);
+
+    InitMissingFlaskTrigger(triggers);
 }
 
 void DruidStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

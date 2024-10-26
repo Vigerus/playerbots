@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "DruidMultipliers.h"
 #include "DpsFeralDruidStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -118,6 +119,10 @@ void DpsFeralDruidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& trigg
     triggers.push_back(new TriggerNode(
         "low health",
         NextAction::array(0, new NextAction("regrowth", ACTION_MEDIUM_HEAL), NULL)));
+
+    InitMissingConsumableTrigger(triggers, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_THE_MONGOOSE);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_SUPERIOR_DEFENSE);
 }
 
 void DpsFeralDruidStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

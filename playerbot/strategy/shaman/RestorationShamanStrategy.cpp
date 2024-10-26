@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "ShamanMultipliers.h"
 #include "RestorationShamanStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -126,6 +127,8 @@ void RestorationShamanStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& t
     triggers.push_back(new TriggerNode(
         "party member almost full health",
         NextAction::array(0, new NextAction("lesser healing wave on party", ACTION_LIGHT_HEAL), NULL)));
+
+    InitMissingConsumableTrigger(triggers, ITEM_MAGEBLOOD_POTION);
 }
 
 void RestorationShamanStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

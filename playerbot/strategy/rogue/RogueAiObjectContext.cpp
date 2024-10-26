@@ -8,6 +8,7 @@
 #include "CombatRogueStrategy.h"
 #include "AssassinationRogueStrategy.h"
 #include "SubtletyRogueStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 namespace ai
 {
@@ -338,6 +339,10 @@ namespace ai
                 creators["apply instant poison off hand"] = &TriggerFactoryInternal::apply_instant_poison_off_hand;
                 creators["apply wound poison off hand"] = &TriggerFactoryInternal::apply_wound_poison_off_hand;
                 creators["apply anesthetic poison off hand"] = &TriggerFactoryInternal::apply_anesthetic_poison_off_hand;
+
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION, BUFF_MAJOR_TROLLS_BLOOD_POTION);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_THE_MONGOOSE, BUFF_ELIXIR_OF_THE_MONGOOSE);
+                CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
         private:
@@ -435,6 +440,10 @@ namespace ai
                 creators["apply instant poison off hand"] = &AiObjectContextInternal::apply_instant_poison_off_hand;
                 creators["apply wound poison off hand"] = &AiObjectContextInternal::apply_wound_poison_off_hand;
                 creators["apply anesthetic poison off hand"] = &AiObjectContextInternal::apply_anesthetic_poison_off_hand;
+
+                CreateUseConsumableAction(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_THE_MONGOOSE);
+                CreateUseFlaskAction(creators);
             }
 
         private:

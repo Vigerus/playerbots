@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "ShamanMultipliers.h"
 #include "EnhancementShamanStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -63,6 +64,9 @@ void EnhancementShamanStrategy::InitCombatTriggers(std::list<TriggerNode*>& trig
 void EnhancementShamanStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ShamanStrategy::InitNonCombatTriggers(triggers);
+
+    InitMissingConsumableTrigger(triggers, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_THE_MONGOOSE);
 }
 
 void EnhancementShamanStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

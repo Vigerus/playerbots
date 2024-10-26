@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "DruidMultipliers.h"
 #include "BalanceDruidStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -61,6 +62,9 @@ void BalanceDruidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& trigge
     triggers.push_back(new TriggerNode(
         "low health",
         NextAction::array(0, new NextAction("regrowth", ACTION_MEDIUM_HEAL), NULL)));
+
+    InitMissingConsumableTrigger(triggers, ITEM_GREATER_ARCANE_ELIXIR);
+    InitMissingConsumableTrigger(triggers, ITEM_MAGEBLOOD_POTION);
 }
 
 void BalanceDruidStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

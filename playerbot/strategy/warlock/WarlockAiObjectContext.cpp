@@ -9,6 +9,7 @@
 #include "AfflictionWarlockStrategy.h"
 #include "DestructionWarlockStrategy.h"
 #include "DemonologyWarlockStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 namespace ai
 {
@@ -352,6 +353,10 @@ namespace ai
                 creators["spell lock enemy healer"] = &TriggerFactoryInternal::spell_lock_enemy_healer;
                 creators["seed of corruption on attacker"] = &TriggerFactoryInternal::seed_of_corruption_on_attacker;
                 creators["soulstone"] = &TriggerFactoryInternal::soulstone;
+
+                CreateBuffToConsumableUseTrigger(creators, ITEM_GREATER_ARCANE_ELIXIR, BUFF_GREATER_ARCANE_ELIXIR);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_SHADOW_POWER, BUFF_ELIXIR_OF_SHADOW_POWER);
+                CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
         private:
@@ -486,6 +491,10 @@ namespace ai
                 creators["update pvp strats"] = &AiObjectContextInternal::update_pvp_strats;
                 creators["update raid strats"] = &AiObjectContextInternal::update_raid_strats;
                 creators["soulstone"] = &AiObjectContextInternal::soulstone;
+
+                CreateUseConsumableAction(creators, ITEM_GREATER_ARCANE_ELIXIR);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_SHADOW_POWER);
+                CreateUseFlaskAction(creators);
             }
 
         private:

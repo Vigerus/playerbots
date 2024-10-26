@@ -96,8 +96,9 @@ void HunterStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
         "no ammo",
         NextAction::array(0, new NextAction("say::no ammo", ACTION_NORMAL), NULL)));
 
+    InitMissingConsumableTrigger(triggers, ITEM_MAJOR_TROLLS_BLOOD_POTION);
     InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_THE_MONGOOSE);
-    InitMissingConsumableTrigger(triggers, ITEM_FLASK_OF_DISTILLED_WISDOM);
+    InitMissingFlaskTrigger(triggers);
 }
 
 void HunterStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

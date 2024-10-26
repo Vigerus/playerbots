@@ -37,7 +37,10 @@ private:
     void OnItemCreated(Player* player, uint32 itemId);
     void OnAuraApplied(Unit* unit, uint32 itemId);
 
+    void BuildReducedSet(const std::vector<uint32>& fullSet, std::vector<uint32>& reducedSet);
+
     std::map<uint32, std::vector<uint32>> guildItemsMap;
+    std::map<uint32, std::vector<uint32>> guildReducedItemsMap;
     std::map<uint32, std::vector<uint32>> guildBuffsMap;
 
     std::map<uint32, ItemAcquireMethod> progressItemsMap;

@@ -8,6 +8,7 @@
 #include "Globals/ObjectMgr.h"
 #include "Globals/SharedDefines.h"
 
+#include "playerbot/ItemID.h"
 #include "playerbot/PlayerbotAIConfig.h"
 
 #include <boost/assign/list_of.hpp>
@@ -22,91 +23,145 @@ struct ProgressSet
 };
 
 static std::vector<ProgressSet> approvedItems = {
+
+    { ITEM_GREAT_RAGE_POTION, // # 5633 - Great Rage Potion
+    { CLASS_WARRIOR }},
 // Protection Potions
-    {6048, // #  6048 - Shadow Protection Potion
+    {ITEM_SHADOW_PROTECTION_POTION, // #  6048 - Shadow Protection Potion
     {}},
-    {6049, // #  6049 - Fire Protection Potion
+    {ITEM_FIRE_PROTECTION_POTION, // #  6049 - Fire Protection Potion
     {}},
-    {6050, // #  6050 - Frost Protection Potion
+    {ITEM_FROST_PROTECTION_POTION, // #  6050 - Frost Protection Potion
     {}},
-    {6052, // #  6052 - Nature Protection Potion
+    {ITEM_NATURE_PROTECTION_POTION, // #  6052 - Nature Protection Potion
     {}},
 
-    {9206, // #  9206 - Elixir of Giants
+
+    {ITEM_ELIXIR_OF_GIANTS, // #  9206 - Elixir of Giants
     { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID }},
-    {13442, // # 13442 - Mighty Rage Potion
+
+    {ITEM_ELIXIR_OF_SHADOW_POWER, // # 9264 - Elixir of Shadow Power
+    { CLASS_WARLOCK, CLASS_PRIEST }},
+
+    {ITEM_MIGHTY_RAGE_POTION, // # 13442 - Mighty Rage Potion
     { CLASS_WARRIOR }},
-    {13445, // # 13445 - Elixir of Superior Defense
+    {ITEM_SUPERIOR_MANA_POTION, // # 13442 - Superior Mana Potion
+    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
+
+    {ITEM_ELIXIR_OF_SUPERIOR_DEFENSE, // # 13445 - Elixir of Superior Defense
     { CLASS_WARRIOR, CLASS_DRUID }},
-    {13446, // # 13446 - Major Healing Potion;
+    {ITEM_MAJOR_HEALING_POTION, // # 13446 - Major Healing Potion;
     {}},
-    {13452, // # 13452 - Elixir of the Mongoose
+    {ITEM_ELIXIR_OF_THE_MONGOOSE, // # 13452 - Elixir of the Mongoose
     { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {13454, // # 13454 - Greater Arcane Elixir
+    {ITEM_GREATER_ARCANE_ELIXIR, // # 13454 - Greater Arcane Elixir
     { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {13455, // # 13455 - Greater Stoneshield Potion
+    {ITEM_GREATER_STONESHIELD_POTION, // # 13455 - Greater Stoneshield Potion
     { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID }},
 
 // Greater Protection Potions
-    {13456, // # 13456 - Greater Frost Protection Potion
+    {ITEM_GREATER_FROST_PROTECTION_POTION, // # 13456 - Greater Frost Protection Potion
     {}},
-    {13457, // # 13457 - Greater Fire Protection Potion
+    {ITEM_GREATER_FIRE_PROTECTION_POTION, // # 13457 - Greater Fire Protection Potion
     {}},
-    {13458, // # 13458 - Greater Nature Protection Potion
+    {ITEM_GREATER_NATURE_PROTECTION_POTION, // # 13458 - Greater Nature Protection Potion
     {}},
-    {13459, // # 13459 - Greater Shadow Protection Potion
+    {ITEM_GREATER_SHADOW_PROTECTION_POTION, // # 13459 - Greater Shadow Protection Potion
     {}},
-    {13461, // # 13461 - Greater Arcane Protection Potion
+    {ITEM_GREATER_ARCANE_PROTECTION_POTION, // # 13461 - Greater Arcane Protection Potion
     {}},
 
 // Flasks:
-    {13510, // # 13511 - Flask of Titans
+    {ITEM_FLASK_OF_THE_TITANS, // # 13511 - Flask of the Titans
     {}},
-    {13511, // # 13511 - Flask of Distilled Wisdom
+    {ITEM_FLASK_OF_DISTILLED_WISDOM, // # 13511 - Flask of Distilled Wisdom
     { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_HUNTER }},
-    {13512, // # 13512 - Flask of Supreme Power
+    {ITEM_FLASK_OF_SUPREME_POWER, // # 13512 - Flask of Supreme Power
     { CLASS_MAGE, CLASS_WARLOCK, CLASS_SHAMAN, CLASS_DRUID }},
-    {13513, // # 13513 - Flask of Chromatic Resistance
+    {ITEM_FLASK_OF_CHROMATIC_RESISTANCE, // # 13513 - Flask of Chromatic Resistance
     {}},
 
-    {17333, // # 17333 - Aqual Quintessence
+    {ITEM_AQUAL_QUINTESSENCE, // # 17333 - Aqual Quintessence
     {}},
 
-    {20076, // # 20076 - Zandalar Signet of Mojo
+    {ITEM_MAJOR_MANA_POTION, // # 17580 - Major Mana Potion
+    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
+
+    {ITEM_MAJOR_TROLLS_BLOOD_POTION, // # 20004 Major Troll's Blood Potion
+    {}},
+
+    {ITEM_MAGEBLOOD_POTION, // # 20007 - Mageblood Potion
+    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
+
+    {ITEM_ZANDALAR_SIGNET_OF_MOJO, // # 20076 - Zandalar Signet of Mojo
     { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {20077, // # 20077 - Zandalar Signet of Might
+    {ITEM_ZANDALAR_SIGNET_OF_MIGHT, // # 20077 - Zandalar Signet of Might
     { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {20078, // # 20078 - Zandalar Signet of Serenity
+    {ITEM_ZANDALAR_SIGNET_OF_SERENITY, // # 20078 - Zandalar Signet of Serenity
     { CLASS_PALADIN, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
 
-    {20079, // # 20079 - Spirit of Zanza
+    {ITEM_SPIRIT_OF_ZANZA, // # 20079 - Spirit of Zanza
     {}},
-    {20080, // # 20080 - Sheen of Zanza
+    {ITEM_SHEEN_OF_ZANZA, // # 20080 - Sheen of Zanza
     {}},
-    {20081, // # 20081 - Swiftness of Zanza
+    {ITEM_SWIFTNESS_OF_ZANZA, // # 20081 - Swiftness of Zanza
     {}},
 
-    {20748, // # 20748 - Brilliant Mana Oil
+    {ITEM_BRILLIANT_MANA_OIL, // # 20748 - Brilliant Mana Oil
     { CLASS_MAGE, CLASS_WARLOCK, CLASS_PALADIN, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {20749, // # 20749 - Brilliant Wizard Oil
+    {ITEM_BRILLIANT_WIZARD_OIL, // # 20749 - Brilliant Wizard Oil
     { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
 
-    {21546, // # 21546 - Elixir of Greater Firepower
+    {ITEM_ELIXIR_OF_GREATER_FIREPOWER, // # 21546 - Elixir of Greater Firepower
     { CLASS_MAGE, CLASS_WARLOCK }}
 };
 
 static std::vector<ProgressSet> approvedBuffs = {
+    {10767, // # 10767 - Rising Spirit (Agamaggan)}
+    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
     {15123, // # 15123 - Resist Fire
     {}},
     {15366, // # 15366 - Songflower Serenade
     {}},
     {16609, // # 16609 - Warchief Blessing
     {}},
+    {16610, // # 16610 - Razorhide (Agamaggan)
+    { CLASS_WARRIOR, CLASS_DRUID }},
+    {16612, // # 16612 - Agamaggan's Strength (Agamaggan)
+    { CLASS_WARRIOR, CLASS_DRUID, CLASS_ROGUE, CLASS_SHAMAN, CLASS_PALADIN, CLASS_HUNTER }},
+    {16618, // # 16618 - Spirit of the Wind (Agamaggan)
+    {}},
+    {17013, // # 17013 - Agamaggan's Agility (Agamaggan)
+    { CLASS_WARRIOR, CLASS_DRUID, CLASS_ROGUE, CLASS_SHAMAN, CLASS_PALADIN, CLASS_HUNTER }},
     {22888, // # 22888 - Rallying Cry of the Dragonslayer
     {}},
     {24425, // # 24425 - Spirit of Zandalar
     {}}
 };
+
+
+static bool IsItemViable(uint32 itemId, const std::vector<uint32>& fullSet)
+{
+    switch (itemId)
+    {
+        case ITEM_SHADOW_PROTECTION_POTION:
+            return std::find(fullSet.begin(), fullSet.end(), ITEM_GREATER_SHADOW_PROTECTION_POTION) == fullSet.end();
+        case ITEM_NATURE_PROTECTION_POTION:
+            return std::find(fullSet.begin(), fullSet.end(), ITEM_GREATER_NATURE_PROTECTION_POTION) == fullSet.end();
+        case ITEM_FIRE_PROTECTION_POTION:
+            return std::find(fullSet.begin(), fullSet.end(), ITEM_GREATER_FIRE_PROTECTION_POTION) == fullSet.end();
+//         case ITEM_ARCANE_PROTECTION_POTION:
+//             return std::find(fullSet.begin(), fullSet.end(), ITEM_GREATER_ARCANE_PROTECTION_POTION) == fullSet.end();
+
+        case ITEM_SUPERIOR_MANA_POTION:
+            return std::find(fullSet.begin(), fullSet.end(), ITEM_MAJOR_MANA_POTION) == fullSet.end();
+
+        case ITEM_GREAT_RAGE_POTION:
+            return std::find(fullSet.begin(), fullSet.end(), ITEM_MIGHTY_RAGE_POTION) == fullSet.end();
+    }
+
+    return true;
+}
 
 GuildProgressSubsystem::GuildProgressSubsystem()
 {
@@ -138,7 +193,6 @@ void GuildProgressSubsystem::Load(const ConfigAccess& config)
     auto results = CharacterDatabase.PQuery("SELECT `guild_id`,`item_type`,`item_id` FROM `ai_playerbot_guild_progress`");
     if (results)
     {
-        std::list<std::string> values;
         do
         {
             Field* fields = results->Fetch();
@@ -156,6 +210,24 @@ void GuildProgressSubsystem::Load(const ConfigAccess& config)
             }
 
         } while (results->NextRow());
+
+        for (auto& el : guildItemsMap)
+        {
+            BuildReducedSet(el.second, guildReducedItemsMap[el.first]);
+        }
+    }
+}
+
+void GuildProgressSubsystem::BuildReducedSet(const std::vector<uint32>& fullSet, std::vector<uint32>& reducedSet)
+{
+    reducedSet.clear();
+
+    for (uint32 itemId : fullSet)
+    {
+        if (IsItemViable(itemId, fullSet))
+        {
+            reducedSet.emplace_back(itemId);
+        }
     }
 }
 
@@ -195,6 +267,10 @@ void GuildProgressSubsystem::OnItemCreated(Player* player, uint32 itemId)
             std::ostringstream ss;
             ss << "New item " << pProto->Name1 << " added to the guild pool!";
             guildItems.push_back(itemId);
+
+            // recreate the reduced map
+            BuildReducedSet(guildItems, guildReducedItemsMap[guildId]);
+
             Save(guildId, ITEM_TYPE_ITEM, itemId);
             guild->BroadcastEvent(GE_MOTD, ss.str().c_str());
         }
@@ -259,9 +335,9 @@ std::vector<uint32> GuildProgressSubsystem::GetGuildBuffs(uint32 guildId) const
 
 std::vector<uint32> GuildProgressSubsystem::GetGuildItems(uint32 guildId) const
 {
-    auto it = guildItemsMap.find(guildId);
+    auto it = guildReducedItemsMap.find(guildId);
 
-    if (it == guildItemsMap.end())
+    if (it == guildReducedItemsMap.end())
     {
         return { };
     }
@@ -303,9 +379,9 @@ std::vector<uint32> GuildProgressSubsystem::GetGuildBuffsForClass(uint32 guildId
 
 std::vector<uint32> GuildProgressSubsystem::GetGuildItemsForClass(uint32 guildId, uint8 classId) const
 {
-    auto it = guildItemsMap.find(guildId);
+    auto it = guildReducedItemsMap.find(guildId);
 
-    if (it == guildItemsMap.end())
+    if (it == guildReducedItemsMap.end())
     {
         return { };
     }

@@ -9,6 +9,7 @@
 #include "DruidTriggers.h"
 #include "RestorationDruidStrategy.h"
 #include "playerbot/strategy/generic/PullStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 namespace ai
 {
@@ -351,6 +352,13 @@ namespace ai
                 creators["innervate"] = &TriggerFactoryInternal::innervate;
                 creators["lifebloom"] = &TriggerFactoryInternal::lifebloom;
                 creators["clearcasting"] = &TriggerFactoryInternal::clearcasting;
+
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION, BUFF_MAJOR_TROLLS_BLOOD_POTION);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_THE_MONGOOSE, BUFF_ELIXIR_OF_THE_MONGOOSE);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_SUPERIOR_DEFENSE, BUFF_ELIXIR_OF_SUPERIOR_DEFENSE);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_GREATER_ARCANE_ELIXIR, BUFF_GREATER_ARCANE_ELIXIR);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAGEBLOOD_POTION, BUFF_MAGEBLOOD_POTION);
+                CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
         private:
@@ -487,6 +495,13 @@ namespace ai
                 creators["update pvp strats"] = &AiObjectContextInternal::update_pvp_strats;
                 creators["update raid strats"] = &AiObjectContextInternal::update_raid_strats;
                 creators["lifebloom"] = &AiObjectContextInternal::lifebloom;
+
+                CreateUseConsumableAction(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_THE_MONGOOSE);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_SUPERIOR_DEFENSE);
+                CreateUseConsumableAction(creators, ITEM_GREATER_ARCANE_ELIXIR);
+                CreateUseConsumableAction(creators, ITEM_MAGEBLOOD_POTION);
+                CreateUseFlaskAction(creators);
             }
 
         private:

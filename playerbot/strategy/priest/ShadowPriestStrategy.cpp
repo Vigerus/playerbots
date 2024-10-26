@@ -1,6 +1,7 @@
 #include "playerbot/playerbot.h"
 #include "PriestMultipliers.h"
 #include "ShadowPriestStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -60,6 +61,9 @@ void ShadowPriestStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 void ShadowPriestStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     PriestStrategy::InitNonCombatTriggers(triggers);
+
+    InitMissingConsumableTrigger(triggers, ITEM_GREATER_ARCANE_ELIXIR);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_SHADOW_POWER);
 }
 
 void ShadowPriestStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

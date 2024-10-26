@@ -124,6 +124,7 @@ void MageStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
         NextAction::array(0, new NextAction("conjure mana gem", ACTION_NORMAL), NULL)));
 
     InitMissingConsumableTrigger(triggers, ITEM_GREATER_ARCANE_ELIXIR);
+    InitMissingConsumableTrigger(triggers, ITEM_MAGEBLOOD_POTION);
     InitMissingFlaskTrigger(triggers);
 }
 

@@ -7,6 +7,7 @@
 #include "MarksmanshipHunterStrategy.h"
 #include "SurvivalHunterStrategy.h"
 #include "playerbot/strategy/NamedObjectContext.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 namespace ai
 {
@@ -344,6 +345,10 @@ namespace ai
                 creators["silencing shot on enemy healer"] = &TriggerFactoryInternal::silencing_shot_interrupt_healer;
                 creators["no beast"] = &TriggerFactoryInternal::no_beast;
                 creators["stealthed nearby"] = &TriggerFactoryInternal::stealthed_nearby;
+
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION, BUFF_MAJOR_TROLLS_BLOOD_POTION);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_THE_MONGOOSE, BUFF_ELIXIR_OF_THE_MONGOOSE);
+                CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
         private:
@@ -475,6 +480,10 @@ namespace ai
                 creators["update pve strats"] = &AiObjectContextInternal::update_pve_strats;
                 creators["update pvp strats"] = &AiObjectContextInternal::update_pvp_strats;
                 creators["update raid strats"] = &AiObjectContextInternal::update_raid_strats;
+
+                CreateUseConsumableAction(creators, ITEM_MAJOR_TROLLS_BLOOD_POTION);
+                CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_THE_MONGOOSE);
+                CreateUseFlaskAction(creators);
             }
 
         private:

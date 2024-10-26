@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "WarlockMultipliers.h"
 #include "WarlockStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -84,6 +85,10 @@ void WarlockStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
         "no spellstone",
         NextAction::array(0, new NextAction("create spellstone", ACTION_NORMAL), NULL)));
     */
+
+    InitMissingConsumableTrigger(triggers, ITEM_GREATER_ARCANE_ELIXIR);
+    InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_SHADOW_POWER);
+    InitMissingFlaskTrigger(triggers);
 }
 
 void WarlockStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

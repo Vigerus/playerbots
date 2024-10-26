@@ -1,5 +1,6 @@
 #include "playerbot/playerbot.h"
 #include "PriestStrategy.h"
+#include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
 using namespace ai;
 
@@ -116,6 +117,9 @@ void PriestStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode(
         "party member dead",
         NextAction::array(0, new NextAction("resurrection", ACTION_EMERGENCY), NULL)));
+
+    InitMissingConsumableTrigger(triggers, ITEM_MAGEBLOOD_POTION);
+    InitMissingFlaskTrigger(triggers);
 }
 
 void PriestStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

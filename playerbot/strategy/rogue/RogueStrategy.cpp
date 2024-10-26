@@ -91,7 +91,10 @@ void RogueStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 void RogueStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ClassStrategy::InitNonCombatTriggers(triggers);
+
+    InitMissingConsumableTrigger(triggers, ITEM_MAJOR_TROLLS_BLOOD_POTION);
     InitMissingConsumableTrigger(triggers, ITEM_ELIXIR_OF_THE_MONGOOSE);
+    InitMissingFlaskTrigger(triggers);
 }
 
 void RogueStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)

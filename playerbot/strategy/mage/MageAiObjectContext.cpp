@@ -286,9 +286,9 @@ namespace ai
                 creators["no drink"] = &TriggerFactoryInternal::no_drink;
                 creators["no mana gem"] = &TriggerFactoryInternal::no_mana_gem;
 
-
                 CreateBuffToConsumableUseTrigger(creators, ITEM_GREATER_ARCANE_ELIXIR, BUFF_GREATER_ARCANE_ELIXIR);
                 CreateBuffToConsumableUseTrigger(creators, ITEM_ELIXIR_OF_GREATER_FIREPOWER, BUFF_ELIXIR_OF_GREATER_FIREPOWER);
+                CreateBuffToConsumableUseTrigger(creators, ITEM_MAGEBLOOD_POTION, BUFF_MAGEBLOOD_POTION);
                 CreateMissingFlaskToConsumableUseTrigger(creators);
             }
 
@@ -421,6 +421,7 @@ namespace ai
 
                 CreateUseConsumableAction(creators, ITEM_GREATER_ARCANE_ELIXIR);
                 CreateUseConsumableAction(creators, ITEM_ELIXIR_OF_GREATER_FIREPOWER);
+                CreateUseConsumableAction(creators, ITEM_MAGEBLOOD_POTION);
                 CreateUseFlaskAction(creators);
             }
 
