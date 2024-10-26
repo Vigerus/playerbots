@@ -49,9 +49,16 @@ bool RtiAction::Execute(Event& event)
 
 void RtiAction::AppendRti(std::ostringstream & out, std::string type)
 {
-    out << AI_VALUE(std::string, type);
+    bool first = true;
+
+    for (const std::string& el : AI_VALUE(std::vector<std::string>, type))
+    {
+        if (!first) { out << ","; } else { first = false; }
+        out << el;
+    }
 
     std::ostringstream n; n << type << " target";
+
     Unit* target = AI_VALUE(Unit*, n.str());
     if (target)
         out << " (" << target->GetName() << ")";
