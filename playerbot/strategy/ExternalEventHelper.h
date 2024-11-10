@@ -65,10 +65,10 @@ namespace ai
             if (!trigger)
                 return true;
 
-            Event event = trigger->Check();            
-            if (!event.getSource().empty())
+            Event event = trigger->Check();
+            if (event.IsValid())
                 return false;
-                        
+
             WorldPacket p(packet);
             trigger->ExternalEvent(p, owner);
 

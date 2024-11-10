@@ -133,7 +133,7 @@ namespace ai
     public:
         Action* getAction() { return action; }
         void setAction(Action* action) { this->action = action; }
-        std::string getName() { return name; }
+        const std::string& getName() const { return name; }
 
     public:
         NextAction** getContinuers() { return NextAction::merge(NextAction::clone(continuers), action->getContinuers()); }
@@ -161,7 +161,7 @@ namespace ai
 	public:
 		float getRelevance() {return relevance;}
 		ActionNode* getAction() {return action;}
-        Event getEvent() { return event; }
+        const Event& getEvent() const { return event; }
         bool isSkipPrerequisites() { return skipPrerequisites; }
         void AmendRelevance(float k) {relevance *= k; }
         void setRelevance(float relevance) { this->relevance = relevance; }

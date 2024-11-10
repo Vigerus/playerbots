@@ -25,12 +25,13 @@ namespace ai
         virtual ~Event() {}
 
 	public:
-        std::string getSource() const { return source; }
-        std::string getParam() { return param; }
+        const std::string& getSource() const { return source; }
+        const std::string& getParam() const { return param; }
         WorldPacket& getPacket() { return packet; }
-        ObjectGuid getObject();
-        Player* getOwner() { return owner; }
-        bool operator! () const { return source.empty(); }
+        ObjectGuid getObject() const;
+        Player* getOwner() const { return owner; }
+        bool IsValid() const { return !source.empty(); }
+        //bool operator! () const { return source.empty(); }
 
     protected:
         std::string source;

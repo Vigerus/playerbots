@@ -14,11 +14,10 @@ Event Trigger::Check()
 
 	if (IsActive())
 	{
-		Event event(getName());
-		return event;
+		return Event(getName());
 	}
-	Event event;
-	return event;
+
+	return { };
 }
 
 Value<Unit*>* Trigger::GetTargetValue()

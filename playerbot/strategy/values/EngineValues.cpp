@@ -31,9 +31,8 @@ bool TriggerActiveValue::Calculate()
     if (!trigger)
         return false;
 
-    if (!trigger->Check())
-        return false;
+    Event event = trigger->Check();
 
-    return true;
+    return event.IsValid();
 }
 

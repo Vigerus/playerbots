@@ -238,7 +238,7 @@ bool ReactionEngine::ListenAndExecute(Action* action, Event& event)
         out << std::fixed << std::setprecision(2);
         out << action->getRelevance() << ")";
 
-        if (!event.getSource().empty())
+        if (event.IsValid())
             out << " [" << event.getSource() << "]";
 
         out << " [reaction]";

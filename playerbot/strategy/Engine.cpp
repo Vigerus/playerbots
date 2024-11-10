@@ -153,7 +153,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
             Action* action = InitializeAction(actionNode);
 
             std::string actionName = (action ? action->getName() : "unknown");
-            if (!event.getSource().empty())
+            if (event.IsValid())
                 actionName += " <" + event.getSource() + ">";
             
             auto pmo1 = sPerformanceMonitor.start(PERF_MON_ACTION, actionName, &aiObjectContext->performanceStack);
@@ -173,7 +173,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                     out << std::fixed << std::setprecision(3);
                     out << relevance << ")";
 
-                    if (!event.getSource().empty())
+                    if (event.IsValid())
                         out << " [" << event.getSource() << "]";
 
                     ai->TellPlayerNoFacing(ai->GetMaster(), out);
@@ -259,7 +259,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                             out << std::fixed << std::setprecision(3);
                             out << action->getRelevance() << ")";
 
-                            if (!event.getSource().empty())
+                            if (event.IsValid())
                                 out << " [" << event.getSource() << "]";
 
                             ai->TellPlayerNoFacing(ai->GetMaster(), out);
@@ -280,7 +280,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                         out << std::fixed << std::setprecision(3);
                         out << action->getRelevance() << ")";
 
-                        if (!event.getSource().empty())
+                        if (event.IsValid())
                             out << " [" << event.getSource() << "]";
 
                         ai->TellPlayerNoFacing(ai->GetMaster(), out);
@@ -567,55 +567,58 @@ void Engine::ProcessTriggers(bool minimal)
     std::map<Trigger*, Event> fires;
     for (std::list<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
-        TriggerNode* node = *i;
-        if (!node)
-            continue;
+        Trigger* trigger = (*i)->getTrigger();
 
-        Trigger* trigger = node->getTrigger();
         if (!trigger)
         {
-            trigger = aiObjectContext->GetTrigger(node->getName());
-            node->setTrigger(trigger);
+            trigger = aiObjectContext->GetTrigger((*i)->getName());
+            (*i)->setTrigger(trigger);
         }
+
         if (!trigger)
             continue;
 
-        Event& event = fires[trigger];
-        if (!event && (testMode || trigger->needCheck()))
+        auto it = fires.find(trigger);
+        if (it == fires.end() && (testMode || trigger->needCheck()))
         {
-            if (minimal && node->getFirstRelevance() < 100)
+            if (minimal && (*i)->getFirstRelevance() < 100)
                 continue;
             auto pmo = sPerformanceMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
-            event = trigger->Check();
+            Event event = trigger->Check();
 
 #ifdef PLAYERBOT_ELUNA
             // used by eluna    
-            sEluna->OnTriggerCheck(ai, trigger->getName(), !event ? false : true);
+            sEluna->OnTriggerCheck(ai, trigger->getName(), event.IsValid());
 #endif
 
-            if (!event)
+            if (!event.IsValid())
                 continue;
 
-            fires[trigger] = event;
+            fires.insert(std::make_pair(trigger, event));
             LogAction("T:%s", trigger->getName().c_str());
         }
     }
 
     for (std::list<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
-        TriggerNode* node = *i;
-        Trigger* trigger = node->getTrigger();
-        Event& event = fires[trigger];
-        if (!event)
-            continue;
+        if (Trigger* trigger = (*i)->getTrigger())
+        {
+            auto it = fires.find(trigger);
 
-        MultiplyAndPush(node->getHandlers(), 0.0f, false, event, "trigger");
+            if (it == fires.end())
+                continue;
+
+            MultiplyAndPush((*i)->getHandlers(), 0.0f, false, it->second, "trigger");
+        }
     }
 
     for (std::list<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
-        Trigger* trigger = (*i)->getTrigger();
-        if (trigger) trigger->Reset();
+        if (Trigger* trigger = (*i)->getTrigger())
+        {
+            trigger->Reset();
+        }
+        
     }
 }
 
@@ -717,7 +720,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
         out << std::fixed << std::setprecision(2);
         out << action->getRelevance() << ")";
 
-        if(!event.getSource().empty())
+        if(event.IsValid())
             out << " [" << event.getSource() << "]";
 
         if (actionExecuted)

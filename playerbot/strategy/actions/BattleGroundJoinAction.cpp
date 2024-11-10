@@ -1052,7 +1052,7 @@ bool BGLeaveAction::Execute(Event& event)
 #endif
 
     uint32 queueType = AI_VALUE(uint32, "bg type");
-    if (!queueType && event.getSource().empty())
+    if (!queueType && !event.IsValid())
         return false;
 
     sLog.outDetail("Bot #%d %s:%d <%s> leaves %s queue", bot->GetGUIDLow(), bot->GetTeam() == ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName(), isArena ? "Arena" : "BG");
@@ -1065,7 +1065,7 @@ bool BGLeaveAction::Execute(Event& event)
     packet << type << unk2 << (uint32)_bgTypeId << unk << uint8(0);
 #endif
 
-    if (!event.getSource().empty())
+    if (event.IsValid())
     {
         bot->GetSession()->HandleLeaveBattlefieldOpcode(packet);
     }
