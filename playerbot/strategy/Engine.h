@@ -124,6 +124,8 @@ namespace ai
         BotState state;
         Action* lastExecutedAction;
 
+        std::map<Trigger*, Event> fires;
+
     public:
 		bool testMode;
         bool initMode = true;

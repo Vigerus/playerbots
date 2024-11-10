@@ -38,7 +38,7 @@ ReactionEngine::ReactionEngine(PlayerbotAI* ai, AiObjectContext* factory, BotSta
 bool ReactionEngine::FindReaction(bool isStunned)
 {
     // Don't find a new reaction if the previous reaction is still running
-    if(!IsReacting())
+    if (!IsReacting())
     {
         aiObjectContext->Update();
 
@@ -60,7 +60,7 @@ bool ReactionEngine::FindReaction(bool isStunned)
             {
                 const bool skipReactionPrerequisites = reactionItem->isSkipPrerequisites();
                 float reactionRelevance = reactionItem->getRelevance();
-                const Event& reactionEvent = reactionItem->getEvent();
+                const Event reactionEvent = reactionItem->getEvent();
 
                 // Extract the reaction from the queue (removed)
                 ActionNode* reactionNode = queue.Pop(reactionItem);

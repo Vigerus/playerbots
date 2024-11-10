@@ -57,8 +57,8 @@ namespace ai
     };
 
     class Action : public AiNamedObject
-	{
-	public:
+    {
+    public:
         Action(PlayerbotAI* ai, std::string name = "action", uint32 duration = sPlayerbotAIConfig.reactDelay) : AiNamedObject(ai, name), verbose(false), duration(duration) {}
         virtual ~Action(void) {}
 
@@ -107,7 +107,7 @@ namespace ai
 
     private:
         uint32 duration;
-	};
+    };
 
     //---------------------------------------------------------------------------------------------------------------------
 
@@ -150,27 +150,34 @@ namespace ai
 
     //---------------------------------------------------------------------------------------------------------------------
 
-	class ActionBasket
-	{
-	public:
+    class ActionBasket
+    {
+    public:
         ActionBasket(ActionNode* action, float relevance, bool skipPrerequisites, const Event& event) :
-          action(action), relevance(relevance), skipPrerequisites(skipPrerequisites), event(event) {
+          action(action),
+          relevance(relevance),
+          skipPrerequisites(skipPrerequisites),
+          event(event)
+        {
             created = time(0);
         }
-        virtual ~ActionBasket(void) {}
-	public:
-		float getRelevance() {return relevance;}
-		ActionNode* getAction() {return action;}
+
+        virtual ~ActionBasket() {}
+
+    public:
+        float getRelevance() const { return relevance; }
+        ActionNode* getAction() const { return action; }
         const Event& getEvent() const { return event; }
-        bool isSkipPrerequisites() { return skipPrerequisites; }
+        bool isSkipPrerequisites() const { return skipPrerequisites; }
         void AmendRelevance(float k) {relevance *= k; }
         void setRelevance(float relevance) { this->relevance = relevance; }
-        bool isExpired(time_t secs) { return time(0) - created >= secs; }
-	private:
-		ActionNode* action;
-		float relevance;
+        bool isExpired(time_t secs) const { return time(0) - created >= secs; }
+
+    private:
+        ActionNode* action = nullptr;
+        float relevance;
         bool skipPrerequisites;
         Event event;
         time_t created;
-	};
+    };
 }

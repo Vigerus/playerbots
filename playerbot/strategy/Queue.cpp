@@ -9,41 +9,32 @@ using namespace ai;
 
 void Queue::Push(ActionBasket *action)
 {
-	if (action)
+    if (action && action->getAction())
     {
-        for (std::list<ActionBasket*>::iterator iter = actions.begin(); iter != actions.end(); iter++)
+        const std::string& search_name = action->getAction()->getName();
+        auto it = find_if(actions.begin(), actions.end(), [search_name](ActionBasket* el){ return el->getAction()->getName() == search_name;});
+
+        if (it != actions.end())
         {
-            ActionBasket* basket = *iter;
-            if (action->getAction()->getName() == basket->getAction()->getName())
-            {
-				if (basket->getRelevance() < action->getRelevance())
-					basket->setRelevance(action->getRelevance());
-				ActionNode *actionNode = action->getAction();
-				if (actionNode)
-				    delete actionNode;
-                delete action;
-                return;
-            }
+            ActionBasket* basket = *it;
+            if (basket->getRelevance() < action->getRelevance())
+                basket->setRelevance(action->getRelevance());
+            ActionNode* actionNode = action->getAction();
+            if (actionNode)
+                delete actionNode;
+            delete action;
+            return;
         }
-		actions.push_back(action);
+
+        actions.push_back(action);
     }
 }
 
-ActionNode* Queue::Pop(ActionBasket* action)
+ActionNode* Queue::Pop(ActionBasket* selection)
 {
-    ActionBasket* selection = action;
     if (selection == nullptr)
     {
-        float max = -400;
-        for (std::list<ActionBasket*>::iterator iter = actions.begin(); iter != actions.end(); iter++)
-        {
-            ActionBasket* basket = *iter;
-            if (basket->getRelevance() > max)
-            {
-                max = basket->getRelevance();
-                selection = basket;
-            }
-        }
+        selection = Peek();
     }
 
     if (selection != nullptr)
@@ -59,14 +50,16 @@ ActionNode* Queue::Pop(ActionBasket* action)
 
 ActionBasket* Queue::Peek()
 {
-    float max = -400;
-    ActionBasket* selection = NULL;
-    for (std::list<ActionBasket*>::iterator iter = actions.begin(); iter != actions.end(); iter++)
+    float max_relevance = -400;
+    ActionBasket* selection = nullptr;
+
+    for (ActionBasket* basket : actions)
     {
-        ActionBasket* basket = *iter;
-        if (basket->getRelevance() > max)
+        const float relevance = basket->getRelevance();
+
+        if (relevance > max_relevance)
         {
-            max = basket->getRelevance();
+            max_relevance = basket->getRelevance();
             selection = basket;
         }
     }
@@ -75,25 +68,24 @@ ActionBasket* Queue::Peek()
 
 int Queue::Size()
 {
-	return actions.size();
+    return actions.size();
 }
 
 void Queue::RemoveExpired()
 {
     std::list<ActionBasket*> expired;
-    for (std::list<ActionBasket*>::iterator iter = actions.begin(); iter != actions.end(); iter++)
+    for (ActionBasket* basket : actions)
     {
-        ActionBasket* basket = *iter;
         if (sPlayerbotAIConfig.expireActionTime && basket->isExpired(sPlayerbotAIConfig.expireActionTime / 1000))
+        {
             expired.push_back(basket);
+        }
     }
 
-    for (std::list<ActionBasket*>::iterator iter = expired.begin(); iter != expired.end(); iter++)
+    for (ActionBasket* basket : expired)
     {
-        ActionBasket* basket = *iter;
         actions.remove(basket);
-        ActionNode* action = basket->getAction();
-        if (action)
+        if (ActionNode* action = basket->getAction())
         {
             sLog.outDebug("Action %s is expired", action->getName().c_str());
             delete action;

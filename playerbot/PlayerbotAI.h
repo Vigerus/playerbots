@@ -637,9 +637,9 @@ protected:
 	Player* master;
 	uint32 accountId;
     AiObjectContext* aiObjectContext;
-    Engine* currentEngine;
-    ReactionEngine* reactionEngine;
-    Engine* engines[(uint8)BotState::BOT_STATE_ALL];
+    Engine* currentEngine = nullptr;
+    ReactionEngine* reactionEngine = nullptr;
+    std::unique_ptr<Engine> engines[(uint8)BotState::BOT_STATE_ALL];
     BotState currentState;
     ChatHelper chatHelper;
     std::queue<ChatCommandHolder> chatCommands;

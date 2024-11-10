@@ -146,7 +146,7 @@ PlayerbotAI::PlayerbotAI(Player* bot) :
     engines[(uint8)BotState::BOT_STATE_COMBAT] = AiFactory::createCombatEngine(bot, this, aiObjectContext);
     engines[(uint8)BotState::BOT_STATE_NON_COMBAT] = AiFactory::createNonCombatEngine(bot, this, aiObjectContext);
     engines[(uint8)BotState::BOT_STATE_DEAD] = AiFactory::createDeadEngine(bot, this, aiObjectContext);
-    engines[(uint8)BotState::BOT_STATE_REACTION] = reactionEngine = AiFactory::createReactionEngine(bot, this, aiObjectContext);
+    engines[(uint8)BotState::BOT_STATE_REACTION] = AiFactory::createReactionEngine(bot, this, aiObjectContext);
 
     for (uint8 e = 0; e < (uint8)BotState::BOT_STATE_ALL; e++)
     {
@@ -154,7 +154,8 @@ PlayerbotAI::PlayerbotAI(Player* bot) :
         engines[e]->Init();
     }
 
-    currentEngine = engines[(uint8)BotState::BOT_STATE_NON_COMBAT];
+    currentEngine = engines[(uint8)BotState::BOT_STATE_NON_COMBAT].get();
+    reactionEngine = dynamic_cast<ReactionEngine*>(engines[(uint8)BotState::BOT_STATE_REACTION].get());
     currentState = BotState::BOT_STATE_NON_COMBAT;
 
     masterIncomingPacketHandlers.AddHandler(CMSG_GAMEOBJ_USE, "use game object");
@@ -231,11 +232,11 @@ PlayerbotAI::PlayerbotAI(Player* bot) :
 
 PlayerbotAI::~PlayerbotAI()
 {
-    for (uint8 i = 0 ; i < (uint8)BotState::BOT_STATE_ALL; i++)
-    {
-        if (engines[i])
-            delete engines[i];
-    }
+//     for (uint8 i = 0 ; i < (uint8)BotState::BOT_STATE_ALL; i++)
+//     {
+//         if (engines[i])
+//             delete engines[i];
+//     }
 
     if (aiObjectContext)
         delete aiObjectContext;
@@ -627,8 +628,7 @@ void PlayerbotAI::SetActionDuration(uint32 duration)
 
 const Action* PlayerbotAI::GetLastExecutedAction(BotState state) const
 {
-    const Engine* engine = engines[(uint8)state];
-    if(engine)
+    if (const Engine* engine = engines[(uint8)state].get())
     {
         return engine->GetLastExecutedAction();
     }
@@ -848,7 +848,7 @@ void PlayerbotAI::Unmount()
 
 bool PlayerbotAI::IsStateActive(BotState state) const
 {
-    return currentEngine == engines[(uint8)state];
+    return currentEngine == engines[(uint8)state].get();
 }
 
 time_t PlayerbotAI::GetCombatStartTime() const
@@ -1154,8 +1154,8 @@ void PlayerbotAI::Reset(bool full)
     if (bot->IsTaxiFlying())
         return;
 
-    currentEngine = engines[(uint8)BotState::BOT_STATE_NON_COMBAT];
     currentState = BotState::BOT_STATE_NON_COMBAT;
+    currentEngine = engines[(uint8)currentState].get();
     ResetAIInternalUpdateDelay();
     reactionEngine->Reset();
     whispers.clear();
@@ -1809,29 +1809,30 @@ void PlayerbotAI::HandleMasterOutgoingPacket(const WorldPacket& packet)
 
 void PlayerbotAI::ChangeEngine(BotState type)
 {
-    Engine* engine = engines[(uint8)type];
-
-    if (currentEngine != engine)
+    if (Engine* engine = engines[(uint8)type].get())
     {
-        currentEngine = engine;
-        currentState = type;
-        ReInitCurrentEngine();
-
-        switch (type)
+        if (currentEngine != engine)
         {
-        case BotState::BOT_STATE_COMBAT:
-            sLog.outDebug( "=== %s COMBAT ===", bot->GetName());
-            break;
-        case BotState::BOT_STATE_NON_COMBAT:
-            sLog.outDebug( "=== %s NON-COMBAT ===", bot->GetName());
-            break;
-        case BotState::BOT_STATE_DEAD:
-            sLog.outDebug( "=== %s DEAD ===", bot->GetName());
-            break;
-        case BotState::BOT_STATE_REACTION:
-            sLog.outDebug("=== %s REACTION ===", bot->GetName());
-            break;
-        default: break;
+            currentEngine = engine;
+            currentState = type;
+            ReInitCurrentEngine();
+
+            switch (type)
+            {
+            case BotState::BOT_STATE_COMBAT:
+                sLog.outDebug("=== %s COMBAT ===", bot->GetName());
+                break;
+            case BotState::BOT_STATE_NON_COMBAT:
+                sLog.outDebug("=== %s NON-COMBAT ===", bot->GetName());
+                break;
+            case BotState::BOT_STATE_DEAD:
+                sLog.outDebug("=== %s DEAD ===", bot->GetName());
+                break;
+            case BotState::BOT_STATE_REACTION:
+                sLog.outDebug("=== %s REACTION ===", bot->GetName());
+                break;
+            default: break;
+            }
         }
     }
 }
@@ -1845,7 +1846,7 @@ void PlayerbotAI::DoNextAction(bool min)
     }
 
     // if in combat but stuck with old data - clear targets
-    if (currentEngine == engines[(uint8)BotState::BOT_STATE_NON_COMBAT] && sServerFacade.IsInCombat(bot))
+    if (currentEngine == engines[(uint8)BotState::BOT_STATE_NON_COMBAT].get() && sServerFacade.IsInCombat(bot))
     {
         if (aiObjectContext->GetValue<Unit*>("current target")->Get() != NULL ||
             aiObjectContext->GetValue<ObjectGuid>("attack target")->Get() != ObjectGuid() ||
@@ -2044,12 +2045,11 @@ void PlayerbotAI::ReInitCurrentEngine()
 
 void PlayerbotAI::ChangeStrategy(const std::string& names, BotState type)
 {
-    if(type == BotState::BOT_STATE_ALL)
+    if (type == BotState::BOT_STATE_ALL)
     {
         for (uint8 i = 0; i < (uint8)BotState::BOT_STATE_ALL; i++)
         {
-            Engine* engine = engines[i];
-            if (engine)
+            if (Engine* engine = engines[i].get())
             {
                 engine->ChangeStrategy(names);
             }
@@ -2057,8 +2057,7 @@ void PlayerbotAI::ChangeStrategy(const std::string& names, BotState type)
     }
     else
     {
-        Engine* engine = engines[(uint8)type];
-        if (engine)
+        if (Engine* engine = engines[(uint8)type].get())
         {
             engine->ChangeStrategy(names);
         }
@@ -2071,8 +2070,7 @@ void PlayerbotAI::PrintStrategies(Player* requester, BotState type)
     {
         for (uint8 i = 0; i < (uint8)BotState::BOT_STATE_ALL; i++)
         {
-            Engine* engine = engines[i];
-            if (engine)
+            if (Engine* engine = engines[i].get())
             {
                 engine->PrintStrategies(requester, BotStateToString(BotState(i)));
             }
@@ -2080,8 +2078,7 @@ void PlayerbotAI::PrintStrategies(Player* requester, BotState type)
     }
     else
     {
-        Engine* engine = engines[(uint8)type];
-        if (engine)
+        if (Engine* engine = engines[(uint8)type].get())
         {
             engine->PrintStrategies(requester, BotStateToString(type));
         }
@@ -2094,8 +2091,7 @@ void PlayerbotAI::ClearStrategies(BotState type)
     {
         for (uint8 i = 0; i < (uint8)BotState::BOT_STATE_ALL; i++)
         {
-            Engine* engine = engines[i];
-            if (engine)
+            if (Engine* engine = engines[i].get())
             {
                 engine->removeAllStrategies();
             }
@@ -2103,8 +2099,7 @@ void PlayerbotAI::ClearStrategies(BotState type)
     }
     else
     {
-        Engine* engine = engines[(uint8)type];
-        if (engine)
+        if (Engine* engine = engines[(uint8)type].get())
         {
             engine->removeAllStrategies();
         }
@@ -2116,8 +2111,7 @@ std::list<std::string_view> PlayerbotAI::GetStrategies(BotState type)
     // Can't get all strategies for all engines
     if (type != BotState::BOT_STATE_ALL)
     {
-        Engine* engine = engines[(uint8)type];
-        if (engine)
+        if (Engine* engine = engines[(uint8)type].get())
         {
             return engine->GetStrategies();
         }
@@ -2130,10 +2124,9 @@ bool PlayerbotAI::CanDoSpecificAction(const std::string& name, bool isUseful, bo
 {
     for (uint8 i = 0; i < (uint8)BotState::BOT_STATE_ALL; i++)
     {
-        Engine* engine = engines[i];
-        if(engine)
+        if (Engine* engine = engines[i].get())
         {
-            if(engine->CanExecuteAction(name, isUseful, isPossible))
+            if (engine->CanExecuteAction(name, isUseful, isPossible))
             {
                 return true;
             }
@@ -2148,8 +2141,7 @@ bool PlayerbotAI::DoSpecificAction(const std::string& name, Event event, bool si
     Player* requester = event.getOwner();
     for (uint8 i = 0 ; i < (uint8)BotState::BOT_STATE_ALL; i++)
     {
-        Engine* engine = engines[i];
-        if(engine)
+        if (Engine* engine = engines[i].get())
         {
             ActionResult res = engine->ExecuteAction(name, event);
             switch (res)
@@ -2290,9 +2282,9 @@ void PlayerbotAI::ResetStrategies(bool autoLoad)
         engines[i]->removeAllStrategies();
     }
 
-    AiFactory::AddDefaultCombatStrategies(bot, this, engines[(uint8)BotState::BOT_STATE_COMBAT]);
-    AiFactory::AddDefaultNonCombatStrategies(bot, this, engines[(uint8)BotState::BOT_STATE_NON_COMBAT]);
-    AiFactory::AddDefaultDeadStrategies(bot, this, engines[(uint8)BotState::BOT_STATE_DEAD]);
+    AiFactory::AddDefaultCombatStrategies(bot, this, engines[(uint8)BotState::BOT_STATE_COMBAT].get());
+    AiFactory::AddDefaultNonCombatStrategies(bot, this, engines[(uint8)BotState::BOT_STATE_NON_COMBAT].get());
+    AiFactory::AddDefaultDeadStrategies(bot, this, engines[(uint8)BotState::BOT_STATE_DEAD].get());
     AiFactory::AddDefaultReactionStrategies(bot, this, reactionEngine);
     if (autoLoad && HasPlayerRelation()) sPlayerbotDbStore.Load(this);
 
