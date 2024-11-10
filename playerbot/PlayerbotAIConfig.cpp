@@ -89,8 +89,8 @@ bool PlayerbotAIConfig::Initialize()
 
     BarGoLink::SetOutputState(config.GetBoolDefault("AiPlayerbot.ShowProgressBars", false));
     globalCoolDown = (uint32) config.GetIntDefault("AiPlayerbot.GlobalCooldown", 500);
-    maxWaitForMove = config.GetIntDefault("AiPlayerbot.MaxWaitForMove", 3000);
-    expireActionTime = config.GetIntDefault("AiPlayerbot.ExpireActionTime", 5000);
+    maxWaitForMove = config.GetIntDefault("AiPlayerbot.MaxWaitForMove", 10000);
+    expireActionTime = config.GetIntDefault("AiPlayerbot.ExpireActionTime", 15000);
     dispelAuraDuration = config.GetIntDefault("AiPlayerbot.DispelAuraDuration", 2000);
     reactDelay = (uint32) config.GetIntDefault("AiPlayerbot.ReactDelay", 100);
     passiveDelay = (uint32) config.GetIntDefault("AiPlayerbot.PassiveDelay", 4000);
