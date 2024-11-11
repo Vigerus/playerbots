@@ -660,7 +660,7 @@ namespace ai
 		HasAuraTrigger(PlayerbotAI* ai, std::string spell = "", int interval = 1, int auraTypeId = TOTAL_AURAS) : Trigger(ai, spell, interval), Qualified(), auraTypeId(auraTypeId) {}
 		virtual std::string GetTargetName() override { return "self target"; }
 		virtual bool IsActive() override;
-      virtual std::string getName() override;
+        virtual std::string getName() override;
 
     protected:
         int auraTypeId;

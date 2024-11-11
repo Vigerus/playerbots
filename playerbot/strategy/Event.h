@@ -18,10 +18,10 @@ namespace ai
             owner = other.owner;
         }
         Event() {}
-        Event(std::string source) : source(source) {}
-        Event(std::string source, std::string param, Player* owner = NULL) : source(source), param(param), owner(owner) {}
-        Event(std::string source, WorldPacket &packet, Player* owner = NULL) : source(source), packet(packet), owner(owner) {}
-        Event(std::string source, ObjectGuid object, Player* owner = NULL) : source(source), owner(owner) { packet << object; }
+        Event(const std::string& source) : source(source) {}
+        Event(const std::string& source, const std::string& param, Player* owner = NULL) : source(source), param(param), owner(owner) {}
+        Event(const std::string& source, const WorldPacket& packet, Player* owner = NULL) : source(source), packet(packet), owner(owner) {}
+        Event(const std::string& source, ObjectGuid object, Player* owner = NULL) : source(source), owner(owner) { packet << object; }
         virtual ~Event() {}
 
 	public:
@@ -31,7 +31,6 @@ namespace ai
         ObjectGuid getObject() const;
         Player* getOwner() const { return owner; }
         bool IsValid() const { return !source.empty(); }
-        //bool operator! () const { return source.empty(); }
 
     protected:
         std::string source;

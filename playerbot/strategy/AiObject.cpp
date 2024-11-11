@@ -11,7 +11,7 @@ AiObject::AiObject(PlayerbotAI* ai) :
 {
 }
 
-Player* AiObject::GetMaster()
+Player* AiObject::GetMaster() const
 {
-    return ai->GetMaster();
+    return ai ? ai->GetMaster() : nullptr;
 }

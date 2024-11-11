@@ -16,11 +16,11 @@ namespace ai
     class Trigger : public AiNamedObject
 	{
 	public:
-        Trigger(PlayerbotAI* ai, std::string name = "trigger", int checkInterval = 1) : AiNamedObject(ai, name) {
-            this->triggered = false;
-			this->checkInterval = checkInterval;
-            this->lastCheckTime = time(0) - rand() % checkInterval;
-		}
+        Trigger(PlayerbotAI* ai, std::string name = "trigger", int checkInterval = 1) : AiNamedObject(ai, name)
+            ,checkInterval(checkInterval)
+            ,lastCheckTime(time(0) - rand() % checkInterval)
+        {
+        }
         virtual ~Trigger() {}
 
 	public:
@@ -63,8 +63,8 @@ namespace ai
 		int checkInterval;
 		time_t lastCheckTime;
         std::string param;
-        bool triggered;
-        Player* owner;
+        bool triggered = false;
+        Player* owner = nullptr;
 	};
 
 

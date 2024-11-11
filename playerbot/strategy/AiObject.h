@@ -15,10 +15,10 @@ namespace ai
         AiObject(PlayerbotAI* ai);
 
     protected:
-        Player* bot;
-        Player* GetMaster();
-        AiObjectContext* context;
-        ChatHelper* chat;
+        Player* bot = nullptr;
+        Player* GetMaster() const;
+        AiObjectContext* context = nullptr;
+        ChatHelper* chat = nullptr;
 	};
 
     class AiNamedObject : public AiObject
@@ -27,7 +27,7 @@ namespace ai
         AiNamedObject(PlayerbotAI* ai, std::string name) : AiObject(ai), name(name) {}
 
     public:
-        virtual std::string getName() { return name; }
+        virtual std::string getName() override { return name; }
 
     protected:
         std::string name;

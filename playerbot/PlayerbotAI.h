@@ -633,14 +633,16 @@ private:
     void UpdateFaceTarget(uint32 elapsed, bool minimal);
 
 protected:
-	Player* bot;
-	Player* master;
-	uint32 accountId;
-    AiObjectContext* aiObjectContext;
-    Engine* currentEngine = nullptr;
-    ReactionEngine* reactionEngine = nullptr;
+	Player* bot = nullptr;
+	Player* master = nullptr;
+	uint32 accountId = 0;
+    AiObjectContext* aiObjectContext = nullptr;
+    //Engine* currentEngine = nullptr;
+    Engine& GetCurrentEngine() { return *engines[(uint8)currentState].get(); };
+    //ReactionEngine* reactionEngine = nullptr;
+    ReactionEngine& GetReactionEngine() { return *(ReactionEngine*)(engines[(uint8)BotState::BOT_STATE_REACTION].get());};
     std::unique_ptr<Engine> engines[(uint8)BotState::BOT_STATE_ALL];
-    BotState currentState;
+    BotState currentState = BotState::BOT_STATE_NON_COMBAT;
     ChatHelper chatHelper;
     std::queue<ChatCommandHolder> chatCommands;
     std::queue<ChatQueuedReply> chatReplies;
@@ -659,9 +661,9 @@ protected:
     bool isWaiting = false;
     BotCheatMask cheatMask = BotCheatMask::none;
     WorldPosition jumpDestination;
-    uint32 jumpTime;
-    bool fallAfterJump;
-    uint32 faceTargetUpdateDelay;
+    uint32 jumpTime = 0;
+    bool fallAfterJump = false;
+    uint32 faceTargetUpdateDelay = 0;
     bool isPlayerFriend = false;
     bool isMovingToTransport = false;
     bool shouldLogOut = false;
