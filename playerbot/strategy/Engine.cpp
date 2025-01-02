@@ -230,7 +230,8 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
 
 #ifdef PLAYERBOT_ELUNA
                         // used by eluna    
-                        sEluna->OnActionExecute(ai, action->getName(), actionExecuted);
+                        if (Eluna* e = ai->GetBot()->GetEluna())
+                            e->OnActionExecute(ai, action->getName(), actionExecuted);
 #endif
 
                         if (actionExecuted)
@@ -423,7 +424,7 @@ ActionResult Engine::ExecuteAction(const std::string& name, Event& event)
 
                 if (isPossible)
                 {
-                    action->MakeVerbose(true);
+                    action->MakeVerbose(event.getOwner() != nullptr);
                     auto pmo4 = sPerformanceMonitor.start(PERF_MON_ACTION, "Execute", &aiObjectContext->performanceStack);
                     bool executionResult = ListenAndExecute(action, event);
                     pmo4.reset();
@@ -588,7 +589,8 @@ void Engine::ProcessTriggers(bool minimal)
 
 #ifdef PLAYERBOT_ELUNA
             // used by eluna    
-            sEluna->OnTriggerCheck(ai, trigger->getName(), event.IsValid());
+            if (Eluna* e = ai->GetBot()->GetEluna())
+                e->OnTriggerCheck(ai, trigger->getName(), event.IsValid());
 #endif
 
             if (!event.IsValid())

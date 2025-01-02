@@ -12,6 +12,7 @@
 #include "RandomPlayerbotFactory.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/AiFactory.h"
+#include "Guilds/GuildMgr.h"
 
 #ifndef MANGOSBOT_ZERO
     #ifdef CMANGOS
@@ -55,20 +56,20 @@ TaxiNodeLevelContainer PlayerbotFactory::overworldTaxiNodeLevelsH;
 
 void PlayerbotFactory::Init()
 {
-	if (sPlayerbotAIConfig.randomBotPreQuests) {
-		ObjectMgr::QuestMap const& questTemplates = sObjectMgr.GetQuestTemplates();
-		for (ObjectMgr::QuestMap::const_iterator i = questTemplates.begin(); i != questTemplates.end(); ++i)
-		{
-			uint32 questId = i->first;
-			Quest const *quest = i->second;
+    if (sPlayerbotAIConfig.randomBotPreQuests) {
+        ObjectMgr::QuestMap const& questTemplates = sObjectMgr.GetQuestTemplates();
+        for (ObjectMgr::QuestMap::const_iterator i = questTemplates.begin(); i != questTemplates.end(); ++i)
+        {
+            uint32 questId = i->first;
+            Quest const* quest = i->second.get();
 
-			if (!quest->GetRequiredClasses() || quest->IsRepeatable() || quest->GetMinLevel() < 10)
-				continue;
+            if (!quest->GetRequiredClasses() || quest->IsRepeatable() || quest->GetMinLevel() < 10)
+                continue;
 
-			AddPrevQuests(questId, classQuestIds);
-			classQuestIds.remove(questId);
-			classQuestIds.push_back(questId);
-		}
+            AddPrevQuests(questId, classQuestIds);
+            classQuestIds.remove(questId);
+            classQuestIds.push_back(questId);
+        }
         for (std::list<uint32>::iterator i = sPlayerbotAIConfig.randomBotQuestIds.begin(); i != sPlayerbotAIConfig.randomBotQuestIds.end(); ++i)
         {
             uint32 questId = *i;
@@ -76,7 +77,7 @@ void PlayerbotFactory::Init()
             specialQuestIds.remove(questId);
             specialQuestIds.push_back(questId);
         }
-	}
+    }
 
     for (uint32 i = 1; i < sTaxiNodesStore.GetNumRows(); ++i)
     {
@@ -613,6 +614,9 @@ void PlayerbotFactory::InitPet()
             pet->UpdateAllStats();
             bot->SetPet(pet);
             bot->SetPetGuid(pet->GetObjectGuid());
+#ifdef MANGOSBOT_TWO
+            pet->SetUInt32Value(UNIT_CREATED_BY_SPELL, 13481);
+#endif
 
             sLog.outDebug(  "Bot %s: assign pet %d (%d level)", bot->GetName(), co->Entry, bot->GetLevel());
             pet->SavePetToDB(PET_SAVE_AS_CURRENT, bot);
@@ -905,8 +909,7 @@ void PlayerbotFactory::ResetQuests()
     ObjectMgr::QuestMap const& questTemplates = sObjectMgr.GetQuestTemplates();
     for (ObjectMgr::QuestMap::const_iterator i = questTemplates.begin(); i != questTemplates.end(); ++i)
     {
-        Quest const* quest = i->second;
-
+        Quest const* quest = i->second.get();
         uint32 entry = quest->GetQuestId();
 
         // remove all quest entries for 'entry' from quest log
@@ -1713,7 +1716,7 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool syncWithMaster, bool
             if (slot == EQUIPMENT_SLOT_BODY || slot == EQUIPMENT_SLOT_TABARD)
             {
                 std::vector<uint32> ids = sRandomItemMgr.Query(60, 1, 1, slot, 1);
-                sLog.outDetail("Bot #%d %s:%d <%s>: %u possible items for slot %d", bot->GetGUIDLow(), bot->GetTeam() == ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName(), ids.size(), slot);
+                sLog.outDetail("Bot #%d %s:%d <%s>: %u possible items for slot %d", bot->GetGUIDLow(), bot->GetTeam() == ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName(), uint32(ids.size()), slot);
 
                 if (!ids.empty()) Shuffle(ids);
 
@@ -1825,7 +1828,7 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool syncWithMaster, bool
                     }
                 }
 
-                sLog.outDetail("Bot #%d %s:%d <%s>: %u possible items for slot %d", bot->GetGUIDLow(), bot->GetTeam() == ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName(), ids.size(), slot);
+                sLog.outDetail("Bot #%d %s:%d <%s>: %u possible items for slot %d", bot->GetGUIDLow(), bot->GetTeam() == ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName(), uint32(ids.size()), slot);
 
                 if (incremental || !progressiveGear)
                 {
@@ -3354,7 +3357,7 @@ void PlayerbotFactory::InitReagents()
         ItemPrototype const* proto = sObjectMgr.GetItemPrototype(*i);
         if (!proto)
         {
-            sLog.outError("No reagent (ItemId %d) found for bot %d (Class:%d)", i, bot->GetGUIDLow(), bot->getClass());
+            sLog.outError("No reagent (ItemId %d) found for bot %d (Class:%d)", *i, bot->GetGUIDLow(), bot->getClass());
             continue;
         }
 

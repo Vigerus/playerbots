@@ -16,9 +16,10 @@ public:
         creators["charge"] = &charge;
         creators["mocking blow"] = &mocking_blow;
         creators["overpower"] = &overpower;
-        creators["mortal strike"] = &mortal_strike;
+        creators["sweeping strikes"] = &sweeping strikes;
 
         // berserker only
+        creators["whirlwind"] = &whirlwind;
         creators["berserker rage"] = &berserker_rage;
         creators["recklessness"] = &recklessness;
         creators["pummel"] = &pummel;
@@ -45,6 +46,10 @@ private:
 
     ACTION_NODE_P(overpower, "overpower", "battle stance");
 
+    ACTION_NODE_P(sweeping strikes, "sweeping strikes", "battle stance");
+
+    ACTION_NODE_P(whirlwind, "whirlwind", "berserker stance");
+
     ACTION_NODE_P(berserker_rage, "berserker rage", "berserker stance");
 
     ACTION_NODE_P(recklessness, "recklessness", "berserker stance");
@@ -65,7 +70,6 @@ private:
 
     ACTION_NODE_P(intervene, "intervene", "defensive stance");
 
-    ACTION_NODE_P(mortal_strike, "mortal strike", "battle stance");
     */
 
     ACTION_NODE_P(berserker_rage, "berserker rage", "berserker stance");
@@ -168,7 +172,7 @@ void WarriorAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
     AoeStrategy::InitCombatTriggers(triggers);
 
     triggers.push_back(new TriggerNode(
-        "melee medium aoe",
+        "melee light aoe",
         NextAction::array(0, new NextAction("cleave", ACTION_HIGH + 3), NULL)));
 
     triggers.push_back(new TriggerNode(
@@ -460,10 +464,6 @@ void WarriorAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "melee light aoe",
-        NextAction::array(0, new NextAction("sweeping strikes", ACTION_HIGH + 4), NULL)));
-
-    triggers.push_back(new TriggerNode(
-        "melee medium aoe",
         NextAction::array(0, new NextAction("cleave", ACTION_HIGH + 3), NULL)));
 
     triggers.push_back(new TriggerNode(
@@ -750,7 +750,7 @@ void WarriorAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
     AoeStrategy::InitCombatTriggers(triggers);
 
     triggers.push_back(new TriggerNode(
-        "melee medium aoe",
+        "melee light aoe",
         NextAction::array(0, new NextAction("cleave", ACTION_HIGH + 3), NULL)));
 
     triggers.push_back(new TriggerNode(

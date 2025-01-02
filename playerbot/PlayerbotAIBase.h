@@ -15,7 +15,7 @@ class PerformanceMonitorOperation;
 class PlayerbotAIBase
 {
 public:
-	PlayerbotAIBase();
+    PlayerbotAIBase();
 
 public:
     bool IsActive() const;
