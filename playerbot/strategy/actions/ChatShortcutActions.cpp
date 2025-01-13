@@ -110,6 +110,7 @@ bool StayChatShortcutAction::Execute(Event& event)
 
     PrintStrategies(ai, event);
 
+    ai->StopMoving();
     ai->TellPlayerNoFacing(requester, BOT_TEXT("staying"));
     return true;
 }
