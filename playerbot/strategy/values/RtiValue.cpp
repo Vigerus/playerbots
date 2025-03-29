@@ -32,7 +32,10 @@ bool RtiValue::Load(std::string text)
     while (std::getline(ss, token, ','))
     {
         trim(token);
-        value.push_back(token);
+        if (std::find(rti_list.begin(), rti_list.end(), token) != rti_list.end())
+        {
+            rti_list.push_back(token);
+        }
     }
 
     if (!rti_list.empty())
@@ -71,7 +74,11 @@ bool RtiCcValue::Load(std::string text)
     while (std::getline(ss, token, ','))
     {
         trim(token);
-        value.push_back(token);
+
+        if (std::find(rti_list.begin(), rti_list.end(), token) != rti_list.end())
+        {
+            rti_list.push_back(token);
+        }
     }
 
     if (!rti_list.empty())
