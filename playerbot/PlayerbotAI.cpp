@@ -322,6 +322,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         inCombat = false;
     }
 
+    sLog.outError("PlayerbotAI::UpdateAI mounted: %d id: %d taxi: %d", bot->IsMounted(), bot->GetMountID(), bot->IsTaxiFlying());
+
     // force stop if moving but should not
 #ifndef MANGOSBOT_TWO
     if (!bot->IsStopped() && !IsJumping() && !CanMove() && !bot->IsTaxiFlying() && !bot->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_FLEEING) && !bot->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_CONFUSED))
