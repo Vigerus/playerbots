@@ -7,8 +7,6 @@
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/PerformanceMonitor.h"
 
-#include "Log/LogHelper.h"
-
 #ifdef BUILD_ELUNA
 #include "LuaEngine/LuaEngine.h"
 #endif
@@ -153,7 +151,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
             Action* action = InitializeAction(actionNode);
 
             std::string actionName = (action ? action->getName() : "unknown");
-            if (event.IsValid())
+            if (!event.getSource().empty())
                 actionName += " <" + event.getSource() + ">";
             
             auto pmo1 = sPerformanceMonitor.start(PERF_MON_ACTION, actionName, &aiObjectContext->performanceStack);
@@ -173,7 +171,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                     out << std::fixed << std::setprecision(3);
                     out << relevance << ")";
 
-                    if (event.IsValid())
+                    if (!event.getSource().empty())
                         out << " [" << event.getSource() << "]";
 
                     ai->TellPlayerNoFacing(ai->GetMaster(), out);
@@ -182,11 +180,15 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
             }
             else
             {
-                auto pmo2 = sPerformanceMonitor.start(PERF_MON_ACTION, "isUseful", &aiObjectContext->performanceStack);
-                bool isUseful = action->isUseful();
-                pmo2.reset();
+                bool isUseful = false;
+                if (!isStunned || action->isUsefulWhenStunned())
+                {
+                    auto pmo2 = sPerformanceMonitor.start(PERF_MON_ACTION, "isUseful", &aiObjectContext->performanceStack);
+                    isUseful = action->isUseful();
+                    pmo2.reset();
+                }
 
-                if (isUseful && (!isStunned || action->isUsefulWhenStunned()))
+                if (isUseful)
                 {
                     for (std::list<Multiplier*>::iterator i = multipliers.begin(); i != multipliers.end(); i++)
                     {
@@ -260,7 +262,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                             out << std::fixed << std::setprecision(3);
                             out << action->getRelevance() << ")";
 
-                            if (event.IsValid())
+                            if (!event.getSource().empty())
                                 out << " [" << event.getSource() << "]";
 
                             ai->TellPlayerNoFacing(ai->GetMaster(), out);
@@ -281,7 +283,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                         out << std::fixed << std::setprecision(3);
                         out << action->getRelevance() << ")";
 
-                        if (event.IsValid())
+                        if (!event.getSource().empty())
                             out << " [" << event.getSource() << "]";
 
                         ai->TellPlayerNoFacing(ai->GetMaster(), out);
@@ -565,24 +567,26 @@ Strategy* Engine::GetStrategy(const std::string& name) const
 
 void Engine::ProcessTriggers(bool minimal)
 {
-    fires.clear();
+    std::unordered_map<Trigger*, Event> fires;
     for (std::list<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
-        Trigger* trigger = (*i)->getTrigger();
+        TriggerNode* node = *i;
+        if (!node)
+            continue;
 
+        Trigger* trigger = node->getTrigger();
         if (!trigger)
         {
-            trigger = aiObjectContext->GetTrigger((*i)->getName());
-            (*i)->setTrigger(trigger);
+            trigger = aiObjectContext->GetTrigger(node->getName());
+            node->setTrigger(trigger);
         }
-
         if (!trigger)
             continue;
 
         auto it = fires.find(trigger);
         if (it == fires.end() && (testMode || trigger->needCheck()))
         {
-            if (minimal && (*i)->getFirstRelevance() < 100)
+            if (minimal && node->getFirstRelevance() < 100)
                 continue;
             auto pmo = sPerformanceMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
             Event event = trigger->Check();
@@ -590,37 +594,34 @@ void Engine::ProcessTriggers(bool minimal)
 #ifdef PLAYERBOT_ELUNA
             // used by eluna    
             if (Eluna* e = ai->GetBot()->GetEluna())
-                e->OnTriggerCheck(ai, trigger->getName(), event.IsValid());
+                e->OnTriggerCheck(ai, trigger->getName(), !event ? false : true);
 #endif
 
-            if (!event.IsValid())
+            if (!event)
                 continue;
 
-            fires.insert(std::make_pair(trigger, event));
+            fires[trigger] = event;
             LogAction("T:%s", trigger->getName().c_str());
         }
     }
 
     for (std::list<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
-        if (Trigger* trigger = (*i)->getTrigger())
-        {
-            auto it = fires.find(trigger);
+        TriggerNode* node = *i;
+        Trigger* trigger = node->getTrigger();
+        auto it = fires.find(trigger);
+        if (it == fires.end())
+            continue;
 
-            if (it == fires.end())
-                continue;
+        Event& event = it->second;
 
-            MultiplyAndPush((*i)->getHandlers(), 0.0f, false, it->second, "trigger");
-        }
+        MultiplyAndPush(node->getHandlers(), 0.0f, false, event, "trigger");
     }
 
     for (std::list<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
-        if (Trigger* trigger = (*i)->getTrigger())
-        {
-            trigger->Reset();
-        }
-        
+        Trigger* trigger = (*i)->getTrigger();
+        if (trigger) trigger->Reset();
     }
 }
 
@@ -709,7 +710,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
     }
 
     std::string lastActionName = prevExecutedAction ? prevExecutedAction->getName() : "";
-    if (true)
+    if (sPlayerbotAIConfig.CanLogAction(ai, action->getName(), true, lastActionName))
     {
         std::ostringstream out;
         out << "do: ";
@@ -722,7 +723,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
         out << std::fixed << std::setprecision(2);
         out << action->getRelevance() << ")";
 
-        if(event.IsValid())
+        if(!event.getSource().empty())
             out << " [" << event.getSource() << "]";
 
         if (actionExecuted)
@@ -734,18 +735,13 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
             }
         }
 
-        CCLOG_TRACE(ai->GetLogger()) << " Source:[" << ai->GetBot()->GetName() << "] " << out.str().c_str();
-
-        if (sPlayerbotAIConfig.CanLogAction(ai, action->getName(), true, lastActionName))
+        if (ai->GetMaster())
         {
-           if (ai->GetMaster())
-           {
-              ai->TellPlayerNoFacing(ai->GetMaster(), out, PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, true, false);
-           }
-           else
-           {
-              ai->GetBot()->Say(out.str(), (ai->GetBot()->GetTeam() == ALLIANCE ? LANG_COMMON : LANG_ORCISH));
-           }
+            ai->TellPlayerNoFacing(ai->GetMaster(), out, PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, true, false);
+        }
+        else
+        {
+            ai->GetBot()->Say(out.str(), (ai->GetBot()->GetTeam() == ALLIANCE ? LANG_COMMON : LANG_ORCISH));
         }
     }
 
