@@ -78,7 +78,6 @@ namespace instancebot {
       }
 
       std::vector<uint32> retVec;
-      LfgRoles botRoles = sLFGMgr.CalculateTalentRoles(player);
       uint8 classId = player->getClass();
 
       // buffs collection
