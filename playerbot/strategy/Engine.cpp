@@ -597,7 +597,7 @@ void Engine::ProcessTriggers(bool minimal)
                 e->OnTriggerCheck(ai, trigger->getName(), !event ? false : true);
 #endif
 
-            if (!event)
+            if (!event.IsValid())
                 continue;
 
             fires[trigger] = event;
