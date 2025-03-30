@@ -1,13 +1,15 @@
 #include "playerbot/strategy/values/ItemUsageValue.h"
 #include "playerbot/playerbot.h"
-#include "GlyphAction.h"
 #include "playerbot/RandomItemMgr.h"
+
+#ifdef MANGOSBOT_TWO
+
+#include "GlyphAction.h"
 
 using namespace ai;
 
 bool SetGlyphAction::Execute(Event& event)
 {
-#ifdef MANGOSBOT_TWO
     Player* requester = event.getOwner() ? event.getOwner() : GetMaster();
 
     uint8 glyphSlot = MAX_GLYPH_SLOT_INDEX;
@@ -99,7 +101,7 @@ bool SetGlyphAction::Execute(Event& event)
         bot->DestroyItemCount(glyphItem, count, true);
 
     ai->TellPlayerNoFacing(requester, "Applied " + glyphName, PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, false);
-#endif;
+
     return true;
 }
 
@@ -284,3 +286,5 @@ bool SetGlyphAction::WantsGlyphFromStrategy(uint32 glyphId, Player* bot)
 
     return foundTrigger;
 }
+
+#endif
