@@ -78,6 +78,7 @@
 #include "SkillAction.h"
 #include "FactionAction.h"
 #include "SetValueAction.h"
+#include "GlyphAction.h"
 
 namespace ai
 {
@@ -215,6 +216,7 @@ namespace ai
             creators["setmaster"] = [](PlayerbotAI* ai) { return new SetMasterAction(ai); };
             creators["lootcouncil"] = [](PlayerbotAI* ai) { return new LootCouncilAction(ai); };
             creators["set value"] = [](PlayerbotAI* ai) { return new SetValueAction(ai); };
+            creators["glyph"] = [](PlayerbotAI* ai) { return new GlyphAction(ai); };
         }
 
     private:
