@@ -1,15 +1,13 @@
 #include "playerbot/strategy/values/ItemUsageValue.h"
 #include "playerbot/playerbot.h"
-#include "playerbot/RandomItemMgr.h"
-
-#ifdef MANGOSBOT_TWO
-
 #include "GlyphAction.h"
+#include "playerbot/RandomItemMgr.h"
 
 using namespace ai;
 
 bool SetGlyphAction::Execute(Event& event)
 {
+#ifdef MANGOSBOT_TWO
     Player* requester = event.getOwner() ? event.getOwner() : GetMaster();
 
     uint8 glyphSlot = MAX_GLYPH_SLOT_INDEX;
@@ -102,7 +100,7 @@ bool SetGlyphAction::Execute(Event& event)
         bot->DestroyItemCount(glyphItem, count, true);
 
     ai->TellPlayerNoFacing(requester, "Applied " + glyphName, PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, false);
-
+#endif;
     return true;
 }
 
@@ -173,15 +171,18 @@ bool SetGlyphAction::isGlyphSlotEnabled(uint8 slot, uint32 level)
 
 bool SetGlyphAction::isGlyphAlreadySet(uint32 glyphId, Player* bot)
 {
+#ifdef MANGOSBOT_TWO
     for (uint32 glyphIndex = 0; glyphIndex < MAX_GLYPH_SLOT_INDEX; ++glyphIndex)
         if (GlyphSlotEntry const* gs = sGlyphSlotStore.LookupEntry(bot->GetGlyphSlot(glyphIndex)))
             if (bot->GetGlyph(glyphIndex) == glyphId)
                 return true;
+#endif;
     return false;
 }
 
 uint8 SetGlyphAction::GetBestSlotForGlyph(uint32 glyphId, Player* bot, uint8 wantedSlot)
 {
+#ifdef MANGOSBOT_TWO
     uint32 minLevel = 9999;
     uint8 bestSlot = MAX_GLYPH_SLOT_INDEX;
     std::map<uint32, uint8> currentLevelSlot;
@@ -219,6 +220,9 @@ uint8 SetGlyphAction::GetBestSlotForGlyph(uint32 glyphId, Player* bot, uint8 wan
         }
     }
     return bestSlot;
+#else
+    return 0;
+#endif;
 }
 
 GlyphPriorityList SetGlyphAction::GetGlyphPriorityList(Player* bot)
@@ -276,6 +280,7 @@ bool SetGlyphAction::WantsGlyphFromConfig(uint32 glyphId, Player* bot)
 bool AutoSetGlyphAction::Execute(Event& event)
 {
     bool didGlyph = false;
+#ifdef MANGOSBOT_TWO
 
     GlyphPriorityList glyphPriorityList = GetGlyphPriorityList(bot);
 
@@ -320,7 +325,6 @@ bool AutoSetGlyphAction::Execute(Event& event)
         didGlyph = didGlyph || SetGlyphAction::Execute(event);
     }
 
+#endif;
     return didGlyph;
 }
-
-#endif
