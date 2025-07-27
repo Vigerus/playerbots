@@ -1,5 +1,6 @@
 
 #include "playerbot/playerbot.h"
+#include "ShamanMultipliers.h"
 #include "ElementalShamanStrategy.h"
 #include "playerbot/strategy/triggers/ConsumableTriggers.h"
 
@@ -10,21 +11,24 @@ class ElementalShamanStrategyActionNodeFactory : public NamedObjectFactory<Actio
 public:
     ElementalShamanStrategyActionNodeFactory()
     {
+        creators["flametongue weapon"] = &flametongue_weapon;
         creators["totem of wrath"] = &totem_of_wrath;
-        creators["magma totem"] = &magma_totem;
+        creators["searing totem"] = &searing_totem;
         creators["strength of earth totem"] = &strength_of_earth_totem;
-        creators["wrath of air totem"] = &wrath_of_air_totem;
+        creators["windfury totem"] = &windfury_totem;
         creators["mana spring totem"] = &mana_spring_totem;
     }
 
 private:
-    ACTION_NODE_A(totem_of_wrath, "totem of wrath", "flametongue totem");
+    ACTION_NODE_A(flametongue_weapon, "flametongue weapon", "windfury weapon");
 
-    ACTION_NODE_A(magma_totem, "magma totem", "fire nova");
+    ACTION_NODE_A(totem_of_wrath, "totem of wrath", "searing totem");
+
+    ACTION_NODE_A(searing_totem, "searing totem", "flametongue totem");
 
     ACTION_NODE_A(strength_of_earth_totem, "strength of earth totem", "stoneskin totem");
 
-    ACTION_NODE_A(wrath_of_air_totem, "wrath of air totem", "windfury totem");
+    ACTION_NODE_A(windfury_totem, "windfury totem", "wrath of air totem");
    
     ACTION_NODE_A(mana_spring_totem, "mana spring totem", "healing stream totem");
 };
@@ -302,6 +306,10 @@ void ElementalShamanTotemsStrategy::InitCombatTriggers(std::list<TriggerNode*>& 
 
     triggers.push_back(new TriggerNode(
         "air totem",
+        NextAction::array(0, new NextAction("windfury totem", ACTION_HIGH + 1), NULL)));
+
+    triggers.push_back(new TriggerNode(
+        "air totem",
         NextAction::array(0, new NextAction("wrath of air totem", ACTION_HIGH), NULL)));
 
     triggers.push_back(new TriggerNode(
@@ -374,34 +382,46 @@ void ElementalShamanBuffStrategy::InitNonCombatTriggers(std::list<TriggerNode*>&
     triggers.push_back(new TriggerNode(
         "lightning shield",
         NextAction::array(0, new NextAction("lightning shield", ACTION_NORMAL), NULL)));
-
-    triggers.push_back(new TriggerNode(
-        "shaman weapon",
-        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBuffPveStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitCombatTriggers(triggers);
     ShamanBuffPveStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
 }
 
 void ElementalShamanBuffPveStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffPveStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBuffPvpStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitCombatTriggers(triggers);
     ShamanBuffPvpStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
 }
 
 void ElementalShamanBuffPvpStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffPvpStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBuffRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -414,6 +434,10 @@ void ElementalShamanBuffRaidStrategy::InitNonCombatTriggers(std::list<TriggerNod
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffRaidStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "often",
+        NextAction::array(0, new NextAction("apply oil", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBoostStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -726,6 +750,10 @@ void ElementalShamanTotemsStrategy::InitCombatTriggers(std::list<TriggerNode*>& 
 
     triggers.push_back(new TriggerNode(
         "air totem",
+        NextAction::array(0, new NextAction("windfury totem", ACTION_HIGH + 1), NULL)));
+
+    triggers.push_back(new TriggerNode(
+        "air totem",
         NextAction::array(0, new NextAction("wrath of air totem", ACTION_HIGH), NULL)));
 
     triggers.push_back(new TriggerNode(
@@ -738,7 +766,7 @@ void ElementalShamanTotemsStrategy::InitCombatTriggers(std::list<TriggerNode*>& 
 
     triggers.push_back(new TriggerNode(
         "fire totem aoe",
-        NextAction::array(0, new NextAction("magma totem", ACTION_HIGH), NULL)));
+        NextAction::array(0, new NextAction("searing totem", ACTION_HIGH), NULL)));
 
     triggers.push_back(new TriggerNode(
         "fire totem",
@@ -791,10 +819,6 @@ void ElementalShamanBuffStrategy::InitCombatTriggers(std::list<TriggerNode*>& tr
     ShamanBuffStrategy::InitCombatTriggers(triggers);
 
     triggers.push_back(new TriggerNode(
-        "shaman weapon",
-        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
-
-    triggers.push_back(new TriggerNode(
         "water shield",
         NextAction::array(0, new NextAction("water shield", ACTION_HIGH), NULL)));
 }
@@ -802,10 +826,6 @@ void ElementalShamanBuffStrategy::InitCombatTriggers(std::list<TriggerNode*>& tr
 void ElementalShamanBuffStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ShamanBuffStrategy::InitNonCombatTriggers(triggers);
-
-    triggers.push_back(new TriggerNode(
-        "shaman weapon",
-        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 
     triggers.push_back(new TriggerNode(
         "water shield",
@@ -816,24 +836,40 @@ void ElementalShamanBuffPveStrategy::InitCombatTriggers(std::list<TriggerNode*>&
 {
     ElementalShamanBuffStrategy::InitCombatTriggers(triggers);
     ShamanBuffPveStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
 }
 
 void ElementalShamanBuffPveStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffPveStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBuffPvpStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitCombatTriggers(triggers);
     ShamanBuffPvpStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
 }
 
 void ElementalShamanBuffPvpStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffPvpStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBuffRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -846,6 +882,10 @@ void ElementalShamanBuffRaidStrategy::InitNonCombatTriggers(std::list<TriggerNod
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffRaidStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "often",
+        NextAction::array(0, new NextAction("apply oil", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBoostStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -1158,6 +1198,10 @@ void ElementalShamanTotemsStrategy::InitCombatTriggers(std::list<TriggerNode*>& 
 
     triggers.push_back(new TriggerNode(
         "air totem",
+        NextAction::array(0, new NextAction("windfury totem", ACTION_HIGH + 1), NULL)));
+
+    triggers.push_back(new TriggerNode(
+        "air totem",
         NextAction::array(0, new NextAction("wrath of air totem", ACTION_HIGH), NULL)));
 
     triggers.push_back(new TriggerNode(
@@ -1223,10 +1267,6 @@ void ElementalShamanBuffStrategy::InitCombatTriggers(std::list<TriggerNode*>& tr
     ShamanBuffStrategy::InitCombatTriggers(triggers);
 
     triggers.push_back(new TriggerNode(
-        "shaman weapon",
-        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
-
-    triggers.push_back(new TriggerNode(
         "water shield",
         NextAction::array(0, new NextAction("water shield", ACTION_HIGH), NULL)));
 }
@@ -1234,10 +1274,6 @@ void ElementalShamanBuffStrategy::InitCombatTriggers(std::list<TriggerNode*>& tr
 void ElementalShamanBuffStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ShamanBuffStrategy::InitNonCombatTriggers(triggers);
-
-    triggers.push_back(new TriggerNode(
-        "shaman weapon",
-        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 
     triggers.push_back(new TriggerNode(
         "water shield",
@@ -1248,36 +1284,60 @@ void ElementalShamanBuffPveStrategy::InitCombatTriggers(std::list<TriggerNode*>&
 {
     ElementalShamanBuffStrategy::InitCombatTriggers(triggers);
     ShamanBuffPveStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
 }
 
 void ElementalShamanBuffPveStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffPveStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBuffPvpStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitCombatTriggers(triggers);
     ShamanBuffPvpStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
 }
 
 void ElementalShamanBuffPvpStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffPvpStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBuffRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitCombatTriggers(triggers);
     ShamanBuffRaidStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_HIGH), NULL)));
 }
 
 void ElementalShamanBuffRaidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ElementalShamanBuffStrategy::InitNonCombatTriggers(triggers);
     ShamanBuffRaidStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "shaman weapon",
+        NextAction::array(0, new NextAction("flametongue weapon", ACTION_NORMAL), NULL)));
 }
 
 void ElementalShamanBoostStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)

@@ -32,9 +32,10 @@ bool TriggerActiveValue::Calculate()
     if (!trigger)
         return false;
 
-    Event event = trigger->Check();
+    if (!trigger->Check() || !trigger->IsActive())
+        return false;
 
-    return event.IsValid();
+    return true;
 }
 
 bool HasStrategyValue::Calculate()

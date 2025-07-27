@@ -171,6 +171,7 @@ namespace ai
         bool isSkipPrerequisites() const { return skipPrerequisites; }
         void AmendRelevance(float k) {relevance *= k; }
         void setRelevance(float relevance) { this->relevance = relevance; }
+        void setEvent(Event event) { this->event = event; }
         bool isExpired(time_t secs) const { return time(0) - created >= secs; }
 
     private:

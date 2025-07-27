@@ -31,7 +31,7 @@ bool CastCustomSpellAction::Execute(Event& event)
     Unit* target = nullptr;
     std::string text = getQualifier();
 
-    if(text.empty())
+    if(text.empty() || text == "travel")
         text = event.getParam();
 
     Player* requester = event.getOwner() ? event.getOwner() : GetMaster();
@@ -336,14 +336,14 @@ bool CastCustomSpellAction::CastSummonPlayer(Player* requester, std::string comm
                                 for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
                                 {
                                     Player* member = sObjectMgr.GetPlayer(itr->guid);
-                                    if (member && ai->IsSafe(member))
+                                    if (member)
                                     {
                                         if (itr->guid == targetGuid)
                                         {
                                             target = member;
                                         }
 
-                                        if (member->GetDistance(bot) <= sPlayerbotAIConfig.reactDistance)
+                                        if (ai->IsSafe(member) && member->GetDistance(bot) <= sPlayerbotAIConfig.reactDistance)
                                         {
                                             membersAroundSummoner++;
                                         }
@@ -562,7 +562,7 @@ bool CastRandomSpellAction::castSpell(uint32 spellId, WorldObject* wo, Player* r
             executed = true;
         }
     }
-
+    
     if (!executed && wo)
     {
         if (pSpellInfo->Targets & TARGET_FLAG_DEST_LOCATION)
@@ -614,8 +614,7 @@ bool CastRandomSpellAction::castSpell(uint32 spellId, WorldObject* wo, Player* r
     if (executed)
     {
         SetDuration(spellDuration);
-    }
-
+    }    
     return executed;
 }
 
@@ -664,23 +663,29 @@ bool CraftRandomItemAction::Execute(Event& event)
             wot = nullptr;
         }
 
-        uint32 newItemId = pSpellInfo->EffectItemType[0];
+        uint32 castCount = AI_VALUE2(uint32, "has reagents for", spellId);
 
-        if (!newItemId)
-            continue;
+        if (spellId == 61288) //Crafting random glyph
+        {
+            castCount = 1;
+        }
+        else
+        {
+            uint32 newItemId = pSpellInfo->EffectItemType[0];
 
-        ItemPrototype const* proto = ObjectMgr::GetItemPrototype(newItemId);
+            if (!newItemId)
+                continue;
 
-        if (!proto)
-            continue;
+            ItemPrototype const* proto = ObjectMgr::GetItemPrototype(newItemId);
+
+            if (!proto)
+                continue;
+
+            if (castCount > proto->GetMaxStackSize())
+                castCount = proto->GetMaxStackSize();
+        }
 
         std::ostringstream cmd;
-
-        uint32 castCount = AI_VALUE2(uint32, "has reagents for", spellId); 
-        
-        if (castCount > proto->GetMaxStackSize())
-            castCount = proto->GetMaxStackSize();
-
         cmd << "castnc ";
 
         if (((wot && sServerFacade.IsInFront(bot, wot, sPlayerbotAIConfig.sightDistance, CAST_ANGLE_IN_FRONT))))

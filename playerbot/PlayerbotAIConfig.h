@@ -22,7 +22,8 @@ enum class BotCheatMask : uint32
     movespeed = 1 << 8,
     attackspeed = 1 << 9,
     breath = 1 << 10,
-    maxMask = 1 << 11
+    glyph = 1 << 11,
+    maxMask = 1 << 12
 };
 
 enum class BotAutoLogin : uint32
@@ -148,6 +149,7 @@ public:
     float randomBotRpgChance;
     float usePotionChance;
     float attackEmoteChance;
+    bool randomBotAutoCreate;
     uint32 minRandomBots, maxRandomBots;
     uint32 randomBotUpdateInterval, randomBotCountChangeMinInterval, randomBotCountChangeMaxInterval;
     uint32 loginBoostPercentage;
@@ -183,6 +185,9 @@ public:
     std::string premadeLevelSpec[MAX_CLASSES][10][91]; //lvl 10 - 100
     uint32 classRaceProbabilityTotal;
     uint32 classRaceProbability[MAX_CLASSES][MAX_RACES];
+    bool useFixedClassRaceCounts;
+    using ClassRacePair = std::pair<uint8, uint8>;
+    std::map<ClassRacePair, uint32> fixedClassRaceCounts;
     uint32 levelProbability[DEFAULT_MAX_LEVEL + 1];
     ClassSpecs classSpecs[MAX_CLASSES];
     GlyphPrioritySpecMap glyphPriorityMap[MAX_CLASSES];
@@ -351,6 +356,8 @@ public:
     std::list<std::string> botCheats;
     uint32 botCheatMask = 0;
 
+    std::vector<std::string> BotCheatMaskName = { "taxi", "gold", "health", "mana", "power", "item", "cooldown", "repair", "movespeed", "attackspeed", "breath", "glyph", "maxMask" };
+
     struct worldBuff{
         uint32 spellId;
         uint32 factionId = 0;
@@ -374,6 +381,9 @@ public:
     ParsedUrl llmEndPointUrl;
     std::set<uint32> llmBlockedReplyChannels;
     //LM END
+
+    uint32 EatDrinkMinDistance = 5;
+    uint32 EatDrinkMaxDistance = 1000;
 
     std::string GetValue(std::string name);
     void SetValue(std::string name, std::string value);

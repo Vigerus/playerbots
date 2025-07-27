@@ -17,8 +17,11 @@ void Queue::Push(ActionBasket *action)
         if (it != actions.end())
         {
             ActionBasket* basket = *it;
-            if (basket->getRelevance() < action->getRelevance())
-                basket->setRelevance(action->getRelevance());
+                if (basket->getRelevance() < action->getRelevance())
+                {
+                    basket->setRelevance(action->getRelevance());
+                    basket->setEvent(action->getEvent());
+                }
             ActionNode* actionNode = action->getAction();
             if (actionNode)
                 delete actionNode;
