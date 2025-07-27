@@ -324,10 +324,11 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     }
 
 #ifdef MANGOSBOT_TWO
-    if (bot->IsPendingDismount())
-        bot->ResolvePendingUnmount();
-    else
-        bot->ResolvePendingMount();
+    //Remove gryphon
+    if (!bot->IsMounted() && bot->GetMountID() && !bot->IsTaxiFlying())
+    {
+        Unmount();
+    }
 #endif
 
     // wake up if in combat
