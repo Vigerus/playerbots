@@ -11,6 +11,8 @@ using namespace ai;
 
 uint64 extractGuid(WorldPacket& packet);
 
+#pragma optimize("", off)
+
 bool CheckMountStateAction::Execute(Event& event)
 {
     Player* requester = event.getOwner() ? event.getOwner() : GetMaster();
@@ -532,22 +534,23 @@ bool CheckMountStateAction::Mount(Player* requester, bool limitSpeedToGroup)
 
 bool CheckMountStateAction::UnMount() const
 {
-    if (!AI_VALUE2(uint32, "current mount speed", "self target"))
-        return false;
+    Player* requester = GetMaster();
 
-    if (bot->IsFlying() && WorldPosition(bot).currentHeight() > 10.0f)
+    if (bot->IsTaxiFlying())
     {
+        if (ai->HasStrategy("debug mount", BotState::BOT_STATE_NON_COMBAT))
+            ai->TellPlayerNoFacing(requester, "Cannot unmount: taxi flying.");
         return false;
     }
 
-    ai->Unmount();
+    if (ai->HasStrategy("debug mount", BotState::BOT_STATE_NON_COMBAT))
+        ai->TellPlayerNoFacing(requester, "Unmounting.");
 
-//     if (bot->HasMountAura())
-//     {
-//         bot->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
-//     }
+    ai->Unmount();
 
     ai->RemoveShapeshift();
 
     return true;
 }
+
+#pragma optimize("", on)

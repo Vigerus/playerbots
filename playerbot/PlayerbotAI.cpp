@@ -867,6 +867,14 @@ void PlayerbotAI::Unmount()
     {
         bot->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
     }
+
+    bot->Unmount();
+    bot->UpdateSpeed(MOVE_RUN, true);
+    bot->UpdateSpeed(MOVE_RUN, false);
+    if (bot->IsFlying())
+    {
+       bot->GetMotionMaster()->MoveFall();
+    }
 }
 
 bool PlayerbotAI::IsStateActive(BotState state) const
