@@ -113,6 +113,7 @@ ChatCommandHandlerStrategy::ChatCommandHandlerStrategy(PlayerbotAI* ai) : PassTr
     supported.push_back("lootcouncil");
     supported.push_back("set value");
     supported.push_back("glyph");
+    supported.push_back("speak");
 }
 
 void ChatCommandHandlerStrategy::InitReactionTriggers(std::list<TriggerNode*> &triggers)

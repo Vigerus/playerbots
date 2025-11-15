@@ -79,6 +79,7 @@
 #include "FactionAction.h"
 #include "SetValueAction.h"
 #include "GlyphAction.h"
+#include "SayAction.h"
 
 namespace ai
 {
@@ -217,6 +218,7 @@ namespace ai
             creators["lootcouncil"] = [](PlayerbotAI* ai) { return new LootCouncilAction(ai); };
             creators["set value"] = [](PlayerbotAI* ai) { return new SetValueAction(ai); };
             creators["glyph"] = [](PlayerbotAI* ai) { return new GlyphAction(ai); };
+            creators["speak"] = [](PlayerbotAI* ai) { return new SpeakAction(ai); };
        }
     };
 };

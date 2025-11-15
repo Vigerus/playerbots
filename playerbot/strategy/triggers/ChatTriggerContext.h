@@ -145,6 +145,7 @@ namespace ai
             creators["lootcouncil"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "lootcouncil"); };
             creators["set value"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "set value");  };
             creators["glyph"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "glyph");  };
+            creators["speak"] = [](PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "speak"); };
         }
     };
 };

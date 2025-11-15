@@ -109,7 +109,6 @@ void PacketHandlingHelper::AddPacket(const WorldPacket& packet)
     m_botPacketMutex.unlock();
 }
 
-
 PlayerbotAI::PlayerbotAI() : PlayerbotAIBase()
     ,chatHelper(this)
     ,chatFilter(this)
@@ -256,7 +255,7 @@ PlayerbotAI::~PlayerbotAI()
 void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 {
     AiObjectContext* context = aiObjectContext;
-    std::string mapString = WorldPosition(bot).isOverworld() ? std::to_string(bot->GetMapId()) : "I";
+    std::string mapString = WorldPosition(bot).isInstance() ? "I" :  std::to_string(bot->GetMapId());
     auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAI " + mapString);
     
     if(aiInternalUpdateDelay > elapsed)
@@ -572,7 +571,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 bool PlayerbotAI::UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned)
 {
     bool reactionFound;
-    std::string mapString = WorldPosition(bot).isOverworld() ? std::to_string(bot->GetMapId()) : "I";
+    std::string mapString = WorldPosition(bot).isInstance() ? "I" : std::to_string(bot->GetMapId());
 
     auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIReaction " + mapString);
     ReactionEngine& reactionEngine = GetReactionEngine();
@@ -1092,7 +1091,7 @@ void PlayerbotAI::UpdateAIInternal(uint32 elapsed, bool minimal)
     if (bot->IsBeingTeleported() || !bot->IsInWorld())
         return;
 
-    std::string mapString = WorldPosition(bot).isOverworld() ? std::to_string(bot->GetMapId()) : "I";
+    std::string mapString = WorldPosition(bot).isInstance() ? "I" : std::to_string(bot->GetMapId());
     auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIInternal " + mapString);
 
     ExternalEventHelper helper(aiObjectContext);
@@ -1738,7 +1737,8 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
 
                 return;
             }
-            else if (isAiChat)
+
+            if (isAiChat)
             {
                 ChatChannelSource chatChannelSource = bot->GetPlayerbotAI()->GetChatChannelSource(bot, msgtype, chanName);
 
@@ -2968,7 +2968,7 @@ ChatChannelSource PlayerbotAI::GetChatChannelSource(Player* bot, uint32 type, st
     return ChatChannelSource::SRC_UNDEFINED;
 }
 
-bool PlayerbotAI::SayToGuild(std::string msg)
+bool PlayerbotAI::SayToGuild(std::string msg, bool likePlayer)
 {
     if (msg.empty())
     {
@@ -2984,7 +2984,8 @@ bool PlayerbotAI::SayToGuild(std::string msg)
             {
                 if (player.second->GetGuildId() == bot->GetGuildId())
                 {
-                    if (sPlayerbotAIConfig.llmEnabled > 0 && (HasStrategy("ai chat", BotState::BOT_STATE_NON_COMBAT) || sPlayerbotAIConfig.llmEnabled == 3) && sPlayerbotAIConfig.llmBotToBotChatChance)
+                    if (likePlayer || (sPlayerbotAIConfig.llmEnabled > 0 && (HasStrategy("ai chat", BotState::BOT_STATE_NON_COMBAT) || sPlayerbotAIConfig.llmEnabled == 3) &&
+                        sPlayerbotAIConfig.llmBotToBotChatChance))
                     {
                         WorldPacket packet_template(CMSG_MESSAGECHAT);
 
@@ -3252,18 +3253,19 @@ bool PlayerbotAI::SayToGuildRecruitment(std::string msg)
 #endif
 }
 
-bool PlayerbotAI::SayToParty(std::string msg)
+bool PlayerbotAI::SayToParty(std::string msg, bool likePlayer)
 {
     if (!bot->GetGroup())
     {
         return false;
     }
 
-    if (sPlayerbotAIConfig.llmEnabled > 0 && (HasStrategy("ai chat", BotState::BOT_STATE_NON_COMBAT) || sPlayerbotAIConfig.llmEnabled == 3) && sPlayerbotAIConfig.llmBotToBotChatChance)
+    if (likePlayer || (sPlayerbotAIConfig.llmEnabled > 0 && (HasStrategy("ai chat", BotState::BOT_STATE_NON_COMBAT) || sPlayerbotAIConfig.llmEnabled == 3) &&
+        sPlayerbotAIConfig.llmBotToBotChatChance))
     {
         for (auto reciever : GetPlayersInGroup())
         {
-            if (reciever->isRealPlayer())
+            if (likePlayer || reciever->isRealPlayer())
             {
                 WorldPacket packet_template(CMSG_MESSAGECHAT);
 
@@ -3310,21 +3312,7 @@ bool PlayerbotAI::SayToRaid(std::string msg)
     return true;
 }
 
-bool PlayerbotAI::Yell(std::string msg)
-{
-    if (bot->GetTeam() == ALLIANCE)
-    {
-        bot->Yell(msg, LANG_COMMON);
-    }
-    else
-    {
-        bot->Yell(msg, LANG_ORCISH);
-    }
-
-    return true;
-}
-
-bool PlayerbotAI::Say(std::string msg)
+bool PlayerbotAI::Yell(std::string msg, bool likePlayer)
 {
     uint32 lang = LANG_UNIVERSAL;
     if (bot->GetTeam() == ALLIANCE)
@@ -3336,15 +3324,15 @@ bool PlayerbotAI::Say(std::string msg)
         lang = LANG_ORCISH;
     }
 
-    if (sPlayerbotAIConfig.llmEnabled > 0 && (HasStrategy("ai chat", BotState::BOT_STATE_NON_COMBAT) || sPlayerbotAIConfig.llmEnabled == 3) && sPlayerbotAIConfig.llmBotToBotChatChance)
+    if (likePlayer || (sPlayerbotAIConfig.llmEnabled > 0 && (HasStrategy("ai chat", BotState::BOT_STATE_NON_COMBAT) || sPlayerbotAIConfig.llmEnabled == 3) &&
+        sPlayerbotAIConfig.llmBotToBotChatChance))
     {
-        if (this->HasPlayerNearby(35.0f))
+        if (likePlayer || this->HasPlayerNearby(sWorld.getConfig(CONFIG_FLOAT_LISTEN_RANGE_YELL)))
         {
-
             WorldPacket packet_template(CMSG_MESSAGECHAT);
 
-            packet_template << CHAT_MSG_SAY;
-            packet_template << LANG_UNIVERSAL;
+            packet_template << CHAT_MSG_YELL;
+            packet_template << lang;
             packet_template << msg;
 
             std::unique_ptr<WorldPacket> packetPtr(new WorldPacket(packet_template));
@@ -3354,19 +3342,48 @@ bool PlayerbotAI::Say(std::string msg)
         }
     }
 
-    if (bot->GetTeam() == ALLIANCE)
-    {
-        bot->Say(msg, LANG_COMMON);
-    }
-    else
-    {
-        bot->Say(msg, LANG_ORCISH);
-    }
+    bot->Yell(msg, lang);
 
     return true;
 }
 
-bool PlayerbotAI::Whisper(std::string msg, std::string receiverName)
+bool PlayerbotAI::Say(std::string msg, bool likePlayer)
+{
+    uint32 lang = LANG_UNIVERSAL;
+    if (bot->GetTeam() == ALLIANCE)
+    {
+        lang =  LANG_COMMON;
+    }
+    else
+    {
+        lang = LANG_ORCISH;
+    }
+
+    if (likePlayer || (sPlayerbotAIConfig.llmEnabled > 0 && (HasStrategy("ai chat", BotState::BOT_STATE_NON_COMBAT) || sPlayerbotAIConfig.llmEnabled == 3) &&
+        sPlayerbotAIConfig.llmBotToBotChatChance))
+    {
+        if (likePlayer || this->HasPlayerNearby(sWorld.getConfig(CONFIG_FLOAT_LISTEN_RANGE_SAY)))
+        {
+
+            WorldPacket packet_template(CMSG_MESSAGECHAT);
+
+            packet_template << CHAT_MSG_SAY;
+            packet_template << lang;
+            packet_template << msg;
+
+            std::unique_ptr<WorldPacket> packetPtr(new WorldPacket(packet_template));
+
+            bot->GetSession()->QueuePacket(std::move(packetPtr));
+            return true;
+        }
+    }
+
+    bot->Say(msg, lang);
+
+    return true;
+}
+
+bool PlayerbotAI::Whisper(std::string msg, std::string receiverName, bool likePlayer)
 {
     ObjectGuid receiver = sObjectMgr.GetPlayerGuidByName(receiverName);
     Player* rPlayer = sObjectMgr.GetPlayer(receiver);
@@ -4640,7 +4657,7 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget, bool
     {
         std::ostringstream out;
         out << "Casting " <<ChatHelper::formatSpell(pSpellInfo);
-        TellPlayerNoFacing(GetMaster(), out);
+        TellPlayerNoFacing(GetMaster() ? GetMaster() : bot, out);
     }
 
     return true;
@@ -4774,7 +4791,7 @@ bool PlayerbotAI::CastSpell(uint32 spellId, GameObject* goTarget, Item* itemTarg
     {
         std::ostringstream out;
         out << "Casting " << ChatHelper::formatSpell(pSpellInfo);
-        TellPlayerNoFacing(GetMaster(), out);
+        TellPlayerNoFacing(GetMaster() ? GetMaster() : bot, out);
     }
 
     return true;
@@ -4919,7 +4936,7 @@ bool PlayerbotAI::CastSpell(uint32 spellId, float x, float y, float z, Item* ite
     {
         std::ostringstream out;
         out << "Casting " << ChatHelper::formatSpell(pSpellInfo);
-        TellPlayerNoFacing(GetMaster(), out);
+        TellPlayerNoFacing(GetMaster() ? GetMaster() : bot, out);
     }
 
     return true;
@@ -5061,7 +5078,7 @@ bool PlayerbotAI::CanCastVehicleSpell(uint32 spellId, Unit* target)
     return false;
 }
 
-bool PlayerbotAI::CastVehicleSpell(uint32 spellId, Unit* target)
+bool PlayerbotAI::CastVehicleSpell(uint32 spellId, Unit* target, float projectileSpeed, bool needTurn)
 {
 #ifdef MANGOSBOT_TWO
     if (!spellId)
@@ -5122,7 +5139,7 @@ bool PlayerbotAI::CastVehicleSpell(uint32 spellId, Unit* target)
 
     // turn vehicle if target is not in front
     bool failWithDelay = false;
-    if (spellTarget != vehicle && (canControl || canTurn))
+    if (spellTarget != vehicle && (canControl || canTurn) && needTurn)
     {
         if (!sServerFacade.IsInFront(vehicle, spellTarget, 100.0f, CAST_ANGLE_IN_FRONT))
         {
@@ -5156,7 +5173,7 @@ bool PlayerbotAI::CastVehicleSpell(uint32 spellId, Unit* target)
             return false;
 
         targets.setDestination(dest.coord_x, dest.coord_y, dest.coord_z);
-        targets.setSpeed(30.0f);
+        targets.setSpeed(projectileSpeed);
         float distanceToDest = sqrt(vehicle->GetPosition().GetDistance(Position(dest.coord_x, dest.coord_y, dest.coord_z, 0.0f)));
         float elev = 0.01f;
         if (distanceToDest < 25.0f)
@@ -5209,7 +5226,7 @@ bool PlayerbotAI::CastVehicleSpell(uint32 spellId, Unit* target)
     {
         std::ostringstream out;
         out << "Casting Vehicle Spell" << ChatHelper::formatSpell(pSpellInfo);
-        TellPlayerNoFacing(GetMaster(), out);
+        TellPlayerNoFacing(GetMaster() ? GetMaster() : bot, out);
     }
 
     return true;
@@ -5217,7 +5234,7 @@ bool PlayerbotAI::CastVehicleSpell(uint32 spellId, Unit* target)
     return false;
 }
 
-bool PlayerbotAI::IsInVehicle(bool canControl, bool canCast, bool canAttack, bool canTurn, bool fixed)
+bool PlayerbotAI::IsInVehicle(bool canControl, bool canCast, bool canAttack, bool canTurn, bool fixed, std::string vehicleName)
 {
 #ifdef MANGOSBOT_TWO
     TransportInfo* transportInfo = bot->GetTransportInfo();
@@ -5228,6 +5245,22 @@ bool PlayerbotAI::IsInVehicle(bool canControl, bool canCast, bool canAttack, boo
     Unit* vehicle = (Unit*)transportInfo->GetTransport();
     if (!vehicle || !vehicle->IsAlive())
         return false;
+
+    if (!vehicleName.empty())
+    {
+        std::wstring wnamepart;
+
+        if (!Utf8toWStr(vehicleName, wnamepart))
+            return 0;
+
+        wstrToLower(wnamepart);
+        char firstSymbol = tolower(vehicleName[0]);
+        int spellLength = wnamepart.length();
+
+        const char* name = vehicle->GetName();
+        if (tolower(name[0]) != firstSymbol || strlen(name) != spellLength || !Utf8FitTo(name, wnamepart))
+            return false;
+    }
 
     if (!vehicle->GetVehicleInfo())
         return false;
@@ -6003,6 +6036,25 @@ bool PlayerbotAI::AllowActivity(ActivityType activityType, bool checkNow)
     allowActive[activityType] = allowed;
     allowActiveCheckTimer[activityType] = time(NULL);
     return allowed;
+}
+
+bool PlayerbotAI::HasCheat(BotCheatMask mask) const
+{
+    if (((uint32)mask & (uint32)cheatMask) != 0)
+        return true;
+
+    if (sRandomPlayerbotMgr.IsRandomBot(bot))
+    {
+        if (((uint32)mask & sPlayerbotAIConfig.rndBotCheatMask) != 0)
+            return true;
+    }
+    else
+    {
+        if (((uint32)mask & sPlayerbotAIConfig.botCheatMask) != 0)
+            return true;
+    }
+
+    return false;
 }
 
 bool PlayerbotAI::IsOpposing(Player* player)
@@ -7518,10 +7570,11 @@ void PlayerbotAI::SendDelayedPacket(WorldSession* session, futurePackets futPack
     std::thread t([session, futPacket = std::move(futPackets)]() mutable {
         for (auto& delayedPacket : futPacket.get())
         {
-            std::unique_ptr<WorldPacket> packetPtr(new WorldPacket(delayedPacket.first));
-            session->QueuePacket(std::move(packetPtr));
             if (delayedPacket.second)
                 std::this_thread::sleep_for(std::chrono::milliseconds(delayedPacket.second));
+
+            std::unique_ptr<WorldPacket> packetPtr(new WorldPacket(delayedPacket.first));
+            session->QueuePacket(std::move(packetPtr));
         }
     });
 
