@@ -77,7 +77,7 @@ private:
 
 WarriorStrategy::WarriorStrategy(PlayerbotAI* ai) : ClassStrategy(ai)
 {
-    actionNodeFactories.Add(new WarriorStrategyActionNodeFactory());
+    actionNodeFactories.Add(std::make_unique<WarriorStrategyActionNodeFactory>());
 }
 
 #ifdef MANGOSBOT_ZERO // Vanilla

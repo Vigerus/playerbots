@@ -19,7 +19,7 @@ private:
 
 FireMageStrategy::FireMageStrategy(PlayerbotAI* ai) : MageStrategy(ai)
 {
-    actionNodeFactories.Add(new FireMageStrategyActionNodeFactory());
+    actionNodeFactories.Add(std::make_unique<FireMageStrategyActionNodeFactory>());
 }
 
 #ifdef MANGOSBOT_ZERO // Vanilla

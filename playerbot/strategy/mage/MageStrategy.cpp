@@ -65,7 +65,7 @@ private:
 
 MageStrategy::MageStrategy(PlayerbotAI* ai) : ClassStrategy(ai)
 {
-    actionNodeFactories.Add(new MageStrategyActionNodeFactory());
+    actionNodeFactories.Add(std::make_unique<MageStrategyActionNodeFactory>());
 }
 
 #ifdef MANGOSBOT_ZERO // Vanilla
