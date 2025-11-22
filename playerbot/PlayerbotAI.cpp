@@ -867,33 +867,18 @@ bool PlayerbotAI::CanEnterArea(const AreaTrigger* area)
 
 void PlayerbotAI::Unmount()
 {
-//     if ((bot->IsMounted() || bot->GetMountID()) && !bot->IsTaxiFlying())
-//     {
-//         bot->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
-//         bot->Unmount();
-// // #ifdef MANGOSBOT_TWO
-// //         bot->ResolvePendingUnmount();
-// // #endif
-// 
-//         bot->UpdateSpeed(MOVE_RUN, true);
-//         bot->UpdateSpeed(MOVE_RUN, false);
-// 
-//         if (bot->IsFlying())
-//         {
-//             bot->GetMotionMaster()->MoveFall();
-//         }
-//     }
-    if (bot->HasMountAura())
+    if ((bot->IsMounted() || bot->GetMountID()) && !bot->IsTaxiFlying())
     {
         bot->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
-    }
+        bot->Unmount();
 
-    bot->Unmount();
-    bot->UpdateSpeed(MOVE_RUN, true);
-    bot->UpdateSpeed(MOVE_RUN, false);
-    if (bot->IsFlying())
-    {
-       bot->GetMotionMaster()->MoveFall();
+        bot->UpdateSpeed(MOVE_RUN, true);
+        bot->UpdateSpeed(MOVE_RUN, false);
+
+        if (bot->IsFlying())
+        {
+            bot->GetMotionMaster()->MoveFall();
+        }
     }
 }
 
@@ -1858,60 +1843,6 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
         sLog.outDetail("%s: KNOCKBACK x: %f, y: %f, z: %f, time: %f, dist: %f, maxHeight: %f inPlace: %u, landTime: %u", bot->GetName(), dest_calculated.getX(), dest_calculated.getY(), dest_calculated.getZ(), timeToLand, distToLand, maxHeight, jumpInPlace, jumpTime);
         return;
     }
-    case SMSG_MOVE_SET_COLLISION_HGT:
-    {
-        WorldPacket p(packet);
-        p.rpos(0);
-
-        /* extract packet */
-        ObjectGuid guid;
-        uint32 counter;
-        float  newspeed;
-
-        p >> guid.ReadAsPacked();
-        p >> counter;                                   // counter or moveEvent
-        p >> newspeed;
-
-        /* send ack */
-        WorldPacket ack(CMSG_MOVE_SET_COLLISION_HGT_ACK);
-#ifdef MANGOSBOT_TWO
-        ack << bot->GetObjectGuid().WriteAsPacked();
-#else
-        ack << bot->GetObjectGuid();
-#endif
-        ack << counter;
-        ack << bot->m_movementInfo;
-        ack << newspeed;
-        bot->GetSession()->HandleForceSpeedChangeAckOpcodes(ack);
-
-
-//         /* update packet */
-//         Unit* mover = bot->GetMover();
-//         WorldPacket data(MSG_MOVE_SET_COLLISION_HGT, 18);
-//         data << bot->GetObjectGuid().WriteAsPacked();
-//         data << movementInfo;
-//         data << newspeed;
-//         mover->SendMessageToSetExcept(data, bot);
-// 
-//         switch (bot->GetPendingMountStateSwitch())
-//         {
-//             case Player::MountStateSwitchEnum::mount:
-//             {
-//                 bot->ResolvePendingMount();
-//             }
-//             break;
-//             case Player::MountStateSwitchEnum::dismount:
-//             {
-//                 bot->ResolvePendingUnmount();
-//             }
-//             break;
-//             default:
-//             {
-//                 sLog.outError("Something's wrong");
-//             }
-//         }
-    }
-    break;
 	default:
 		botOutgoingPacketHandlers.AddPacket(packet);
 	}
