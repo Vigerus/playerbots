@@ -6,7 +6,7 @@
 
 using namespace ai;
 
-ObjectGuid Event::getObject()
+ObjectGuid Event::getObject() const
 {
     if (packet.empty())
         return ObjectGuid();

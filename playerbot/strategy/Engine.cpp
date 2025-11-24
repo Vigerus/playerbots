@@ -153,7 +153,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
             Action* action = InitializeAction(actionNode);
 
             std::string actionName = (action ? action->getName() : "unknown");
-            if (!event.getSource().empty())
+            if (event.IsValid())
                 actionName += " <" + event.getSource() + ">";
             
             auto pmo1 = sPerformanceMonitor.start(PERF_MON_ACTION, actionName, &aiObjectContext->performanceStack);
@@ -173,7 +173,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                     out << std::fixed << std::setprecision(3);
                     out << relevance << ")";
 
-                    if (!event.getSource().empty())
+                    if (event.IsValid())
                         out << " [" << event.getSource() << "]";
 
                     if (ai->GetMaster())
@@ -275,7 +275,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                             out << std::fixed << std::setprecision(3);
                             out << action->getRelevance() << ")";
 
-                            if (!event.getSource().empty())
+                            if (event.IsValid())
                                 out << " [" << event.getSource() << "]";
 
         if (ai->GetMaster())
@@ -303,7 +303,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                         out << std::fixed << std::setprecision(3);
                         out << action->getRelevance() << ")";
 
-                        if (!event.getSource().empty())
+                        if (event.IsValid())
                             out << " [" << event.getSource() << "]";
 
         if (ai->GetMaster())
@@ -619,10 +619,10 @@ void Engine::ProcessTriggers(bool minimal)
 #ifdef PLAYERBOT_ELUNA
             // used by eluna    
             if (Eluna* e = ai->GetBot()->GetEluna())
-                e->OnTriggerCheck(ai, trigger->getName(), !event ? false : true);
+                e->OnTriggerCheck(ai, trigger->getName(), event.IsValid());
 #endif
 
-            if (!event)
+            if (!event.IsValid())
                 continue;
 
             MultiplyAndPush(node->getHandlers(), 0.0f, false, event, "trigger");
@@ -735,7 +735,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
         out << std::fixed << std::setprecision(2);
         out << action->getRelevance() << ")";
 
-        if(!event.getSource().empty())
+        if (event.IsValid())
             out << " [" << event.getSource() << "]";
 
         if (actionExecuted)
