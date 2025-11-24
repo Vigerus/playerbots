@@ -30,7 +30,7 @@ namespace ai
         }
 
     public:
-        std::string getName() const { return name; }
+        const std::string& getName() const { return name; }
         float getRelevance() const { return relevance; }
 
     public:
@@ -158,20 +158,20 @@ namespace ai
             created = time(0);
         }
         virtual ~ActionBasket(void) {}
-	public:
-		float getRelevance() {return relevance;}
-		ActionNode* getAction() {return action;}
-        Event getEvent() { return event; }
+    public:
+        float getRelevance() {return relevance;}
+        ActionNode* getAction() {return action;}
+        const Event& getEvent() const { return event; }
         bool isSkipPrerequisites() { return skipPrerequisites; }
         void AmendRelevance(float k) {relevance *= k; }
         void setRelevance(float relevance) { this->relevance = relevance; }
         void setEvent(Event event) { this->event = event; }
         bool isExpired(time_t secs) { return time(0) - created >= secs; }
-	private:
-		ActionNode* action;
-		float relevance;
+    private:
+        ActionNode* action = nullptr;
+        float relevance;
         bool skipPrerequisites;
         Event event;
         time_t created;
-	};
+    };
 }

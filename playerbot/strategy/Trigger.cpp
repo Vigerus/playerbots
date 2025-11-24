@@ -20,11 +20,10 @@ Event Trigger::Check()
 	if (IsActive())
 	{
 		triggered = true;
-		Event event(getName());
-		return event;
+		return Event(getName());
 	}
-	Event event;
-	return event;
+	
+	return {};
 }
 
 Value<Unit*>* Trigger::GetTargetValue()
