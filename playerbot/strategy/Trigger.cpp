@@ -22,8 +22,8 @@ Event Trigger::Check()
 		triggered = true;
 		return Event(getName());
 	}
-
-	return { };
+	
+	return {};
 }
 
 Value<Unit*>* Trigger::GetTargetValue()

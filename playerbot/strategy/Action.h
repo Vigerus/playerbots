@@ -30,7 +30,7 @@ namespace ai
         }
 
     public:
-        std::string getName() const { return name; }
+        const std::string& getName() const { return name; }
         float getRelevance() const { return relevance; }
 
     public:
