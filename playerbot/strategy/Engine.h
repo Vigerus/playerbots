@@ -8,6 +8,8 @@
 #include "Strategy.h"
 #include "playerbot/BotState.h"
 
+#include "playerbot/StateTree/Tasks/StateTreeTask.h"
+
 namespace ai
 {
     class ActionExecutionListener
@@ -77,7 +79,13 @@ namespace ai
 		bool ContainsStrategy(StrategyType type);
 		void ChangeStrategy(const std::string& names);
 		void PrintStrategies(Player* requester, const std::string& engineType);
-        std::string GetLastAction() { return lastAction; }
+        std::string GetLastAction()
+        {
+            if (const ActionRunContext* context = lastActionContext.get())
+                return context->name;
+            return "";
+        };
+
         const Action* GetLastExecutedAction() const { return lastExecutedAction; }
 
     public:
@@ -86,14 +94,14 @@ namespace ai
         bool CanExecuteAction(const std::string& name, bool isUseful = true, bool isPossible = true);
 
     public:
-        void AddActionExecutionListener(ActionExecutionListener* listener)
-        {
-            actionExecutionListeners.Add(listener);
-        }
-        void removeActionExecutionListener(ActionExecutionListener* listener)
-        {
-            actionExecutionListeners.Remove(listener);
-        }
+//         void AddActionExecutionListener(ActionExecutionListener* listener)
+//         {
+//             actionExecutionListeners.Add(listener);
+//         }
+//         void removeActionExecutionListener(ActionExecutionListener* listener)
+//         {
+//             actionExecutionListeners.Remove(listener);
+//         }
 
     public:
 	    virtual ~Engine(void);
@@ -118,11 +126,11 @@ namespace ai
         std::list<Multiplier*> multipliers;
         AiObjectContext* aiObjectContext;
         std::map<std::string, Strategy*> strategies;
-        float lastRelevance;
-        std::string lastAction;
-        ActionExecutionListeners actionExecutionListeners;
+        //ActionExecutionListeners actionExecutionListeners;
         BotState state;
-        Action* lastExecutedAction;
+        std::unique_ptr<ActionRunContext> lastActionContext;
+        Action* lastExecutedAction = nullptr;
+        EActionRunStatus lastExecutedActionStatus = EActionRunStatus::Succeeded;
 
         std::map<Trigger*, Event> fires;
 

@@ -295,7 +295,7 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
 
     if (!player->InBattleGround())
     {
-        combatEngine->addStrategies("racials", "default", "duel", "pvp", NULL);
+        combatEngine->addStrategies("racials", "default", /*"duel", "pvp",*/ NULL);
     }
 
     switch (player->getClass())
@@ -599,7 +599,7 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
             combatEngine->addStrategy("arena");
         }
 #endif
-        combatEngine->addStrategies("boost", "racials", "default", "aoe", "dps assist", "pvp", NULL);
+        combatEngine->addStrategies("boost", "racials", "default", "aoe", "dps assist", /*"pvp",*/ NULL);
         combatEngine->removeStrategy("custom::say");
         combatEngine->removeStrategy("flee");
         combatEngine->removeStrategy("threat");

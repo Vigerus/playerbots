@@ -15,7 +15,6 @@ using namespace ai;
 
 Engine::Engine(PlayerbotAI* ai, AiObjectContext *factory, BotState state) : PlayerbotAIAware(ai), aiObjectContext(factory), state(state)
 {
-    lastRelevance = 0.0f;
     testMode = false;
     lastExecutedAction = nullptr;
 }
@@ -253,7 +252,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                         {
                             LogAction("A:%s - OK", action->getName().c_str());
                             MultiplyAndPush(actionNode->getContinuers(), 0, false, event, "cont");
-                            lastRelevance = relevance;
+                            lastActionContext->relevance = relevance;
                             delete actionNode;
                             break;
                         }
@@ -315,7 +314,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                             ai->GetBot()->Say(out.str(), (ai->GetBot()->GetTeam() == ALLIANCE ? LANG_COMMON : LANG_ORCISH));
                         }
                     }
-                    lastRelevance = relevance;
+                    //lastRelevance = relevance;
                     LogAction("A:%s - USELESS", action->getName().c_str());
                 }
             }
@@ -709,16 +708,22 @@ Action* Engine::InitializeAction(ActionNode* actionNode)
 
 bool Engine::ListenAndExecute(Action* action, Event& event)
 {
-    bool actionExecuted = false;
     Action* prevExecutedAction = lastExecutedAction;
-    if (actionExecutionListeners.Before(action, event))
+    EActionRunStatus prevActionStatus = lastExecutedActionStatus;
+
+    std::unique_ptr<ActionRunContext> context = std::make_unique<ActionRunContext>();
+    context->name = action->getName();
+    context->relevance = action->getRelevance();
+
+    EActionRunStatus Status = action->Enter(*context, event);
+
+    const bool actionExecuted = (Status != EActionRunStatus::Failed);
+
+    if (actionExecuted)
     {
-        actionExecuted = actionExecutionListeners.AllowExecution(action, event) ? action->Execute(event) : true;
-        if (actionExecuted)
-        {
-            ai->SetActionDuration(action);
-            lastExecutedAction = action;
-        }
+        lastExecutedAction = action;
+        lastExecutedActionStatus = Status;
+        lastActionContext = std::move(context);
     }
 
     std::string lastActionName = prevExecutedAction ? prevExecutedAction->getName() : "";
@@ -773,8 +778,8 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
         ai->TellPlayerNoFacing(ai->GetMaster(), out);
     }
 
-    actionExecuted = actionExecutionListeners.OverrideResult(action, actionExecuted, event);
-    actionExecutionListeners.After(action, actionExecuted, event);
+    //actionExecuted = actionExecutionListeners.OverrideResult(action, actionExecuted, event);
+    //actionExecutionListeners.After(action, actionExecuted, event);
     return actionExecuted;
 }
 
@@ -786,6 +791,7 @@ void Engine::LogAction(const char* format, ...)
     va_start(ap, format);
     vsprintf(buf, format, ap);
     va_end(ap);
+    std::string lastAction = GetLastAction();
     lastAction += "|";
     lastAction += buf;
     if (lastAction.size() > 512)

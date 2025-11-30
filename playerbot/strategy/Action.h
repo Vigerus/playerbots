@@ -5,6 +5,11 @@
 #include "AiObject.h"
 #include "playerbot/PlayerbotAIConfig.h"
 
+#include <typeindex>
+#include <typeinfo>
+
+#include "playerbot/StateTree/Tasks/StateTreeTask.h"
+
 class Unit;
 
 namespace ai
@@ -62,8 +67,16 @@ namespace ai
         Action(PlayerbotAI* ai, std::string name = "action", uint32 duration = sPlayerbotAIConfig.reactDelay) : AiNamedObject(ai, name), verbose(false), duration(duration) {}
         virtual ~Action(void) {}
 
-    public:
         virtual bool Execute(Event& event) { return true; }
+    public:
+        using ContextType = ActionRunContext;
+
+        virtual std::type_index GetActionContextClass() const { return typeid(ContextType); }
+
+        virtual EActionRunStatus Enter(ActionRunContext& context, Event& event) { return Execute(event) ? EActionRunStatus::Succeeded : EActionRunStatus::Failed; };
+        virtual EActionRunStatus Tick(ActionRunContext& context, Event& event) { return EActionRunStatus::Succeeded; };
+        virtual void Exit(ActionRunContext& context, Event& event) {};
+
         virtual bool isPossible() { return true; }
         virtual bool isUseful() { return true; }
         virtual bool isUsefulWhenStunned() { return false; }

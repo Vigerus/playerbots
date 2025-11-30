@@ -13,6 +13,8 @@
 #include "strategy/IterateItemsMask.h"
 #include "RandomPlayerbotMgr.h"
 
+#include "StateTree/StateMachine.h"
+
 class Player;
 class PlayerbotMgr;
 class ChatHandler;
@@ -369,7 +371,7 @@ public:
     virtual void UpdateAI(uint32 elapsed, bool minimal = false);
 
     void HandleCommands();
-private:
+//private:
     void UpdateAIInternal(uint32 elapsed, bool minimal = false) override;
 
 public:
@@ -677,7 +679,7 @@ public:
     void SetWeakPtr(MaNGOS::unique_weak_ptr<PlayerbotAI> weakRef) { m_weakRef = std::move(weakRef); }
 #endif
 
-private:
+//private:
     bool UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned);
     void UpdateFaceTarget(uint32 elapsed, bool minimal);
 
@@ -686,12 +688,15 @@ protected:
 	Player* master = nullptr;
 	uint32 accountId = 0;
     AiObjectContext* aiObjectContext = nullptr;
-    //Engine* currentEngine = nullptr;
+// #ifdef HLS
+// #else
+    Engine* currentEngine = nullptr;
     Engine& GetCurrentEngine() { return *engines[(uint8)currentState].get(); };
-    //ReactionEngine* reactionEngine = nullptr;
+    ReactionEngine* reactionEngine = nullptr;
     ReactionEngine& GetReactionEngine() { return *(ReactionEngine*)(engines[(uint8)BotState::BOT_STATE_REACTION].get());};
     std::unique_ptr<Engine> engines[(uint8)BotState::BOT_STATE_ALL];
     BotState currentState = BotState::BOT_STATE_NON_COMBAT;
+//#endif
     ChatHelper chatHelper;
     std::queue<ChatCommandHolder> chatCommands;
     std::queue<ChatQueuedReply> chatReplies;
@@ -716,6 +721,8 @@ protected:
     bool isPlayerFriend = false;
     bool isMovingToTransport = false;
     bool shouldLogOut = false;
+
+    StateMachine StateMachine;
 
 #ifdef BUILD_ELUNA
     MaNGOS::unique_weak_ptr<PlayerbotAI> m_weakRef;

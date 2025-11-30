@@ -213,16 +213,22 @@ bool ReactionEngine::Update(uint32 elapsed, bool minimal, bool isStunned, bool& 
 
 bool ReactionEngine::ListenAndExecute(Action* action, Event& event)
 {
-    bool actionExecuted = false;
-    if (actionExecutionListeners.Before(action, event))
+    Action* prevExecutedAction = lastExecutedAction;
+    EActionRunStatus prevActionStatus = lastExecutedActionStatus;
+
+    std::unique_ptr<ActionRunContext> context = std::make_unique<ActionRunContext>();
+    context->name = action->getName();
+    context->relevance = action->getRelevance();
+
+    EActionRunStatus Status = action->Enter(*context, event);
+
+    const bool actionExecuted = (Status != EActionRunStatus::Failed);
+
+    if (actionExecuted)
     {
-        actionExecuted = actionExecutionListeners.AllowExecution(action, event) ? action->Execute(event) : true;
-        if (actionExecuted)
-        {
-            if (!incomingReaction.GetAction()) //Prevent reset during action.
-                incomingReaction.SetAction(action);
-            ai->SetActionDuration(action);
-        }
+        lastExecutedAction = action;
+        lastExecutedActionStatus = Status;
+        lastActionContext = std::move(context);
     }
 
     if (true)
@@ -252,8 +258,8 @@ bool ReactionEngine::ListenAndExecute(Action* action, Event& event)
         CCLOG_TRACE(ai->GetLogger()) << " Source:[" << ai->GetBot()->GetName() << "] " << out.str().c_str();
     }
 
-    actionExecuted = actionExecutionListeners.OverrideResult(action, actionExecuted, event);
-    actionExecutionListeners.After(action, actionExecuted, event);
+//     actionExecuted = actionExecutionListeners.OverrideResult(action, actionExecuted, event);
+//     actionExecutionListeners.After(action, actionExecuted, event);
     return actionExecuted;
 }
 

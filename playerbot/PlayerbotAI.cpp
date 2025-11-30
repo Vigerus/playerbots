@@ -54,6 +54,8 @@
 #endif
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
 
+#include "StateTree/StateNode_Legacy.h"
+
 using namespace ai;
 
 std::vector<std::string>& split(const std::string &s, char delim, std::vector<std::string> &elems);
@@ -232,6 +234,14 @@ PlayerbotAI::PlayerbotAI(Player* bot) : PlayerbotAIBase()
     masterOutgoingPacketHandlers.AddHandler(SMSG_PARTY_COMMAND_RESULT, "party command");
 #ifndef MANGOSBOT_ZERO
     masterOutgoingPacketHandlers.AddHandler(MSG_RAID_READY_CHECK_FINISHED, "ready check finished");
+#endif
+
+#ifdef USE_HLS
+    StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_NonCombat", HLSStateType::NonCombat), true);
+    StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_Combat", HLSStateType::Combat));
+    StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_Dead", HLSStateType::Dead));
+    StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_Reaction", HLSStateType::Reaction));
+    StateMachine.TransitionTo(HLSStateType::NonCombat);
 #endif
 
     if (!HasRealPlayerMaster() && bot->GetFreeTalentPoints() > 0)
@@ -538,6 +548,9 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         e->OnUpdateAI(this, bot->GetName());
 #endif
 
+#ifdef USE_HLS
+    StateMachine.Update(elapsed, minimal);
+#else
     // Only update the internal ai when no reaction is running and the internal ai can be updated
     if(!UpdateAIReaction(elapsed, doMinimalReaction, bot->IsTaxiFlying()) && CanUpdateAIInternal())
     {
@@ -566,6 +579,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 
         YieldAIInternalThread(min);
     }
+#endif
 }
 
 bool PlayerbotAI::UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned)
