@@ -66,7 +66,7 @@ class RandomPlayerbotMgr : public PlayerbotHolder
             return instance;
         }
 
-        virtual void UpdateAIInternal(uint32 elapsed, bool minimal = false);
+        virtual bool UpdateAIInternal(uint32 elapsed, bool minimal = false) override;
 private:
         void ScaleBotActivity();
         void LogPlayerLocation();

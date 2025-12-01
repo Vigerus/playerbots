@@ -308,10 +308,10 @@ namespace ai
     };
 
     // This is a strategy to be used only as a placeholder
-    class PlaceholderStrategy : public Strategy
+    class PlaceholderStrategy : public ClassStrategy
     {
     public:
-        PlaceholderStrategy(PlayerbotAI* ai) : Strategy(ai) {}
+        PlaceholderStrategy(PlayerbotAI* ai) : ClassStrategy(ai) {}
     };
 
     // This strategy is used to hold the bot spec strategy

@@ -41,8 +41,9 @@ namespace ai
         void SetReactionDuration(const Action* action);
         const Reaction* GetReaction() const;
 
-    private:
+    
         bool FindReaction(bool isStunned);
+    private:
         bool StartReaction();
         void StopReaction();
 

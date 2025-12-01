@@ -17,6 +17,12 @@ class IStateNode
 {
 public:
     virtual ~IStateNode() = default;
+
+    // temporary, for compatibility
+    virtual void ReInit() {}
+    virtual void UpdateStrategies(const std::string& name, BotState type) {};
+    virtual void ResetStrategies() {};
+
     virtual void OnEnter() {}
     virtual void OnExit() {}
     virtual void Update(uint32 elapsed, bool minimal) {}

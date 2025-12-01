@@ -48,8 +48,9 @@ void PlayerbotHolder::MovePlayerBot(uint32 guid, PlayerbotHolder* newHolder)
     }
 }
 
-void PlayerbotHolder::UpdateAIInternal(uint32 elapsed, bool minimal)
+bool PlayerbotHolder::UpdateAIInternal(uint32 elapsed, bool minimal)
 {
+    return true;
 }
 
 void PlayerbotHolder::UpdateSessions(uint32 elapsed)
@@ -1248,10 +1249,11 @@ PlayerbotMgr::~PlayerbotMgr()
 {
 }
 
-void PlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool minimal)
+bool PlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool minimal)
 {
     SetAIInternalUpdateDelay(sPlayerbotAIConfig.reactDelay);
     CheckTellErrors(elapsed);
+    return true;
 }
 
 void PlayerbotMgr::HandleCommand(uint32 type, const std::string& text, uint32 lang)

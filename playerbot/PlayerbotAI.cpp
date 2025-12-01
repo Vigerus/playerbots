@@ -158,6 +158,9 @@ PlayerbotAI::PlayerbotAI(Player* bot) : PlayerbotAIBase()
 
     for (uint8 e = 0; e < (uint8)BotState::BOT_STATE_ALL; e++)
     {
+        if (engines[e] == NULL)
+            continue;
+
         engines[e]->initMode = false;
         engines[e]->Init();
     }
@@ -240,7 +243,7 @@ PlayerbotAI::PlayerbotAI(Player* bot) : PlayerbotAIBase()
     StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_NonCombat", HLSStateType::NonCombat), true);
     StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_Combat", HLSStateType::Combat));
     StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_Dead", HLSStateType::Dead));
-    StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_Reaction", HLSStateType::Reaction));
+    StateMachine.RegisterNode(std::make_unique<StateNode_Reaction>(this, bot));
     StateMachine.TransitionTo(HLSStateType::NonCombat);
 #endif
 
@@ -582,36 +585,6 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 #endif
 }
 
-bool PlayerbotAI::UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned)
-{
-    bool reactionFound;
-    std::string mapString = WorldPosition(bot).isInstance() ? "I" : std::to_string(bot->GetMapId());
-
-    auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIReaction " + mapString);
-    ReactionEngine& reactionEngine = GetReactionEngine();
-    const bool reactionInProgress = reactionEngine.Update(elapsed, minimal, isStunned, reactionFound);
-    pmo.reset();
-
-    if (reactionFound)
-    {
-        // If new reaction found force stop current actions (if required)
-        if (const Reaction* reaction = reactionEngine.GetReaction())
-        {
-            if(reaction->ShouldInterruptCast())
-            {
-                InterruptSpell();
-            }
-
-            if (reaction->ShouldInterruptMovement())
-            {
-                StopMoving();
-            }
-        }
-    }
-
-    return reactionInProgress;
-}
-
 void PlayerbotAI::UpdateFaceTarget(uint32 elapsed, bool minimal)
 {
     faceTargetUpdateDelay = faceTargetUpdateDelay > elapsed ? faceTargetUpdateDelay - elapsed : 0U;
@@ -662,7 +635,7 @@ void PlayerbotAI::SetActionDuration(const Action* action)
     {
         if(action->IsReaction())
         {
-            GetReactionEngine().SetReactionDuration(action);
+            //GetReactionEngine().SetReactionDuration(action);
         }
         else
         {
@@ -908,6 +881,8 @@ time_t PlayerbotAI::GetCombatStartTime() const
 
 void PlayerbotAI::OnCombatStarted()
 {
+    StateMachine.TransitionTo(HLSStateType::Combat);
+
     if(!IsStateActive(BotState::BOT_STATE_COMBAT))
     {
         // Reset the combat start timestamp
@@ -938,6 +913,8 @@ void PlayerbotAI::OnCombatStarted()
 
 void PlayerbotAI::OnCombatEnded()
 {
+    StateMachine.TransitionTo(HLSStateType::NonCombat);
+
     if (!IsStateActive(BotState::BOT_STATE_NON_COMBAT))
     {
         // Reset the combat start timestamp
@@ -955,6 +932,8 @@ void PlayerbotAI::OnCombatEnded()
 
 void PlayerbotAI::OnDeath()
 {
+    StateMachine.TransitionTo(HLSStateType::Dead);
+
     if (!IsStateActive(BotState::BOT_STATE_DEAD) && !sServerFacade.IsAlive(bot))
     {
         StopMoving();
@@ -1040,6 +1019,8 @@ void PlayerbotAI::OnDeath()
 
 void PlayerbotAI::OnResurrected()
 {
+    StateMachine.TransitionTo(HLSStateType::NonCombat);
+
     if (IsStateActive(BotState::BOT_STATE_DEAD) && sServerFacade.IsAlive(bot))
     {
         // Stop following on resurrected
@@ -1085,10 +1066,10 @@ void PlayerbotAI::HandleCommands()
     }
 }
 
-void PlayerbotAI::UpdateAIInternal(uint32 elapsed, bool minimal)
+bool PlayerbotAI::UpdateAIInternal(uint32 elapsed, bool minimal)
 {
     if (bot->IsBeingTeleported() || !bot->IsInWorld())
-        return;
+        return false;
 
     std::string mapString = WorldPosition(bot).isInstance() ? "I" : std::to_string(bot->GetMapId());
     auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIInternal " + mapString);
@@ -1146,18 +1127,17 @@ void PlayerbotAI::UpdateAIInternal(uint32 elapsed, bool minimal)
             {
                 sRandomPlayerbotMgr.LogoutPlayerBot(bot->GetObjectGuid().GetRawValue());
             }
-            return;
+            return false;
         }
 
         SetAIInternalUpdateDelay(sPlayerbotAIConfig.reactDelay);
-        return;
+        return false;
     }
 
     botOutgoingPacketHandlers.Handle(helper);
     masterIncomingPacketHandlers.Handle(helper);
     masterOutgoingPacketHandlers.Handle(helper);
-
-	DoNextAction(minimal);
+    return true;
 }
 
 void PlayerbotAI::HandleTeleportAck()
@@ -1217,7 +1197,7 @@ void PlayerbotAI::Reset(bool full)
 
     currentState = BotState::BOT_STATE_NON_COMBAT;
     ResetAIInternalUpdateDelay();
-    GetReactionEngine().Reset();
+    //GetReactionEngine().Reset();
     whispers.clear();
 
     PullStrategy* strategy = PullStrategy::Get(this);
@@ -1933,7 +1913,7 @@ void PlayerbotAI::ChangeEngine(BotState type)
     }
 }
 
-void PlayerbotAI::DoNextAction(bool min)
+void PlayerbotAI::DoNextAction(bool min, Engine* CustomEngine)
 {
     if (!bot->IsInWorld() || bot->IsBeingTeleported() || (GetMaster() && GetMaster()->IsBeingTeleported()))
     {
@@ -1954,7 +1934,15 @@ void PlayerbotAI::DoNextAction(bool min)
 
     bool minimal = !AllowActivity();
 
-    GetCurrentEngine().DoNextAction(NULL, 0, (minimal || min), bot->IsTaxiFlying());
+    if (CustomEngine)
+    {
+        CustomEngine->DoNextAction(NULL, 0, (minimal || min), bot->IsTaxiFlying());
+    }
+    else
+    {
+        GetCurrentEngine().DoNextAction(NULL, 0, (minimal || min), bot->IsTaxiFlying());
+    }
+    
 
     if (!bot->IsInWorld()) //Teleport out of bg
         return;
@@ -2146,7 +2134,9 @@ void PlayerbotAI::DoNextAction(bool min)
 void PlayerbotAI::ReInitCurrentEngine()
 {
     InterruptSpell();
-    GetCurrentEngine().Init();
+    //GetCurrentEngine().Init();
+
+    StateMachine.ReInitCurrentEngine();
 }
 
 void PlayerbotAI::ChangeStrategy(const std::string& names, BotState type)
@@ -2384,6 +2374,9 @@ void PlayerbotAI::ResetStrategies(bool autoLoad)
 {
     for (uint8 i = 0; i < (uint8)BotState::BOT_STATE_ALL; i++)
     {
+        if (!engines[i])
+            continue;
+
         engines[i]->initMode = true;
         engines[i]->removeAllStrategies();
     }
@@ -2392,10 +2385,16 @@ void PlayerbotAI::ResetStrategies(bool autoLoad)
     AiFactory::AddDefaultNonCombatStrategies(bot, this, engines[(uint8)BotState::BOT_STATE_NON_COMBAT].get());
     AiFactory::AddDefaultDeadStrategies(bot, this, engines[(uint8)BotState::BOT_STATE_DEAD].get());
     AiFactory::AddDefaultReactionStrategies(bot, this, (ReactionEngine*)(engines[(uint8)BotState::BOT_STATE_REACTION].get()));
+
+    StateMachine.ResetStrategies();
+
     if (autoLoad && HasPlayerRelation()) sPlayerbotDbStore.Load(this);
 
     for (uint8 i = 0; i < (uint8)BotState::BOT_STATE_ALL; i++)
     {
+        if (!engines[i])
+            continue;
+
         engines[i]->initMode = false;
         engines[i]->Init();
     }

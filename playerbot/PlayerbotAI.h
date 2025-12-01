@@ -372,7 +372,7 @@ public:
 
     void HandleCommands();
 //private:
-    void UpdateAIInternal(uint32 elapsed, bool minimal = false) override;
+    virtual bool UpdateAIInternal(uint32 elapsed, bool minimal = false) override;
 
 public:
     static std::string BotStateToString(BotState state);
@@ -384,7 +384,7 @@ public:
     void HandleMasterOutgoingPacket(const WorldPacket& packet);
 	void HandleTeleportAck();
     void ChangeEngine(BotState type);
-    void DoNextAction(bool minimal = false);
+    void DoNextAction(bool minimal = false, Engine* CustomEngine = nullptr);
     bool CanDoSpecificAction(const std::string& name, bool isUseful = true, bool isPossible = true);
     virtual bool DoSpecificAction(const std::string& name, Event event = Event(), bool silent = false);
     void ChangeStrategy(const std::string& name, BotState type);
@@ -688,15 +688,18 @@ protected:
 	Player* master = nullptr;
 	uint32 accountId = 0;
     AiObjectContext* aiObjectContext = nullptr;
+public:
+
 // #ifdef HLS
 // #else
     Engine* currentEngine = nullptr;
     Engine& GetCurrentEngine() { return *engines[(uint8)currentState].get(); };
-    ReactionEngine* reactionEngine = nullptr;
-    ReactionEngine& GetReactionEngine() { return *(ReactionEngine*)(engines[(uint8)BotState::BOT_STATE_REACTION].get());};
+    //ReactionEngine* reactionEngine = nullptr;
+    //ReactionEngine& GetReactionEngine() { return *(ReactionEngine*)(engines[(uint8)BotState::BOT_STATE_REACTION].get());};
     std::unique_ptr<Engine> engines[(uint8)BotState::BOT_STATE_ALL];
     BotState currentState = BotState::BOT_STATE_NON_COMBAT;
 //#endif
+protected:
     ChatHelper chatHelper;
     std::queue<ChatCommandHolder> chatCommands;
     std::queue<ChatQueuedReply> chatReplies;

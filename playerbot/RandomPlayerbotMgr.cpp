@@ -551,7 +551,7 @@ void RandomPlayerbotMgr::LogPlayerLocation()
     }
 }
 
-void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool minimal)
+bool RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool minimal)
 {
 #ifdef MEMORY_MONITOR
     sMemoryMonitor.Print();
@@ -559,7 +559,7 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool minimal)
 #endif
 
     if (!sPlayerbotAIConfig.randomBotAutologin || !sPlayerbotAIConfig.enabled)
-        return;
+        return false;
 
     if (!playersLevel)
         playersLevel = sPlayerbotAIConfig.syncLevelNoPlayer;
@@ -687,6 +687,8 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool minimal)
 
     //Ping character database.
     CharacterDatabase.AsyncPQuery(&RandomPlayerbotMgr::DatabasePing, sWorld.GetCurrentMSTime(), std::string("CharacterDatabase"), "SELECT 1");
+
+    return true;
 }
 
 void RandomPlayerbotMgr::ScaleBotActivity()

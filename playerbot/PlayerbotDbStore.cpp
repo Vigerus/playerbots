@@ -45,7 +45,7 @@ void PlayerbotDbStore::Load(PlayerbotAI *ai, std::string preset)
             else if (key == "co") ai->ChangeStrategy(value, BotState::BOT_STATE_COMBAT);
             else if (key == "nc") ai->ChangeStrategy(value, BotState::BOT_STATE_NON_COMBAT);
             else if (key == "dead") ai->ChangeStrategy(value, BotState::BOT_STATE_DEAD);
-            else if (key == "react") ai->ChangeStrategy(value, BotState::BOT_STATE_REACTION);
+           // else if (key == "react") ai->ChangeStrategy(value, BotState::BOT_STATE_REACTION);
         } while (results->NextRow());
 
         ai->GetAiObjectContext()->Load(values);
@@ -69,7 +69,7 @@ void PlayerbotDbStore::Save(PlayerbotAI *ai, std::string preset)
     SaveValue(guid, preset, "co", FormatStrategies("co", ai->GetStrategies(BotState::BOT_STATE_COMBAT)));
     SaveValue(guid, preset, "nc", FormatStrategies("nc", ai->GetStrategies(BotState::BOT_STATE_NON_COMBAT)));
     SaveValue(guid, preset, "dead", FormatStrategies("dead", ai->GetStrategies(BotState::BOT_STATE_DEAD)));
-    SaveValue(guid, preset, "react", FormatStrategies("react", ai->GetStrategies(BotState::BOT_STATE_REACTION)));
+    //SaveValue(guid, preset, "react", FormatStrategies("react", ai->GetStrategies(BotState::BOT_STATE_REACTION)));
 }
 
 std::string PlayerbotDbStore::FormatStrategies(std::string type, std::list<std::string_view> strategies)

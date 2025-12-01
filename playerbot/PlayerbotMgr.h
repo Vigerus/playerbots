@@ -30,7 +30,7 @@ public:
     void DisablePlayerBot(uint32 guid, bool logOutPlayer = true);
     Player* GetPlayerBot (uint32 guid) const;
 
-    virtual void UpdateAIInternal(uint32 elapsed, bool minimal = false);
+    virtual bool UpdateAIInternal(uint32 elapsed, bool minimal = false) override;
     void UpdateSessions(uint32 elapsed);
 
     void ForEachPlayerbot(std::function<void(Player*)> fct) const;
@@ -67,7 +67,7 @@ public:
     void OnPlayerLogin(Player* player);
     void CancelLogout();
 
-    virtual void UpdateAIInternal(uint32 elapsed, bool minimal = false);
+    virtual bool UpdateAIInternal(uint32 elapsed, bool minimal = false) override;
     void TellError(std::string botName, std::string text);
 
     Player* GetMaster() const { return master; };
