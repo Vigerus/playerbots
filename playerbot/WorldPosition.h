@@ -132,6 +132,10 @@ namespace ai
         bool isInstance() const { return !isOverworld() || mapid == 609;}
         bool isInWater() const { return getTerrain() ? getTerrain()->IsInWater(coord_x, coord_y, coord_z) : false; };
         bool isUnderWater() const { return getTerrain() ? getTerrain()->IsUnderWater(coord_x, coord_y, coord_z) : false; };
+        bool setAtWaterSurface();
+        bool isUnderground() const;
+        float getWaterLevel() const { return getTerrain() ? getTerrain()->GetWaterLevel(coord_x, coord_y, coord_z) : -200000.0f; };
+        float getGroundLevel() const { float ground = 0.0f; getTerrain()->GetWaterLevel(coord_x, coord_y, coord_z, &ground); return ground; };
 
         WorldPosition relPoint(const WorldPosition& center) const { return WorldPosition(mapid, coord_x - center.coord_x, coord_y - center.coord_y, coord_z - center.coord_z, orientation); }
         WorldPosition offset(const WorldPosition& center) const { return WorldPosition(mapid, coord_x + center.coord_x, coord_y + center.coord_y, coord_z + center.coord_z, orientation); }
@@ -247,7 +251,12 @@ namespace ai
         void CalculatePassengerPosition(GenericTransport* transport);
         void CalculatePassengerOffset(GenericTransport* transport);
 
+        static float GetTransporFloorOffset(uint32 entry);
+        void SetTranpotHeightToFloor(uint32 entry) { coord_z += GetTransporFloorOffset(entry); }
         bool isOnTransport(GenericTransport* transport);
+        bool SetOnTransport(GenericTransport* transport, int32 startHeight = 10, int32 endHeight = -1);
+        WorldPosition RandomPointOnTrans(GenericTransport* transport, float radius, bool findClose, bool useHeight, Player* botForPath, std::vector<WorldPosition>& path);
+        WorldPosition RandomPointOnTrans(GenericTransport* transport, float radius = 10.0f, bool findClose = false, bool useHeight = false);
 
         GridPair getGridPair() const { return MaNGOS::ComputeGridPair(coord_x, coord_y); };
         std::vector<GridPair> getGridPairs(const WorldPosition& secondPos) const;
@@ -297,6 +306,7 @@ namespace ai
         bool HasFaction(const Team team) const;
 
         std::vector<WorldPosition> fromPointsArray(const std::vector<G3D::Vector3>& path) const;
+        std::vector<G3D::Vector3> toPointsArray(const std::vector<WorldPosition>& path) const;
 
         //Pathfinding
         std::vector<WorldPosition> getPathStepFrom(const WorldPosition& startPos, std::unique_ptr<PathFinder>& pathfinder, const Unit* bot, bool forceNormalPath = false) const;
@@ -304,7 +314,7 @@ namespace ai
         std::vector<WorldPosition> getPathFromPath(const std::vector<WorldPosition>& startPath, const Unit* bot, const uint8 maxAttempt = 40) const;
         std::vector<WorldPosition> getPathFrom(const WorldPosition& startPos, const Unit* bot) { return getPathFromPath({ startPos }, bot); };
         std::vector<WorldPosition> getPathTo(WorldPosition endPos, const Unit* bot) const { return endPos.getPathFrom(*this, bot); }
-        bool isPathTo(const std::vector<WorldPosition>& path, float const maxDistance = 0) const;
+        bool isPathTo(const std::vector<WorldPosition>& path, float const maxDistance = 0, float const maxZDistance = 2.0f) const;
         bool cropPathTo(std::vector<WorldPosition>& path, const float maxDistance = 0) const;
         bool canPathTo(const WorldPosition& endPos, const Unit* bot) const { return endPos.isPathTo(getPathTo(endPos, bot)); }
 

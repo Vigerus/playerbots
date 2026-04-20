@@ -72,14 +72,15 @@ namespace ai
         FORCE_USAGE_KEEP = 1,  //Do not sell item.
         FORCE_USAGE_EQUIP = 2, //Equip item if no other forced equipped.
         FORCE_USAGE_GREED = 3,  //Get more and greed for rolls.
-        FORCE_USAGE_NEED = 4    //Get more and need for rolls.
+        FORCE_USAGE_NEED = 4,   //Get more and need for rolls.
+        FORCE_USAGE_BAG = 5     //Keep in bags, never equip.
     };
 
     class ItemUsageValue : public CalculatedValue<ItemUsage>, public Qualified
     {
     public:
         ItemUsageValue(PlayerbotAI* ai, std::string name = "item usage") : CalculatedValue<ItemUsage>(ai, name), Qualified() {}
-        virtual ItemUsage Calculate();
+        virtual ItemUsage Calculate() override;
 
         static ItemUsage QueryItemUsageForEquip(ItemQualifier& itemQualifier, Player* bot);
         static uint32 GetSmallestBagSize(Player* bot);
@@ -131,6 +132,7 @@ namespace ai
         static bool IsHealingPotion(ItemPrototype const* proto);
         static bool IsManaPotion(ItemPrototype const* proto);
         static bool IsBandage(ItemPrototype const* proto);
+        static bool IsAntiVenom(ItemPrototype const* proto);
 
         static uint32 GetRecipeSpell(ItemPrototype const* proto);
 

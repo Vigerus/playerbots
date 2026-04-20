@@ -10,6 +10,7 @@
 #include "PartyMemberWithoutAuraValue.h"
 #include "PartyMemberToHeal.h"
 #include "PartyMemberToResurrect.h"
+#include "PartyMemberToSoulstone.h"
 #include "CurrentTargetValue.h"
 #include "SelfTargetValue.h"
 #include "MasterTargetValue.h"
@@ -103,6 +104,7 @@
 #include "StuckValues.h"
 #include "FishValues.h"
 #include "RuneForgeValues.h"
+#include "WorldBuffTravelValues.h"
 
 namespace ai
 {
@@ -142,6 +144,7 @@ namespace ai
             creators["attacker without aura"] = [](PlayerbotAI* ai) { return new AttackerWithoutAuraTargetValue(ai); };
             creators["party member to heal"] = [](PlayerbotAI* ai) { return new PartyMemberToHeal(ai); };
             creators["party member to resurrect"] = [](PlayerbotAI* ai) { return new PartyMemberToResurrect(ai); };
+            creators["party member to soulstone"] = [](PlayerbotAI* ai) { return new PartyMemberToSoulstone(ai); };
             creators["current target"] = [](PlayerbotAI* ai) { return new CurrentTargetValue(ai); };
             creators["self target"] = [](PlayerbotAI* ai) { return new SelfTargetValue(ai); };
             creators["master target"] = [](PlayerbotAI* ai) { return new MasterTargetValue(ai); };
@@ -336,9 +339,7 @@ namespace ai
 
             creators["free move center"] = [](PlayerbotAI* ai) { return new FreeMoveCenterValue(ai); };
             creators["free move range"] = [](PlayerbotAI* ai) { return new FreeMoveRangeValue(ai); };
-            creators["can free move to"] = [](PlayerbotAI* ai) { return new CanFreeMoveToValue(ai); };
-            creators["can free attack"] = [](PlayerbotAI* ai) { return new CanFreeAttackValue(ai); };
-            creators["can free target"] = [](PlayerbotAI* ai) { return new CanFreeTargetValue(ai); };
+            creators["can free move"] = [](PlayerbotAI* ai) { return new CanFreeMoveValue(ai); };           
 
             creators["can move around"] = [](PlayerbotAI* ai) { return new CanMoveAroundValue(ai); };
             creators["should home bind"] = [](PlayerbotAI* ai) { return new ShouldHomeBindValue(ai); };
@@ -388,7 +389,18 @@ namespace ai
             creators["petition signs"] = [](PlayerbotAI* ai) { return new PetitionSignsValue(ai); };
             creators["can hand in petition"] = [](PlayerbotAI* ai) { return new CanHandInPetitionValue(ai); };
             creators["can buy tabard"] = [](PlayerbotAI* ai) { return new CanBuyTabard(ai); };
-            
+            creators["guild order"] = [](PlayerbotAI* ai) { return new GuildOrderValue(ai); };
+            creators["has guild travel order"] = [](PlayerbotAI* ai) { return new HasGuildTravelOrderValue(ai); };
+            creators["has guild craft order"] = [](PlayerbotAI* ai) { return new HasGuildCraftOrderValue(ai); };
+            creators["guild share target"] = [](PlayerbotAI* ai) { return new GuildShareTargetValue(ai); };
+            creators["has guild share target"] = [](PlayerbotAI* ai) { return new HasGuildShareTargetValue(ai); };
+            creators["guild share list"] = [](PlayerbotAI* ai) { return new GuildShareListValue(ai); };
+            creators["guild share craft order"] = [](PlayerbotAI* ai) { return new GuildShareCraftOrderValue(ai); };
+            creators["guild share farm order"] = [](PlayerbotAI* ai) { return new GuildShareFarmOrderValue(ai); };
+            creators["guild share quest reward order"] = [](PlayerbotAI* ai) { return new GuildShareQuestRewardOrderValue(ai); };
+            creators["guild share quest reward item"] = [](PlayerbotAI* ai) { return new GuildShareQuestRewardItemValue(ai); };
+            creators["needs guild quest order accept"] = [](PlayerbotAI* ai) { return new NeedsGuildQuestOrderAcceptValue(ai); };
+            creators["needs profession reagents"] = [](PlayerbotAI* ai) { return new NeedsProfessionReagentsValue(ai); };
 
             creators["experience"] = [](PlayerbotAI* ai) { return new ExperienceValue(ai); };
             creators["honor"] = [](PlayerbotAI* ai) { return new HonorValue(ai); };
@@ -414,6 +426,7 @@ namespace ai
             creators["wait for attack time"] = [](PlayerbotAI* ai) { return new WaitForAttackTimeValue(ai); };
 
             creators["mc runes"] = [](PlayerbotAI* ai) { return new MCRunesValue(ai); };
+            creators["suppression devices"] = [](PlayerbotAI* ai) { return new SuppressionDevicesValue(ai); };
             creators["gos"] = [](PlayerbotAI* ai) { return new GameObjectsValue(ai); };
             creators["entry filter"] = [](PlayerbotAI* ai) { return new EntryFilterValue(ai); };
             creators["guid filter"] = [](PlayerbotAI* ai) { return new GuidFilterValue(ai); };
@@ -443,6 +456,7 @@ namespace ai
             creators["travel target"] = [](PlayerbotAI* ai) { return new TravelTargetValue(ai); };
             creators["leader travel target"] = [](PlayerbotAI* ai) { return new LeaderTravelTargetValue(ai); };
 
+            creators["travel target ready"] = [](PlayerbotAI* ai) { return new TravelTargetReadyValue(ai); };            
             creators["travel target active"] = [](PlayerbotAI* ai) { return new TravelTargetActiveValue(ai); };            
             creators["travel target traveling"] = [](PlayerbotAI* ai) { return new TravelTargetTravelingValue(ai); };
             creators["travel target working"] = [](PlayerbotAI* ai) { return new TravelTargetWorkingValue(ai); };
@@ -457,6 +471,7 @@ namespace ai
             creators["can fish"] = [](PlayerbotAI* ai) { return new CanFishValue(ai); };
             creators["can open fishing dobber"] = [](PlayerbotAI* ai) { return new CanOpenFishingDobberValue(ai); };
             creators["done fishing"] = [](PlayerbotAI* ai) { return new DoneFishingValue(ai); };
+            creators["world buff travel step"] = [](PlayerbotAI* ai) { return new WorldBuffTravelStepValue(ai); };
 
             //Stuck
             creators["time since last change"] = [](PlayerbotAI* ai) { return new TimeSinceLastChangeValue(ai); };

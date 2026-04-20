@@ -15,6 +15,13 @@ namespace ai
         bool isUseful() override;
     };
 
+    class HunterEquipAmmoAction : public Action
+{
+public:
+    HunterEquipAmmoAction(PlayerbotAI* ai) : Action(ai, "equip ammo") {}
+    virtual bool Execute(Event& event) override;
+};
+
     BEGIN_RANGED_SPELL_ACTION(CastTranquilizingShotAction, "tranquilizing shot")
     END_SPELL_ACTION()
 
@@ -131,7 +138,7 @@ namespace ai
     {
     public:
         CastMendPetAction(PlayerbotAI* ai) : CastAuraSpellAction(ai, "mend pet") {}
-        virtual std::string GetTargetName() { return "pet target"; }
+        virtual std::string GetTargetName() override { return "pet target"; }
     };
 
     class CastRevivePetAction : public CastBuffSpellAction

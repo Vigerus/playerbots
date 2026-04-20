@@ -16,9 +16,11 @@
 #include "PullTriggers.h"
 #include "OnyxiasLairDungeonTriggers.h"
 #include "MoltenCoreDungeonTriggers.h"
+#include "BlackwingLairDungeonTriggers.h"
 #include "KarazhanDungeonTriggers.h"
 #include "NaxxramasDungeonTriggers.h"
 #include "GlyphTriggers.h"
+#include "WorldBuffTravelTriggers.h"
 
 namespace ai
 {
@@ -101,6 +103,8 @@ namespace ai
             creators["has area debuff"] = [](PlayerbotAI* ai) { return new HasAreaDebuffTrigger(ai); };
             creators["has aura"] = [](PlayerbotAI* ai) { return new HasAuraTrigger(ai); };
 
+            creators["potion cooldown"] = [](PlayerbotAI* ai) { return new PotionCooldownTrigger(ai); };
+
             creators["enemy out of melee"] = [](PlayerbotAI* ai) { return new EnemyOutOfMeleeTrigger(ai); };
             creators["enemy out of spell"] = [](PlayerbotAI* ai) { return new EnemyOutOfSpellRangeTrigger(ai); };
             creators["enemy too close for spell"] = [](PlayerbotAI* ai) { return new EnemyTooCloseForSpellTrigger(ai); };
@@ -134,8 +138,15 @@ namespace ai
             creators["far from master"] = [](PlayerbotAI* ai) { return new FarFromMasterTrigger(ai); };
             creators["not near master"] = [](PlayerbotAI* ai) { return new NotNearMasterTrigger(ai); };
             creators["out of react range"] = [](PlayerbotAI* ai) { return new OutOfReactRangeTrigger(ai); };
+            creators["out of free move range"] = [](PlayerbotAI* ai) { return new OutOfFreeMoveRangeTrigger(ai); };
             creators["update follow"] = [](PlayerbotAI* ai) { return new UpdateFollowTrigger(ai); };
             creators["stop follow"] = [](PlayerbotAI* ai) { return new StopFollowTrigger(ai); };
+
+            // Register freefollow triggers
+            creators["wander far"] = [](PlayerbotAI* ai) { return new WanderFarTrigger(ai); };
+            creators["wander medium"] = [](PlayerbotAI* ai) { return new WanderMediumTrigger(ai); };
+            creators["wander near"] = [](PlayerbotAI* ai) { return new WanderNearTrigger(ai); };
+
             creators["far from loot target"] = [](PlayerbotAI* ai) { return new FarFromCurrentLootTrigger(ai); };
             creators["can loot"] = [](PlayerbotAI* ai) { return new CanLootTrigger(ai); };
             creators["swimming"] = [](PlayerbotAI* ai) { return new IsSwimmingTrigger(ai); };
@@ -181,6 +192,7 @@ namespace ai
             creators["target of fear cast"] = [](PlayerbotAI* ai) { return new TargetOfFearCastTrigger(ai); };
             creators["heal target full health"] = [](PlayerbotAI* ai) { return new HealTargetFullHealthTrigger(ai); };
             creators["dispel enrage"] = [](PlayerbotAI* ai) { return new DispelEnrageOnTargetTrigger(ai); };
+            creators["has poison debuff"] = [](PlayerbotAI* ai) { return new HasPoisonDebuffTrigger(ai); };
             creators["at war"] = [](PlayerbotAI* ai) { return new AtWarTrigger(ai); };
 
             creators["mounted"] = [](PlayerbotAI* ai) { return new IsMountedTrigger(ai); };
@@ -199,6 +211,18 @@ namespace ai
             creators["in vehicle"] = [](PlayerbotAI* ai) { return new InVehicleTrigger(ai); };
 
             creators["need world buff"] = [](PlayerbotAI* ai) { return new NeedWorldBuffTrigger(ai); };
+
+            // World Buff Travel triggers
+            creators["world buff travel zone reached"] = [](PlayerbotAI* ai) { return new WorldBuffTravelZoneReachedTrigger(ai); };
+            creators["world buff travel need move"] = [](PlayerbotAI* ai) { return new WorldBuffTravelNeedMoveTrigger(ai); };
+            creators["world buff travel portal step"] = [](PlayerbotAI* ai) { return new WorldBuffTravelPortalStepTrigger(ai); };
+            creators["world buff travel use portal"] = [](PlayerbotAI* ai) { return new WorldBuffTravelUsePortalTrigger(ai); };
+            creators["world buff travel done"] = [](PlayerbotAI* ai) { return new WorldBuffTravelDoneTrigger(ai); };
+            creators["world buff travel dm buffed"] = [](PlayerbotAI* ai) { return new WorldBuffTravelDMBuffedTrigger(ai); };
+            creators["world buff travel dm exited"] = [](PlayerbotAI* ai) { return new WorldBuffTravelDMExitedTrigger(ai); };
+            creators["world buff travel dm portal cast"] = [](PlayerbotAI* ai) { return new WorldBuffTravelDMPortalCastTrigger(ai); };
+            creators["world buff travel dm portal use"] = [](PlayerbotAI* ai) { return new WorldBuffTravelDMPortalUseTrigger(ai); };
+
             creators["falling"] = [](PlayerbotAI* ai) { return new IsFallingTrigger(ai); };
             creators["falling far"] = [](PlayerbotAI* ai) { return new IsFallingFarTrigger(ai); };
             creators["move stuck"] = [](PlayerbotAI* ai) { return new MoveStuckTrigger(ai); };
@@ -272,6 +296,8 @@ namespace ai
             creators["leave karazhan"] = [](PlayerbotAI* ai) { return new KarazhanLeaveDungeonTrigger(ai); };
             creators["enter naxxramas"] = [](PlayerbotAI* ai) { return new NaxxramasEnterDungeonTrigger(ai); };
             creators["leave naxxramas"] = [](PlayerbotAI* ai) { return new NaxxramasLeaveDungeonTrigger(ai); };
+            creators["enter blackwing lair"] = [](PlayerbotAI* ai) { return new BlackwingLairEnterDungeonTrigger(ai); };
+            creators["leave blackwing lair"] = [](PlayerbotAI* ai) { return new BlackwingLairLeaveDungeonTrigger(ai); };
 
             // Dungeon Boss Triggers
             creators["start onyxia fight"] = [](PlayerbotAI* ai) { return new OnyxiaStartFightTrigger(ai); };
@@ -286,6 +312,10 @@ namespace ai
 
             creators["mc rune in sight"] = [](PlayerbotAI* ai) { return new MCRuneInSightTrigger(ai); };
             creators["mc rune close"] = [](PlayerbotAI* ai) { return new MCRuneCloseTrigger(ai); };
+
+            creators["suppression device need stealth"] = [](PlayerbotAI* ai) { return new SuppressionDeviceNeedStealthTrigger(ai); };
+            creators["suppression device in sight"] = [](PlayerbotAI* ai) { return new SuppressionDeviceInSightTrigger(ai); };
+            creators["suppression device close"] = [](PlayerbotAI* ai) { return new SuppressionDeviceCloseTrigger(ai); };
 
             creators["start netherspite fight"] = [](PlayerbotAI* ai) { return new NetherspiteStartFightTrigger(ai); };
             creators["end netherspite fight"] = [](PlayerbotAI* ai) { return new NetherspiteEndFightTrigger(ai); };

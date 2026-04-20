@@ -1,9 +1,10 @@
-
 #include "playerbot/playerbot.h"
 #include "ItemCountValue.h"
 #include "Entities/Item.h"
 #include "Entities/ItemPrototype.h"
 #include "Entities/Player.h"
+#include <unordered_map>
+#include <ctime>
 
 using namespace ai;
 
@@ -20,12 +21,9 @@ uint32 ItemCountValue::Calculate()
 {
     uint32 count = 0;
     std::list<Item*> items = Find(ai, qualifier);
-    for (std::list<Item*>::iterator i = items.begin(); i != items.end(); ++i)
-    {
-        Item* item = *i;
+    for (Item* item : items)
         count += item->GetCount();
-    }
-
+    
     return count;
 }
 

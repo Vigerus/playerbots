@@ -173,20 +173,25 @@ bool PossibleAttackTargetsValue::IsImmuneToDamage(Unit* target, Player* player)
 
     // Immune to damage
     PlayerbotAI* ai = player->GetPlayerbotAI();
-    if (ai)
+    if (!ai)
+        return false;
+
+    for (const Aura* aura : ai->GetAuras(target))
     {
-        for (const Aura* aura : ai->GetAuras(target))
+        const SpellEntry* spellInfo = aura->GetSpellProto();
+        if (!spellInfo)
+            continue;
+
+        if (spellInfo->Mechanic == MECHANIC_BANISH)
+            return true;
+
+        if (!aura->IsPositive())
+            continue;
+
+        if (spellInfo->Mechanic == MECHANIC_INVULNERABILITY ||
+            spellInfo->Mechanic == MECHANIC_IMMUNE_SHIELD)
         {
-            const SpellEntry* spellInfo = aura->GetSpellProto();
-            if (spellInfo)
-            {
-                if (spellInfo->Mechanic == MECHANIC_BANISH || 
-                    spellInfo->Mechanic == MECHANIC_INVULNERABILITY ||
-                    spellInfo->Mechanic == MECHANIC_IMMUNE_SHIELD)
-                {
-                    return true;
-                }
-            }
+            return true;
         }
     }
 
@@ -210,7 +215,7 @@ std::string PossibleAttackTargetsValue::Format()
             out << target;
     }
 
-    return out.str().c_str();
+    return out.str();
 }
 
 bool PossibleAttackTargetsValue::IsTapped(Unit* target, Player* player)

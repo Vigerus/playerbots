@@ -600,6 +600,15 @@ std::string ChatHelper::formatQItem(uint32 itemId)
     return out.str();
 }
 
+std::string ChatHelper::formatSlot(uint8 slotId)
+{
+    for (auto& [name, id] : slots)
+        if (id == slotId)
+            return name;
+
+    return "unknown";
+}
+
 std::string ChatHelper::formatSkill(uint32 skillId, Player* player)
 {
     std::string name = "unknown skill";
@@ -633,6 +642,8 @@ std::string ChatHelper::formatSkill(uint32 skillId, Player* player)
 
         if (tempValue)
             out << " +temp " << permValue;
+
+        out << ")";
     }
 
     return out.str();
@@ -928,6 +939,34 @@ bool ChatHelper::parseable(const std::string& text)
             parseMoney(text) > 0;
 }
 
+        ;
+;
+
+
+BotRoles ChatHelper::parseRole(const std::string& text)
+{
+    if (boost::iequals(text, "healer"))
+        return BotRoles::BOT_ROLE_HEALER;
+    else if (boost::iequals(text, "tank"))
+        return BotRoles::BOT_ROLE_TANK;
+    else if (boost::iequals(text, "dps"))
+        return BotRoles::BOT_ROLE_DPS;
+
+    return BotRoles::BOT_ROLE_NONE;
+}
+
+std::string ChatHelper::formatRole(BotRoles role)
+{
+    if (role == BotRoles::BOT_ROLE_HEALER)
+        return "healer";
+    else if (role == BotRoles::BOT_ROLE_TANK)
+        return "tank";
+    else if (role == BotRoles::BOT_ROLE_DPS)
+        return "dps";
+
+    return "none";
+}
+
 std::string ChatHelper::specName(const Player* player)
 {
     return specs[player->getClass()][AiFactory::GetPlayerSpecTab(player)];
@@ -953,9 +992,93 @@ std::string ChatHelper::formatClass(const Player* player, int spec)
     return out.str();
 }
 
+uint32 ChatHelper::parseGender(const std::string& text)
+{
+    if (boost::iequals(text, "male"))
+        return GENDER_MALE;
+    else if (boost::iequals(text, "female"))
+        return GENDER_FEMALE;
+    else if (Qualified::isValidNumberString(text))
+    {
+        uint8 gender = static_cast<uint32>(stoi(text));
+        if (gender == GENDER_MALE || gender == GENDER_FEMALE)
+            return gender;
+    }
+
+    return GENDER_NONE;
+}
+
+std::string ChatHelper::formatGender(uint8 gender)
+{
+    if (gender == GENDER_MALE)
+        return "male";
+    if (gender == GENDER_FEMALE)
+        return "female";
+
+    return "none";
+}
+
+Team ChatHelper::parseTeam(const std::string& text)
+{
+    if (boost::iequals(text, "alliance"))
+        return ALLIANCE;
+    else if (boost::iequals(text, "horde"))
+        return HORDE;
+    else if (Qualified::isValidNumberString(text))
+    {
+        uint8 team = static_cast<uint32>(stoi(text));
+        if (team == ALLIANCE || team == HORDE)
+            return (Team)team;
+    }
+
+    return TEAM_BOTH_ALLOWED;
+}
+
+std::string ChatHelper::formatTeam(Team team)
+{
+    if (team == ALLIANCE)
+        return "Alliance";
+    if (team == HORDE)
+        return "Horde";
+
+    return "none";
+}
+
+uint32 ChatHelper::parseClass(const std::string& text)
+{
+    for (auto& [classId, className] : classes)
+        if (boost::iequals(className, text))
+            return classId;
+
+    if (Qualified::isValidNumberString(text))
+    {
+        uint32 id = static_cast<uint32>(stoi(text));
+        if (classes.count(id))
+            return id;
+    }
+
+    return 0;
+}
+
 std::string ChatHelper::formatClass(uint8 cls)
 {
     return classes[cls];
+}
+
+uint32 ChatHelper::parseRace(const std::string& text)
+{
+    for (auto& [raceId, raceName] : races)
+        if (boost::iequals(raceName, text))
+            return raceId;
+
+    if (Qualified::isValidNumberString(text))
+    {
+        uint32 id = static_cast<uint32>(stoi(text));
+        if (races.count(id))
+            return id;
+    }
+
+    return 0;
 }
 
 std::string ChatHelper::formatRace(uint8 race)
@@ -1101,6 +1224,7 @@ inline std::string toInitCap(const std::string& str) {
 
 void ChatHelper::PopulateSpellNameList()
 {
+    spellIds.clear();
     for (uint32 i = 0; i < GetSpellStore()->GetMaxEntry(); ++i)
     {
         SpellEntry const* tempSpell = GetSpellStore()->LookupEntry<SpellEntry>(i);

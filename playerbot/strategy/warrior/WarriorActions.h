@@ -115,7 +115,33 @@ namespace ai
             range = ATTACK_DISTANCE;
         }
 
-        virtual bool isUseful() { return GetTarget() && !ai->HasAura("sunder armor", GetTarget(), true); }
+        virtual bool isUseful() override
+        {
+            Unit* target = GetTarget();
+            if (!target)
+                return false;
+
+            const bool isTank = ai->IsTank(bot);
+
+            if (isTank)
+            {
+                uint32 bloodThirst = AI_VALUE2(uint32, "spell id", "bloodthirst");
+                uint32 mortalStrike = AI_VALUE2(uint32, "spell id", "mortal strike");
+                uint32 shieldSlam = AI_VALUE2(uint32, "spell id", "shield slam");
+
+                if ((bloodThirst && bot->IsSpellReady(bloodThirst)) ||
+                    (mortalStrike && bot->IsSpellReady(mortalStrike)) ||
+                    (shieldSlam && bot->IsSpellReady(shieldSlam)))
+                {
+                    return false;
+                }
+            }
+
+            if (isTank && !target->IsPlayer())
+                return true;
+
+            return !ai->HasAura("sunder armor", target, true);
+        }
     };
 
     class UpdateWarriorPveStrategiesAction : public UpdateStrategyDependenciesAction

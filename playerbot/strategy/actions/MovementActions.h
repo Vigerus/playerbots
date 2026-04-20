@@ -6,6 +6,7 @@
 #include "playerbot/TravelNode.h"
 #include "MotionGenerators/WaypointMovementGenerator.h"
 #include "playerbot/strategy/values/HazardsValue.h"
+#include "playerbot/strategy/values/LastMovementValue.h"
 
 namespace ai
 {
@@ -14,6 +15,8 @@ namespace ai
     public:
         MovementAction(PlayerbotAI* ai, std::string name) : Action(ai, name) {}
 
+        static bool MinimalMove(PlayerbotAI* ai);
+        static bool UseTransport(PlayerbotAI* ai, uint32 entry, WorldPosition dockPosition, bool doTeleport = true);
     protected:
         bool ChaseTo(WorldObject *obj, float distance = 0.0f, float angle = 0.0f);
         bool MoveNear(uint32 mapId, float x, float y, float z, float distance = sPlayerbotAIConfig.contactDistance);
@@ -23,6 +26,53 @@ namespace ai
         {
            return MoveTo(location.mapid, location.coord_x, location.coord_y, location.coord_z, idle, react, noPath, ignoreEnemyTargets);
         }
+
+        static bool UseTaxi(PlayerbotAI* ai, uint32 entry = 0, bool needNpc = true);
+
+
+        bool WaitForTransport();
+
+
+        enum class PathHandleResult
+        {
+            Continue,
+            ReturnTrue,
+            ReturnFalse
+        };
+
+        bool ResolveMovePath(const WorldPosition& startPosition,
+            const WorldPosition& endPosition,
+            Unit* mover,
+            float minDist,
+            float maxDist,
+            WorldPosition& outMovePosition,
+            TravelPath& outMovePath);
+
+        PathHandleResult HandlePathNodeType(TravelNodePathType pathType,
+            uint32 entry,
+            const WorldPosition& movePosition,
+            const WorldPosition& telePosition,
+            const WorldPosition& startPosition,
+            LastMovement& lastMove,
+            bool& outIsWalking);
+
+        void ClipMovePositionForAggro(WorldPosition& movePosition,
+            Unit* mover,
+            const WorldPosition& startPosition);
+
+        void UpdateFlyingState(WorldPosition& movePosition,
+            float totalDistance,
+            float originalZ,
+            float maxDist,
+            bool isWalking);
+
+        void DispatchMovement(MotionMaster& mm,
+            const WorldPosition& movePosition,
+            bool generatePath,
+            bool masterWalking);
+
+        // (existing private members below)
+        bool MoveTo2(uint32 mapId, float x, float y, float z, bool idle, bool react, bool noPath, bool ignoreEnemyTargets);
 
         bool MoveTo(uint32 mapId, float x, float y, float z, bool idle = false, bool react = false, bool noPath = false, bool ignoreEnemyTargets = false);
         bool MoveTo(Unit* target, float distance = 0.0f);
@@ -63,7 +113,7 @@ namespace ai
     {
     public:
         FleeAction(PlayerbotAI* ai, float distance = sPlayerbotAIConfig.spellDistance) : MovementAction(ai, "flee"), distance(distance) {}
-        virtual bool Execute(Event& event);
+        virtual bool Execute(Event& event) override;
 
     private:
         float distance;
@@ -73,70 +123,70 @@ namespace ai
     {
     public:
         FleeWithPetAction(PlayerbotAI* ai) : MovementAction(ai, "flee with pet") {}
-        virtual bool Execute(Event& event);
+        virtual bool Execute(Event& event) override;
     };
 
     class RunAwayAction : public MovementAction
     {
     public:
         RunAwayAction(PlayerbotAI* ai) : MovementAction(ai, "runaway") {}
-        virtual bool Execute(Event& event);
+        virtual bool Execute(Event& event) override;
     };
 
     class MoveToLootAction : public MovementAction
     {
     public:
         MoveToLootAction(PlayerbotAI* ai) : MovementAction(ai, "move to loot") {}
-        virtual bool Execute(Event& event);
+        virtual bool Execute(Event& event) override;
     };
 
     class MoveOutOfEnemyContactAction : public MovementAction
     {
     public:
         MoveOutOfEnemyContactAction(PlayerbotAI* ai) : MovementAction(ai, "move out of enemy contact") {}
-        virtual bool Execute(Event& event);
-        virtual bool isUseful();
+        virtual bool Execute(Event& event) override;
+        virtual bool isUseful() override;
     };
 
     class SetFacingTargetAction : public Action
     {
     public:
         SetFacingTargetAction(PlayerbotAI* ai) : Action(ai, "set facing") {}
-        virtual bool Execute(Event& event);
-        virtual bool isUseful();
-        virtual bool isPossible();
+        virtual bool Execute(Event& event) override;
+        virtual bool isUseful() override;
+        virtual bool isPossible() override;
     };
 
     class SetBehindTargetAction : public MovementAction
     {
     public:
         SetBehindTargetAction(PlayerbotAI* ai) : MovementAction(ai, "set behind") {}
-        virtual bool Execute(Event& event);
-        virtual bool isUseful();
-        virtual bool isPossible();
+        virtual bool Execute(Event& event) override;
+        virtual bool isUseful() override;
+        virtual bool isPossible() override;
     };
 
     class MoveOutOfCollisionAction : public MovementAction
     {
     public:
         MoveOutOfCollisionAction(PlayerbotAI* ai) : MovementAction(ai, "move out of collision") {}
-        virtual bool Execute(Event& event);
-        virtual bool isUseful();
+        virtual bool Execute(Event& event) override;
+        virtual bool isUseful() override;
     };
 
     class MoveRandomAction : public MovementAction
     {
     public:
         MoveRandomAction(PlayerbotAI* ai) : MovementAction(ai, "move random") {}
-        virtual bool Execute(Event& event);
-        virtual bool isUseful();
+        virtual bool Execute(Event& event) override;
+        virtual bool isUseful() override;
     };
 
     class MoveToAction : public MovementAction, public Qualified
     {
     public:
         MoveToAction(PlayerbotAI* ai, std::string name = "move to") : MovementAction(ai, "name"), Qualified() {}
-        virtual bool Execute(Event& event);
+        virtual bool Execute(Event& event) override;
     };
 
     class JumpAction : public MovementAction, public Qualified

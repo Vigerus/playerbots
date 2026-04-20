@@ -77,6 +77,9 @@ void AutoLearnSpellAction::LearnTrainerSpells(std::ostringstream* out)
             co->TrainerType != TRAINER_TYPE_PETS)
             continue;
 
+        if (co->TrainerType == TRAINER_TYPE_PETS && bot->getClass() == CLASS_HUNTER)
+            continue;
+
         if ((co->TrainerType == TRAINER_TYPE_CLASS || co->TrainerType == TRAINER_TYPE_PETS) && co->TrainerClass != bot->getClass())
             continue;
 
@@ -275,7 +278,7 @@ void AutoLearnSpellAction::GetClassQuestItem(Quest const* quest, std::ostringstr
                     else if (result == EQUIP_ERR_INVENTORY_FULL)
                     {
                         MailDraft draft("Item(s) from quest reward", quest->GetTitle());
-                        Item* item = item->CreateItem(itemP->ItemId, quest->RewItemCount[i]);
+                        Item* item = Item::CreateItem(itemP->ItemId, quest->RewItemCount[i]);
                         draft.AddItem(item);
                         draft.SendMailTo(MailReceiver(bot), MailSender(bot));
                         *out << "Could not add item " << chat->formatItem(itemP) << " from " << quest->GetTitle() << ". " << bot->GetName() << "'s inventory is full.";

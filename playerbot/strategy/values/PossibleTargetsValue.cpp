@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "PossibleTargetsValue.h"
 #include "PossibleAttackTargetsValue.h"
+#include "FreeMoveValues.h"
 
 #include "playerbot/ServerFacade.h"
 #include "Grids/GridNotifiers.h"
@@ -110,13 +111,18 @@ bool PossibleTargetsValue::IsValid(Unit* target, Player* player, bool ignoreLos)
             return false;
         }
 
-        // If the target is not visible (to the owner bot)
-        if (!ignoreLos && !target->IsVisibleForOrDetect(player, player->GetCamera().GetBody(), true))
-        {
-            return false;
-        }
+        bool isInCombatWithTarget = target->GetVictim() == player || 
+                                     target->getThreatManager().getThreat(player) > 0.0f ||
+                                     player->IsInCombat();
 
-        if (!PAI_VALUE2(bool, "can free attack", GuidPosition(target).to_string()))
+        if (!ignoreLos && !isInCombatWithTarget)
+        {
+            if (!target->IsVisibleForOrDetect(player, player->GetCamera().GetBody(), true))
+            {
+                return false;
+            }
+        }
+        if (!CanFreeMoveValue::CanFreeAttack(player->GetPlayerbotAI(), target))
             return false;
 
         return true;

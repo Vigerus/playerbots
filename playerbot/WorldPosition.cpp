@@ -585,6 +585,149 @@ bool WorldPosition::isOnTransport(GenericTransport* transport)
     return GetHitPosition(below);
 }
 
+float WorldPosition::GetTransporFloorOffset(uint32 entry)
+{
+    auto data = sGOStorage.LookupEntry<GameObjectInfo>(entry);
+    switch (data->displayId)
+    {
+        case 3831: //Subway
+            return -10.0f;
+        case 807: //Vator
+            return -1.25f;
+        case 455: //Undervator
+            return -0.46f;
+        case 3015: //Boat
+            return 6.0f;
+        case 3031: //Zepelin
+            return -17.0f;
+        case 7087: //Moonspray
+            return 4.88f;
+        default:
+            return 0.0f;
+    }
+
+    return 0.0f;
+}
+
+bool WorldPosition::SetOnTransport(GenericTransport* transport, int32 startHeight, int32 endHeight)
+{
+    if (!transport)
+        return false;
+    
+    WorldPosition transPos(transport);
+
+    transPos.SetTranpotHeightToFloor(transport->GetEntry());
+
+    if (sqDistance2d(transPos) > 1600)
+        return false;
+
+    WorldPosition start(*this), below(*this);
+
+    start.setZ(transPos.getZ() + startHeight);
+    below.setZ(transPos.getZ() + endHeight);
+
+    bool result = VMAP::VMapFactory::createOrGetVMapManager()->getObjectHitPos(mapid, coord_x, coord_y, coord_z, below.getX(), below.getY(), below.getZ(), below.coord_x, below.coord_y, below.coord_z, 0.0f);
+
+    if (result)
+        return false;
+
+    bool gotHit = start.GetHitPosition(below);
+
+    if (gotHit)
+        set(below);
+
+    return gotHit;
+}
+
+WorldPosition WorldPosition::RandomPointOnTrans(GenericTransport* transport, float radius, bool findClose, bool useHeight)
+{
+    std::vector<WorldPosition> path;
+    return RandomPointOnTrans(transport, radius, findClose, useHeight, nullptr, path);
+}
+
+WorldPosition WorldPosition::RandomPointOnTrans(GenericTransport* transport, float radius, bool findClose, bool useHeight, Player* botForPath, std::vector<WorldPosition>& path)
+{
+    GenericTransport* oldTrans = botForPath ? botForPath->GetTransport() : nullptr;
+
+    if (!transport)
+        return WorldPosition();
+
+    WorldPosition transPos(transport);
+    WorldPosition bestPos;
+    float bestDist = findClose ? FLT_MAX : -1.0f;
+    std::vector<WorldPosition> bestPath;
+
+    for (float x = radius * -1.0f; x < radius; x += 1.0f)
+    {
+        for (float y = radius * -1.0f; y < radius; y += 1.0f)
+        {
+            if (x * x + y * y > radius * radius)
+                continue;
+
+            WorldPosition pos = transPos + WorldPosition(0, x, y);
+
+            if (useHeight)
+                pos.setZ(getZ());
+            else
+                pos.SetTranpotHeightToFloor(transport->GetEntry());
+
+            pos.SetOnTransport(transport);
+
+            if (!useHeight && pos.getZ() < transPos.getZ() - 2.0f)
+                continue;
+
+            if (!pos.isOnTransport(transport))
+                continue;
+
+            if (botForPath)
+            {
+                botForPath->SetTransport(transport);
+
+                std::vector<WorldPosition> posPath = pos.getPathFrom(botForPath, botForPath);
+
+                if (posPath.empty())
+                    continue;
+
+                if (pos.sqDistance(posPath.back()) > 5.0f)
+                    continue;
+
+                if (rand_norm_f() < 0.01f || bestDist < 0.0f)
+                {
+                    bestPath = posPath;
+                }
+            }
+
+            float dist = sqDistance(pos);
+
+            if (findClose)
+            {
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    bestPos = pos;
+                }
+            }
+            else
+            {
+                if (rand_norm_f() < 0.01f || bestDist < 0.0f)
+                {
+                    bestDist = 0.0f;
+                    bestPos = pos;
+
+                    break;
+                }
+            }
+        }
+    }
+
+    if (botForPath)
+        botForPath->SetTransport(oldTrans);
+
+    path = bestPath;
+
+    return bestPos;
+}
+
 std::vector<GridPair> WorldPosition::getGridPairs(const WorldPosition& secondPos) const
 {
     std::vector<GridPair> retVec;
@@ -817,6 +960,15 @@ std::vector<WorldPosition> WorldPosition::fromPointsArray(const std::vector<G3D:
     return retVec;
 }
 
+std::vector<G3D::Vector3> WorldPosition::toPointsArray(const std::vector<WorldPosition>& path) const
+{
+    std::vector<G3D::Vector3> retVec;
+    for (auto p : path)
+        retVec.push_back(p.getVector3());
+
+    return retVec;
+}
+
 //A single pathfinding attempt from one position to another. Returns pathfinding status and path.
 std::vector<WorldPosition> WorldPosition::getPathStepFrom(const WorldPosition& startPos, std::unique_ptr<PathFinder>& pathfinder, const Unit* bot, bool forceNormalPath) const
 {
@@ -855,23 +1007,6 @@ std::vector<WorldPosition> WorldPosition::getPathStepFrom(const WorldPosition& s
 
     type = pathfinder->getPathType();
 
-    if (sPlayerbotAIConfig.hasLog("pathfind_attempt_point.csv"))
-    {
-        std::ostringstream out;
-        out << std::fixed << std::setprecision(1);
-        printWKT({ startPos, *this }, out);
-        sPlayerbotAIConfig.log("pathfind_attempt_point.csv", out.str().c_str());
-    }
-
-    if (sPlayerbotAIConfig.hasLog("pathfind_attempt.csv") && (type == PATHFIND_INCOMPLETE || type == PATHFIND_NORMAL))
-    {
-        std::ostringstream out;
-        out << sPlayerbotAIConfig.GetTimestampStr() << "+00,";
-        out << std::fixed << std::setprecision(1) << type << ",";
-        printWKT(fromPointsArray(points), out, 1);
-        sPlayerbotAIConfig.log("pathfind_attempt.csv", out.str().c_str());
-    }
-
     std::vector<WorldPosition> retvec = fromPointsArray(points);
 
     if (type == PATHFIND_INCOMPLETE)
@@ -886,7 +1021,7 @@ std::vector<WorldPosition> WorldPosition::getPathStepFrom(const WorldPosition& s
                 retvec.push_back(end);
             else
             {
-                WorldPosition stepPoint = (end - lastPoint) / dist * 5.0f;
+                WorldPosition stepPoint = lastPoint + ((end - lastPoint) / dist * 5.0f);
                 retvec.push_back(stepPoint);
             }
 
@@ -906,11 +1041,25 @@ std::vector<WorldPosition> WorldPosition::getPathStepFrom(const WorldPosition& s
     return getPathStepFrom(startPos, pathfinder, bot, forceNormalPath);
 }
 
-bool WorldPosition::isPathTo(const std::vector<WorldPosition>& path, float const maxDistance) const
+bool WorldPosition::isPathTo(const std::vector<WorldPosition>& path, float const maxDistance, float const maxZDistance) const
 {
     float realMaxDistance = maxDistance ? maxDistance : sPlayerbotAIConfig.targetPosRecalcDistance;
-    return !path.empty() && distance(path.back()) < realMaxDistance;
+    return !path.empty() && path.back().getMapId() == getMapId() && sqDistance2d(path.back()) < realMaxDistance * realMaxDistance && abs(path.back().getZ() - getZ()) < maxZDistance;
 };
+
+bool WorldPosition::setAtWaterSurface()
+{
+    if (!isInWater() && !isUnderWater())
+        return false;
+
+    float waterLevel = getWaterLevel();
+    if (waterLevel > -100000.0f)
+    {
+        coord_z = waterLevel + 0.5f;
+        return true;
+    }
+    return false;
+}
 
 
 bool WorldPosition::cropPathTo(std::vector<WorldPosition>& path, const float maxDistance) const
@@ -1034,6 +1183,14 @@ bool WorldPosition::GetReachableRandomPointOnGround(const Player* bot, const flo
 #else
     return getMap(bot ? bot->GetInstanceId() : getFirstInstanceId())->GetReachableRandomPointOnGround(bot->GetPhaseMask(), coord_x, coord_y, coord_z, radius, randomRange);
 #endif
+}
+
+bool WorldPosition::isUnderground() const
+{
+    float ground = 0.0f;
+    if (getTerrain())
+        getTerrain()->GetWaterLevel(coord_x, coord_y, coord_z, &ground);
+    return coord_z < ground - 0.5f;
 }
 
 std::vector<WorldPosition> WorldPosition::ComputePathToRandomPoint(const Player* bot, const float radius, const bool randomRange)

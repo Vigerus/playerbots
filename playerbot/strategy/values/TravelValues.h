@@ -122,7 +122,7 @@ namespace ai
     public:
         FutureTravelDestinationsValue(PlayerbotAI* ai, std::string name = "future travel destinations") : ManualSetValue<FutureDestinations*>(ai, new FutureDestinations, name) {}
 
-        ~FutureTravelDestinationsValue() { delete value; }
+        ~FutureTravelDestinationsValue() override { delete value; }
     };
 
     class NoActiveTravelDestinationsValue : public ManualSetValue<bool>, public Qualified
@@ -138,6 +138,14 @@ namespace ai
 
         virtual bool Calculate() override;
     };
+
+    class TravelTargetReadyValue : public BoolCalculatedValue
+    {
+    public:
+        TravelTargetReadyValue(PlayerbotAI* ai, std::string name = "travel target ready", int checkInterval = 5) : BoolCalculatedValue(ai, name, checkInterval) {};
+
+        virtual bool Calculate() override;
+    };    
 
     class TravelTargetTravelingValue : public BoolCalculatedValue
     {

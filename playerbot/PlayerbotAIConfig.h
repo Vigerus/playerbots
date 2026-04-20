@@ -118,7 +118,7 @@ public:
         errorDelay, rpgDelay, sitDelay, returnDelay, lootDelay;
     float sightDistance, spellDistance, reactDistance, grindDistance, lootDistance, groupMemberLootDistance, groupMemberLootDistanceWithActiveMaster,
         gatheringDistance, groupMemberGatheringDistance, groupMemberGatheringDistanceWithActiveMaster, shootDistance,
-        fleeDistance, tooCloseDistance, meleeDistance, followDistance, raidFollowDistance, whisperDistance, contactDistance,
+        fleeDistance, tooCloseDistance, meleeDistance, followDistance, raidFollowDistance, wanderMinDistance, wanderMaxDistance, whisperDistance, contactDistance,
         aoeRadius, rpgDistance, targetPosRecalcDistance, farDistance, healDistance, aggroDistance, proximityDistance, maxFreeMoveDistance, freeMoveDelay;
     uint32 criticalHealth, lowHealth, mediumHealth, almostFullHealth;
     uint32 lowMana, mediumMana;
@@ -137,8 +137,10 @@ public:
     std::list<std::string> toggleAlwaysOnlineAccounts;
     std::list<std::string> toggleAlwaysOnlineChars;
     bool enableRandomTeleports;
+    bool enableMinimalMove;
     uint32 randomBotTeleportDistance;
     bool randomBotTeleportNearPlayer;
+    uint32 transportTeleportType;
     uint32 randomBotTeleportNearPlayerMaxAmount;
     float randomBotTeleportNearPlayerMaxAmountRadius;
     uint32 randomBotTeleportMinInterval, randomBotTeleportMaxInterval;
@@ -153,6 +155,7 @@ public:
     std::list<uint32> randomGearWhitelist;
     bool randomGearProgression;
     float randomGearLoweringChance;
+    bool rollBadItemsWithPlayer;
     float randomBotMaxLevelChance;
     float randomBotRpgChance;
     float usePotionChance;
@@ -160,14 +163,14 @@ public:
     bool randomBotAutoCreate;
     uint32 minRandomBots, maxRandomBots;
     uint32 randomBotUpdateInterval, randomBotCountChangeMinInterval, randomBotCountChangeMaxInterval;
-    uint32 loginBoostPercentage;
     bool randomBotTimedLogout, randomBotTimedOffline;
     uint32 minRandomBotInWorldTime, maxRandomBotInWorldTime;
     uint32 minRandomBotRandomizeTime, maxRandomBotRandomizeTime;
     uint32 minRandomBotChangeStrategyTime, maxRandomBotChangeStrategyTime;
     uint32 minRandomBotReviveTime, maxRandomBotReviveTime;
     uint32 minRandomBotPvpTime, maxRandomBotPvpTime;
-    uint32 randomBotsPerInterval, randomBotsMaxLoginsPerInterval;
+    uint32 randomBotsMaxLoginsPerInterval;
+    uint32 randomBotsPerInterval;
     uint32 minRandomBotsPriceChangeInterval, maxRandomBotsPriceChangeInterval;
     //Auction house settings
     bool shouldQueryAHListingsOutsideOfAH;
@@ -231,6 +234,9 @@ public:
     float playerbotsXPrate;
     bool disableBotOptimizations;
     bool disableActivityPriorities;
+    bool forceActiveWhenNearPlayer;
+    bool limitCombatActivity;
+    bool guildOrderAlwaysActive;
     uint32 botActiveAlone;
     uint32 diffWithPlayer;
     uint32 diffEmpty;
@@ -244,6 +250,9 @@ public:
     bool randomBotFormGuild;
     bool randomBotRandomPassword;
     bool inviteChat;
+    bool enableOffSpecStrategies;
+    bool useWanderAsDefaultFollowStrategy;
+    std::string defaultFormation;
 
     uint32 guildMaxBotLimit;
 
@@ -413,6 +422,7 @@ public:
 
 private:
     void LoadTalentSpecs();
+    void LoadLLMDefaultPrompts(const std::string& fileName);
 
     Config config;
 };
