@@ -553,6 +553,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 
 #ifdef USE_HLS
     StateMachine.Update(elapsed, minimal);
+    SendStateTreeDebug();
 #else
     // Only update the internal ai when no reaction is running and the internal ai can be updated
     if(!UpdateAIReaction(elapsed, doMinimalReaction, bot->IsTaxiFlying()) && CanUpdateAIInternal())
@@ -1313,7 +1314,18 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
         return;
 
     if (filtered.find("BOT\t") == 0) //Mangosbot has BOT prefix so we remove that.
+    {
         filtered = filtered.substr(4);
+
+        // BotStateTree addon poll: "statetree" (whisper) or "statetree <bot name>" (party/raid, every bot sees it).
+        // Answered from UpdateAI so the snapshot is taken on the bot's own update.
+        if (filtered.rfind("statetree", 0) == 0)
+        {
+            if (filtered == "statetree" || filtered == "statetree " + std::string(bot->GetName()))
+                stateTreeDebugRequester = fromPlayer.GetObjectGuid().GetRawValue();
+            return;
+        }
+    }
     else if (lang == LANG_ADDON) //Other addon messages should not command bots.
         return;
 
@@ -6227,6 +6239,34 @@ std::string PlayerbotAI::BotStateToString(BotState state)
         case BotState::BOT_STATE_DEAD: return "Dead";
         case BotState::BOT_STATE_REACTION: return "Reaction";
         default: return "";
+    }
+}
+
+void PlayerbotAI::SendStateTreeDebug()
+{
+    const uint64 requesterGuid = stateTreeDebugRequester.exchange(0);
+    if (!requesterGuid)
+        return;
+
+    Player* requester = sObjectMgr.GetPlayer(ObjectGuid(requesterGuid));
+    if (!requester || !requester->IsInWorld())
+        return;
+
+    // addon messages are limited to 255 chars, so the snapshot goes out in chunks:
+    // "BOTST\tS<seq>:<index>/<count>:<payload part>" (index is 1-based)
+    static constexpr size_t chunkSize = 220;
+    const std::string snapshot = StateMachine.BuildDebugSnapshot();
+    const size_t count = std::max<size_t>(1, (snapshot.size() + chunkSize - 1) / chunkSize);
+    const uint32 seq = ++stateTreeDebugSeq;
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        std::ostringstream text;
+        text << "BOTST\tS" << seq << ":" << (i + 1) << "/" << count << ":" << snapshot.substr(i * chunkSize, chunkSize);
+
+        WorldPacket data;
+        ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, text.str().c_str(), LANG_ADDON, CHAT_TAG_NONE, bot->GetObjectGuid(), bot->GetName());
+        sServerFacade.SendPacket(requester, data);
     }
 }
 

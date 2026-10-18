@@ -5,6 +5,8 @@
 namespace ai
 {
 
+class Engine;
+
 enum class HLSStateType : uint8_t
 {
     NonCombat,
@@ -28,6 +30,9 @@ public:
     virtual void Update(uint32 elapsed, bool minimal) {}
     virtual HLSStateType GetStateType() const = 0;
     virtual const char* GetName() const = 0;
+
+    // debug visualization: engine whose strategies / last action are shown for this node
+    virtual Engine* GetDebugEngine() const { return nullptr; }
 };
 
 

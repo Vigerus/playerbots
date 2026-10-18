@@ -87,6 +87,8 @@ namespace ai
         };
 
         const Action* GetLastExecutedAction() const { return lastExecutedAction; }
+        const ActionRunContext* GetLastActionContext() const { return lastActionContext.get(); }
+        EActionRunStatus GetLastExecutedActionStatus() const { return lastExecutedActionStatus; }
 
     public:
 	    virtual bool DoNextAction(Unit*, int depth, bool minimal, bool isStunned);

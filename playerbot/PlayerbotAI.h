@@ -9,6 +9,8 @@
 #include "PlayerbotTextMgr.h"
 #include "BotState.h"
 #include "PlayerTalentSpec.h"
+
+#include <atomic>
 #include <stack>
 #include "strategy/IterateItemsMask.h"
 #include "RandomPlayerbotMgr.h"
@@ -377,6 +379,7 @@ public:
 public:
     static std::string BotStateToString(BotState state);
 	std::string HandleRemoteCommand(std::string command);
+    void SendStateTreeDebug();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
@@ -726,6 +729,10 @@ protected:
     bool shouldLogOut = false;
 
     StateMachine StateMachine;
+
+    // player waiting for a StateTree snapshot ("BOT\tstatetree" addon request); set from chat, consumed in UpdateAI
+    std::atomic<uint64> stateTreeDebugRequester{ 0 };
+    uint8 stateTreeDebugSeq = 0;
 
 #ifdef BUILD_ELUNA
     MaNGOS::unique_weak_ptr<PlayerbotAI> m_weakRef;

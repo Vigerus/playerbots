@@ -39,6 +39,7 @@ void StateMachine::TransitionTo(HLSStateType type)
     if (active)
         active->OnExit();
     active = it->second.get();
+    activeSinceMs = WorldTimer::getMSTime();
     if (active)
         active->OnEnter();
 }
@@ -72,6 +73,7 @@ void StateMachine::ResumePrevious()
     }
 
     active = previous;
+    activeSinceMs = WorldTimer::getMSTime();
 }
 
 void StateMachine::Update(uint32 elapsed, bool minimal)
@@ -145,4 +147,88 @@ void StateMachine::ResetStrategies()
     {
         node->ResetStrategies();
     }
+}
+
+static const char* GetHLSStateTypeName(HLSStateType type)
+{
+    switch (type)
+    {
+        case HLSStateType::NonCombat: return "NonCombat";
+        case HLSStateType::Combat: return "Combat";
+        case HLSStateType::Reaction: return "Reaction";
+        case HLSStateType::Dead: return "Dead";
+        default: return "Unknown";
+    }
+}
+
+// field/record separators of the snapshot format must not appear inside values
+static std::string SanitizeDebugField(std::string_view value)
+{
+    std::string result(value);
+    for (char& c : result)
+    {
+        if (c == '~' || c == '^' || c == '|' || c == ',' || c == '\t' || c == '\n' || c == '\r')
+            c = ' ';
+    }
+    return result;
+}
+
+// Snapshot format (records separated by '~', fields by '^'):
+//   H^<active type>^<ms in active state>^<previous type or ->
+//   N^<type>^<node name>^<active 0|1>^<last action>^<last relevance>^<last status>^<strategy,strategy,...>
+//   T^<from type or *>^<to type or <prev>>^<condition label>
+std::string StateMachine::BuildDebugSnapshot() const
+{
+    std::ostringstream out;
+    out.setf(std::ios::fixed);
+    out.precision(1);
+
+    out << "H^" << (active ? GetHLSStateTypeName(active->GetStateType()) : "-")
+        << "^" << (active ? WorldTimer::getMSTimeDiff(activeSinceMs, WorldTimer::getMSTime()) : 0)
+        << "^" << (previous && active && active->GetStateType() == HLSStateType::Reaction ? GetHLSStateTypeName(previous->GetStateType()) : "-");
+
+    for (const auto& [type, node] : nodes)
+    {
+        out << "~N^" << GetHLSStateTypeName(type) << "^" << SanitizeDebugField(node->GetName()) << "^" << (node.get() == active ? 1 : 0);
+
+        std::string lastAction;
+        float relevance = 0.0f;
+        const char* status = "-";
+        std::string strategies;
+
+        if (Engine* engine = node->GetDebugEngine())
+        {
+            if (const ActionRunContext* context = engine->GetLastActionContext())
+            {
+                lastAction = SanitizeDebugField(context->name);
+                relevance = context->relevance;
+
+                switch (engine->GetLastExecutedActionStatus())
+                {
+                    case EActionRunStatus::Running: status = "Running"; break;
+                    case EActionRunStatus::Succeeded: status = "Succeeded"; break;
+                    case EActionRunStatus::Failed: status = "Failed"; break;
+                }
+            }
+
+            for (std::string_view strategy : engine->GetStrategies())
+            {
+                if (!strategies.empty())
+                    strategies += ",";
+                strategies += SanitizeDebugField(strategy);
+            }
+        }
+
+        out << "^" << lastAction << "^" << relevance << "^" << status << "^" << strategies;
+    }
+
+    // transitions are triggered from PlayerbotAI (OnCombatStarted, OnDeath, ...) and from Update() (reaction preempt)
+    out << "~T^NonCombat^Combat^OnCombatStarted"
+        << "~T^Combat^NonCombat^OnCombatEnded"
+        << "~T^*^Dead^OnDeath"
+        << "~T^Dead^NonCombat^OnResurrected"
+        << "~T^*^Reaction^ShouldEnterReaction (preempt)"
+        << "~T^Reaction^<prev>^!IsReacting (resume)";
+
+    return out.str();
 }

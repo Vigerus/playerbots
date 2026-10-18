@@ -38,6 +38,18 @@ void StateNode_Legacy::Update(uint32 elapsed, bool minimal)
     ai->YieldAIInternalThread(min);
 }
 
+Engine* StateNode_Legacy::GetDebugEngine() const
+{
+    BotState botState = GetBotState(stateType);
+
+    if (botState == BotState::BOT_STATE_ALL)
+    {
+        return nullptr;
+    }
+
+    return ai->engines[(uint8)botState].get();
+}
+
 void StateNode_Legacy::UpdateStrategies(const std::string& name, BotState type)
 {
     BotState botState = GetBotState(stateType);
@@ -221,4 +233,9 @@ bool StateNode_Reaction::ShouldEnterReaction()
 bool StateNode_Reaction::IsReacting()
 {
     return reactionEngine->IsReacting();
+}
+
+Engine* StateNode_Reaction::GetDebugEngine() const
+{
+    return reactionEngine.get();
 }

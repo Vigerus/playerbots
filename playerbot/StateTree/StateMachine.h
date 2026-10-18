@@ -39,10 +39,14 @@ namespace ai
 
         IStateNode* GetActive() const { return active; }
 
+        // serialized tree state for the client-side StateTree visualizer addon (see BotStateTree addon)
+        std::string BuildDebugSnapshot() const;
+
     private:
         log4cxx::LoggerPtr m_logger;
 
         bool bInitialized = false;
+        uint32 activeSinceMs = 0;
 
         IStateNode* FindNode(HLSStateType type) const;
     };

@@ -27,6 +27,8 @@ namespace ai
         virtual void OnExit() override {}
 
         virtual void Update(uint32 elapsed, bool minimal) override;
+
+        virtual Engine* GetDebugEngine() const override;
     private:
         PlayerbotAI* ai;
         Player* bot;
@@ -56,6 +58,8 @@ namespace ai
 
         virtual bool ShouldEnterReaction() override;
         virtual bool IsReacting() override;
+
+        virtual Engine* GetDebugEngine() const override;
     private:
         PlayerbotAI* ai;
         Player* bot;
