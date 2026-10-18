@@ -3,6 +3,7 @@
 #include "playerbot/StateTree/StateMachine.h"
 #include "playerbot/StateTree/STAI_Tree.h"
 
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -17,6 +18,10 @@ namespace ai
     {
     public:
         StateNode_Tree(const STAI_TaskContext& context, std::shared_ptr<const STAI_TreeAsset> asset);
+        virtual ~StateNode_Tree();
+
+        StateNode_Tree(const StateNode_Tree&) = delete;
+        StateNode_Tree& operator=(const StateNode_Tree&) = delete;
 
         virtual const char* GetName() const override { return asset->name.c_str(); }
         virtual HLSStateType GetStateType() const override { return context.state; }
@@ -41,6 +46,7 @@ namespace ai
         {
             const STAI_NodeDef* def = nullptr;
             std::unique_ptr<STAI_Task> task;
+            STAI_TaskContext* context = nullptr;                  // the task's runtime context, in contextStorage
             std::vector<Trigger*> triggers;                       // per condition, nullptr = unknown trigger
             std::vector<StateNodeConditionResult> results;        // per condition, last update
             bool failed = false;
@@ -48,6 +54,7 @@ namespace ai
             uint64 activityId = 0;
         };
 
+        void CreateContexts();
         bool CanEnter(RuntimeNode& node, uint32 now);
         void ExitActive();
         IReactionChecker* FindReactionChecker() const;
@@ -55,6 +62,7 @@ namespace ai
         STAI_TaskContext context;
         std::shared_ptr<const STAI_TreeAsset> asset;
         std::vector<RuntimeNode> nodes;
+        std::unique_ptr<std::max_align_t[]> contextStorage;      // the contexts of all nodes, one after another
         int active = -1;
     };
 }

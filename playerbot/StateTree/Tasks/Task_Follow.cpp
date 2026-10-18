@@ -38,8 +38,8 @@ namespace
     }
 }
 
-Task_Follow::Task_Follow(const STAI_TaskContext& context, const std::string& acceptableRadius)
-    : ai(context.ai), bot(context.bot), acceptableRadius(acceptableRadius)
+Task_Follow::Task_Follow(const std::string& acceptableRadius)
+    : acceptableRadius(acceptableRadius)
 {
 }
 
@@ -54,12 +54,13 @@ void Task_Follow::Validate(const STAI_TaskConfig& config)
 
 std::unique_ptr<STAI_Task> Task_Follow::Create(const STAI_TaskContext& context, const STAI_TaskConfig& config)
 {
-    return std::make_unique<Task_Follow>(context, ParseRadius(config));
+    return std::make_unique<Task_Follow>(ParseRadius(config));
 }
 
-Unit* Task_Follow::GetTarget() const
+Unit* Task_Follow::GetTarget(const STAI_TaskContext& context)
 {
-    Player* master = ai->GetMaster();
+    Player* bot = context.bot;
+    Player* master = context.ai->GetMaster();
     if (!master || master == bot || !master->IsInWorld() || bot->IsBeingTeleported() || master->IsBeingTeleported())
         return nullptr;
 
@@ -69,60 +70,66 @@ Unit* Task_Follow::GetTarget() const
     return master;
 }
 
-float Task_Follow::GetRadius() const
+float Task_Follow::GetRadius(const STAI_TaskContext& context) const
 {
     if (std::regex_match(acceptableRadius, numberPattern))
         return std::stof(acceptableRadius);
-    return ai->GetRange(acceptableRadius);
+    return context.ai->GetRange(acceptableRadius);
 }
 
-void Task_Follow::MoveTo(float x, float y, float z)
+void Task_Follow::MoveTo(Task_FollowContext& context, float x, float y, float z)
 {
+    Player* bot = context.bot;
     if (bot->IsSitState())
         bot->SetStandState(UNIT_STAND_STATE_STAND);
 
     // always run, also when the master walks
     bot->GetMotionMaster()->MovePoint(0, x, y, z, FORCED_MOVEMENT_RUN, true);
 
-    destinationX = x;
-    destinationY = y;
-    destinationZ = z;
-    hasDestination = true;
-    moving = true;
+    context.destinationX = x;
+    context.destinationY = y;
+    context.destinationZ = z;
+    context.hasDestination = true;
+    context.moving = true;
 }
 
-void Task_Follow::OnEnter()
+void Task_Follow::OnEnter(STAI_TaskContext& baseContext) const
 {
-    elapsedMs = 0;
-    lastDistance = -1.0f;
-    hasDestination = false;
-    moving = false;
+    Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
+    context.elapsedMs = 0;
+    context.lastDistance = -1.0f;
+    context.hasDestination = false;
+    context.moving = false;
 
     // keep the side the bot comes from
-    if (Unit* target = GetTarget())
-        relativeAngle = target->GetAngle(bot) - target->GetOrientation();
+    if (Unit* target = GetTarget(context))
+        context.relativeAngle = target->GetAngle(context.bot) - target->GetOrientation();
 }
 
-EActionRunStatus Task_Follow::Update(uint32 elapsed, bool minimal)
+EActionRunStatus Task_Follow::Update(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
-    Unit* target = GetTarget();
+    Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
+    PlayerbotAI* ai = context.ai;
+    Player* bot = context.bot;
+
+    Unit* target = GetTarget(context);
     if (!target || target->IsTaxiFlying() || bot->GetTransport() != target->GetTransport())
         return EActionRunStatus::Failed;
 
-    const float radius = GetRadius();
-    lastDistance = sServerFacade.GetDistance2d(bot, target);
+    const float radius = GetRadius(context);
+    context.lastDistance = sServerFacade.GetDistance2d(bot, target);
 
-    if (lastDistance <= radius)
+    if (context.lastDistance <= radius)
     {
         // caught up: done once the target stands still, otherwise keep walking along
         if (!target->IsMoving())
             return EActionRunStatus::Succeeded;
-        elapsedMs = 0;
+        context.elapsedMs = 0;
     }
     else
     {
-        elapsedMs += elapsed;
-        if (elapsedMs > timeoutMs)
+        context.elapsedMs += elapsed;
+        if (context.elapsedMs > timeoutMs)
             return EActionRunStatus::Failed;
     }
 
@@ -132,36 +139,39 @@ EActionRunStatus Task_Follow::Update(uint32 elapsed, bool minimal)
     // destination next to the target, on the bot's side, well inside the radius
     float x, y, z;
     const float standDistance = std::min(ai->GetRange("follow"), radius * 0.5f);
-    target->GetNearPoint(bot, x, y, z, bot->GetObjectBoundingRadius(), standDistance, target->GetOrientation() + relativeAngle);
+    target->GetNearPoint(bot, x, y, z, bot->GetObjectBoundingRadius(), standDistance, target->GetOrientation() + context.relativeAngle);
 
-    const bool destinationMoved = !hasDestination
-        || (x - destinationX) * (x - destinationX) + (y - destinationY) * (y - destinationY) > repathDistance * repathDistance;
+    const float dx = x - context.destinationX, dy = y - context.destinationY;
+    const bool destinationMoved = !context.hasDestination || dx * dx + dy * dy > repathDistance * repathDistance;
     const bool stopped = bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != POINT_MOTION_TYPE;
 
-    if (destinationMoved || (stopped && lastDistance > radius))
-        MoveTo(x, y, z);
+    if (destinationMoved || (stopped && context.lastDistance > radius))
+        MoveTo(context, x, y, z);
 
     return EActionRunStatus::Running;
 }
 
-void Task_Follow::OnExit()
+void Task_Follow::OnExit(STAI_TaskContext& baseContext) const
 {
-    if (moving && bot->GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE)
-        ai->StopMoving();
+    Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
+    if (context.moving && context.bot->GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE)
+        context.ai->StopMoving();
 
-    moving = false;
-    hasDestination = false;
+    context.moving = false;
+    context.hasDestination = false;
 }
 
-std::string Task_Follow::GetDebugInfo() const
+std::string Task_Follow::GetDebugInfo(const STAI_TaskContext& baseContext) const
 {
+    const Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
+
     std::ostringstream out;
     out << std::fixed << std::setprecision(1) << "player, radius ";
     if (std::regex_match(acceptableRadius, numberPattern))
-        out << GetRadius();
+        out << GetRadius(context);
     else
-        out << acceptableRadius << " (" << GetRadius() << ")";
-    if (lastDistance >= 0.0f)
-        out << ", distance " << lastDistance;
+        out << acceptableRadius << " (" << GetRadius(context) << ")";
+    if (context.lastDistance >= 0.0f)
+        out << ", distance " << context.lastDistance;
     return out.str();
 }

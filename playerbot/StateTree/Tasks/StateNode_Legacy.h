@@ -11,6 +11,12 @@ namespace ai
     class ReactionEngine;
     class LegacyBrain;
 
+    // runtime context of the legacy tasks: the logged entry of the action executed last
+    struct StateNode_LegacyContext : public STAI_TaskContext
+    {
+        uint64 lastActionEntry = 0;
+    };
+
     // Runs the legacy strategy engine of its state.
     //   <Task class="StateNode_Legacy"> <Config filename="statetree/Legacy_Combat_Mage.json"/> </Task>
     // The Legacy_*.json strategy list replaces the AiFactory defaults of the engine; without a Config the
@@ -26,9 +32,11 @@ namespace ai
         virtual const char* GetTaskClass() const override { return "StateNode_Legacy"; }
         virtual bool LogsNodeActivity() const override { return false; }
 
-        virtual void OnEnter() override;
-        virtual EActionRunStatus Update(uint32 elapsed, bool minimal) override;
-        virtual void OnExit() override;
+        virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<StateNode_LegacyContext>(); }
+
+        virtual void OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus Update(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
+        virtual void OnExit(STAI_TaskContext& context) const override;
 
         // temporary, for compatibility
         virtual void UpdateStrategies(const std::string& name, BotState type) override;
@@ -36,18 +44,16 @@ namespace ai
         virtual void ReInit() override;
 
         virtual Engine* GetDebugEngine() const override;
-        virtual std::string GetDebugInfo() const override;
+        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
 
     private:
         Engine* GetEngine() const;
-        void ApplyBrain(Engine* engine);
+        void ApplyBrain(Engine* engine) const;
 
         PlayerbotAI* ai;
         Player* bot;
         HLSStateType stateType;
         std::shared_ptr<const LegacyBrain> brain;
-        STAI_ActivityLog* activity;
-        uint64 lastActionEntry = 0;
     };
 
     // Runs the reaction engine; lets the Reaction state preempt the others.
@@ -62,8 +68,10 @@ namespace ai
         virtual const char* GetTaskClass() const override { return "StateNode_Reaction"; }
         virtual bool LogsNodeActivity() const override { return false; }
 
-        virtual void OnExit() override;
-        virtual EActionRunStatus Update(uint32 elapsed, bool minimal) override;
+        virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<StateNode_LegacyContext>(); }
+
+        virtual void OnExit(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus Update(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
 
         // temporary, for compatibility
         virtual void UpdateStrategies(const std::string& name, BotState type) override;
@@ -75,17 +83,15 @@ namespace ai
         virtual bool IsReacting() override;
 
         virtual Engine* GetDebugEngine() const override;
-        virtual std::string GetDebugInfo() const override;
+        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
 
     private:
-        bool UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned);
+        bool UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned) const;
         void ApplyBrain(Engine* engine);
 
         PlayerbotAI* ai;
         Player* bot;
         std::shared_ptr<const LegacyBrain> brain;
         std::unique_ptr<ReactionEngine> reactionEngine;
-        STAI_ActivityLog* activity;
-        uint64 lastActionEntry = 0;
     };
 }

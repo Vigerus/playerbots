@@ -70,7 +70,7 @@ namespace
 // ---------------------------------------------------------------------------------------------------
 
 StateNode_Legacy::StateNode_Legacy(const STAI_TaskContext& context, std::shared_ptr<const LegacyBrain> brain)
-    : ai(context.ai), bot(context.bot), stateType(context.state), brain(std::move(brain)), activity(context.activity)
+    : ai(context.ai), bot(context.bot), stateType(context.state), brain(std::move(brain))
 {
     if (this->brain)
         if (Engine* engine = GetEngine())
@@ -98,7 +98,7 @@ Engine* StateNode_Legacy::GetEngine() const
     return ai->engines[(uint8)botState].get();
 }
 
-void StateNode_Legacy::ApplyBrain(Engine* engine)
+void StateNode_Legacy::ApplyBrain(Engine* engine) const
 {
     engine->initMode = true;
     engine->removeAllStrategies();
@@ -107,7 +107,7 @@ void StateNode_Legacy::ApplyBrain(Engine* engine)
     engine->Init();
 }
 
-void StateNode_Legacy::OnEnter()
+void StateNode_Legacy::OnEnter(STAI_TaskContext& context) const
 {
     // several legacy nodes of one state share its engine: switch the strategy list when another one was applied
     if (brain)
@@ -116,8 +116,9 @@ void StateNode_Legacy::OnEnter()
                 ApplyBrain(engine);
 }
 
-EActionRunStatus StateNode_Legacy::Update(uint32 elapsed, bool minimal)
+EActionRunStatus StateNode_Legacy::Update(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    StateNode_LegacyContext& context = ContextAs<StateNode_LegacyContext>(baseContext);
     if (!ai->CanUpdateAIInternal())
         return EActionRunStatus::Running;
     Spell* currentSpell = bot->GetCurrentSpell(CURRENT_GENERIC_SPELL);
@@ -129,7 +130,7 @@ EActionRunStatus StateNode_Legacy::Update(uint32 elapsed, bool minimal)
     }
     if (ai->UpdateAIInternal(elapsed, minimal))
     {
-        DoNextActionLogged(ai, &ai->GetCurrentEngine(), minimal, activity, lastActionEntry);
+        DoNextActionLogged(ai, &ai->GetCurrentEngine(), minimal, context.activity, context.lastActionEntry);
     }
     bool min = minimal;
     if (!bot->IsInCombat())
@@ -140,12 +141,14 @@ EActionRunStatus StateNode_Legacy::Update(uint32 elapsed, bool minimal)
     return EActionRunStatus::Running;
 }
 
-void StateNode_Legacy::OnExit()
+void StateNode_Legacy::OnExit(STAI_TaskContext& baseContext) const
 {
+    StateNode_LegacyContext& context = ContextAs<StateNode_LegacyContext>(baseContext);
+
     // an interrupted action ends with the node
-    if (lastActionEntry && activity)
-        activity->Shorten(lastActionEntry);
-    lastActionEntry = 0;
+    if (context.lastActionEntry && context.activity)
+        context.activity->Shorten(context.lastActionEntry);
+    context.lastActionEntry = 0;
 }
 
 void StateNode_Legacy::UpdateStrategies(const std::string& name, BotState type)
@@ -220,7 +223,7 @@ Engine* StateNode_Legacy::GetDebugEngine() const
     return GetEngine();
 }
 
-std::string StateNode_Legacy::GetDebugInfo() const
+std::string StateNode_Legacy::GetDebugInfo(const STAI_TaskContext& context) const
 {
     return brain ? brain->file : "AiFactory defaults";
 }
@@ -230,7 +233,7 @@ std::string StateNode_Legacy::GetDebugInfo() const
 // ---------------------------------------------------------------------------------------------------
 
 StateNode_Reaction::StateNode_Reaction(const STAI_TaskContext& context, std::shared_ptr<const LegacyBrain> brain)
-    : ai(context.ai), bot(context.bot), brain(std::move(brain)), activity(context.activity)
+    : ai(context.ai), bot(context.bot), brain(std::move(brain))
 {
     reactionEngine = AiFactory::createReactionEngine(bot, ai, ai->GetAiObjectContext());
 
@@ -262,13 +265,15 @@ void StateNode_Reaction::ApplyBrain(Engine* engine)
     engine->Init();
 }
 
-void StateNode_Reaction::OnExit()
+void StateNode_Reaction::OnExit(STAI_TaskContext& baseContext) const
 {
+    StateNode_LegacyContext& context = ContextAs<StateNode_LegacyContext>(baseContext);
+
     reactionEngine->Reset();
 
-    if (lastActionEntry && activity)
-        activity->Shorten(lastActionEntry);
-    lastActionEntry = 0;
+    if (context.lastActionEntry && context.activity)
+        context.activity->Shorten(context.lastActionEntry);
+    context.lastActionEntry = 0;
 }
 
 void StateNode_Reaction::UpdateStrategies(const std::string& name, BotState type)
@@ -304,8 +309,9 @@ void StateNode_Reaction::ReInit()
     //ai->engines[(uint8)BotState::BOT_STATE_REACTION].get()->Init();
 }
 
-EActionRunStatus StateNode_Reaction::Update(uint32 elapsed, bool minimal)
+EActionRunStatus StateNode_Reaction::Update(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    StateNode_LegacyContext& context = ContextAs<StateNode_LegacyContext>(baseContext);
     bool doMinimalReaction = minimal;
     if (bot->IsTaxiFlying())
         doMinimalReaction = true;
@@ -325,7 +331,7 @@ EActionRunStatus StateNode_Reaction::Update(uint32 elapsed, bool minimal)
     if (ai->UpdateAIInternal(elapsed, minimal))
     {
         //ai->DoNextAction(minimal, reactionEngine.get());
-        DoNextActionLogged(ai, ai->engines[(uint8)BotState::BOT_STATE_REACTION].get(), minimal, activity, lastActionEntry);
+        DoNextActionLogged(ai, ai->engines[(uint8)BotState::BOT_STATE_REACTION].get(), minimal, context.activity, context.lastActionEntry);
     }
     bool min = minimal;
     if (!bot->IsInCombat())
@@ -336,7 +342,7 @@ EActionRunStatus StateNode_Reaction::Update(uint32 elapsed, bool minimal)
     return EActionRunStatus::Running;
 }
 
-bool StateNode_Reaction::UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned)
+bool StateNode_Reaction::UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned) const
 {
     bool reactionFound;
     std::string mapString = WorldPosition(bot).isInstance() ? "I" : std::to_string(bot->GetMapId());
@@ -385,7 +391,7 @@ Engine* StateNode_Reaction::GetDebugEngine() const
     return reactionEngine.get();
 }
 
-std::string StateNode_Reaction::GetDebugInfo() const
+std::string StateNode_Reaction::GetDebugInfo(const STAI_TaskContext& context) const
 {
     return brain ? brain->file : "AiFactory defaults";
 }

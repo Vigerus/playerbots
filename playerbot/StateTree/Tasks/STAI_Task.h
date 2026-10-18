@@ -4,7 +4,9 @@
 #include "playerbot/StateTree/HLS.h"
 #include "playerbot/StateTree/Tasks/StateTreeTask.h"
 
+#include <new>
 #include <string>
+#include <type_traits>
 
 class Player;
 class PlayerbotAI;
@@ -15,18 +17,50 @@ namespace ai
     class IReactionChecker;
     class STAI_ActivityLog;
 
-    // what a task is created for: the bot and the HLS state whose tree contains it
+    // Runtime data of a task, one per bot and tree node; the task itself holds only its configuration.
+    // Tasks with runtime state derive their own context from this one and expose it with GetContextType;
+    // the tree constructs the contexts when it creates the tasks and passes them to every lifecycle call.
+    // The base is also what a task is created for: the bot and the HLS state whose tree contains it.
     struct STAI_TaskContext
     {
+        STAI_TaskContext() = default;
+        STAI_TaskContext(PlayerbotAI* ai, Player* bot, HLSStateType state, STAI_ActivityLog* activity)
+            : ai(ai), bot(bot), state(state), activity(activity) {}
+        STAI_TaskContext(const STAI_TaskContext&) = default;
+        STAI_TaskContext& operator=(const STAI_TaskContext&) = default;
+        virtual ~STAI_TaskContext() = default;
+
         PlayerbotAI* ai = nullptr;
         Player* bot = nullptr;
         HLSStateType state = HLSStateType::NonCombat;
         STAI_ActivityLog* activity = nullptr;   // the bot's recent activity, tasks may add entries
     };
 
+    // context class of a task: the tree reserves size/alignment and constructs it in place
+    struct STAI_TaskContextType
+    {
+        size_t size;
+        size_t alignment;
+        STAI_TaskContext* (*construct)(void* memory, const STAI_TaskContext& base);
+
+        template<class T>
+        static const STAI_TaskContextType& Of()
+        {
+            static_assert(std::is_base_of_v<STAI_TaskContext, T>, "task contexts derive from STAI_TaskContext");
+            static const STAI_TaskContextType type{ sizeof(T), alignof(T), [](void* memory, const STAI_TaskContext& base) -> STAI_TaskContext*
+            {
+                T* context = new (memory) T();
+                static_cast<STAI_TaskContext&>(*context) = base;
+                return context;
+            } };
+            return type;
+        }
+    };
+
     // Task of a STAI state tree node (<Task class="...">). Created once per bot when its tree is built.
     // Lifecycle while the node is selected: OnEnter, Update every bot update until it returns Succeeded or
     // Failed (Running keeps the node active), OnExit (also called when an earlier node interrupts it).
+    // The lifecycle is const: runtime state lives in the context the tree passes in (see GetContextType).
     class STAI_Task
     {
     public:
@@ -34,9 +68,12 @@ namespace ai
 
         virtual const char* GetTaskClass() const = 0;
 
-        virtual void OnEnter() {}
-        virtual EActionRunStatus Update(uint32 elapsed, bool minimal) = 0;
-        virtual void OnExit() {}
+        // the context class the tree constructs for this task, override for tasks with their own context
+        virtual const STAI_TaskContextType& GetContextType() const { return STAI_TaskContextType::Of<STAI_TaskContext>(); }
+
+        virtual void OnEnter(STAI_TaskContext& context) const {}
+        virtual EActionRunStatus Update(STAI_TaskContext& context, uint32 elapsed, bool minimal) const = 0;
+        virtual void OnExit(STAI_TaskContext& context) const {}
 
         // temporary, for compatibility with the legacy engines (forwarded by the state node to every task)
         virtual void UpdateStrategies(const std::string& name, BotState type) {}
@@ -51,6 +88,13 @@ namespace ai
 
         // debug visualization
         virtual Engine* GetDebugEngine() const { return nullptr; }
-        virtual std::string GetDebugInfo() const { return ""; }
+        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const { return ""; }
+
+    protected:
+        // view of the context as the task's own context class (the one GetContextType names)
+        template<class T>
+        static T& ContextAs(STAI_TaskContext& context) { return static_cast<T&>(context); }
+        template<class T>
+        static const T& ContextAs(const STAI_TaskContext& context) { return static_cast<const T&>(context); }
     };
 }

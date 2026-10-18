@@ -38,6 +38,35 @@ StateNode_Tree::StateNode_Tree(const STAI_TaskContext& context, std::shared_ptr<
 
         nodes.push_back(std::move(node));
     }
+
+    CreateContexts();
+}
+
+StateNode_Tree::~StateNode_Tree()
+{
+    for (RuntimeNode& node : nodes)
+        if (node.context)
+            node.context->~STAI_TaskContext();
+}
+
+void StateNode_Tree::CreateContexts()
+{
+    // lay the contexts out like a stack frame: each at the next offset its alignment allows
+    std::vector<size_t> offsets;
+    size_t size = 0;
+    for (const RuntimeNode& node : nodes)
+    {
+        const STAI_TaskContextType& type = node.task->GetContextType();
+        MANGOS_ASSERT(type.alignment <= alignof(std::max_align_t));
+        size = (size + type.alignment - 1) / type.alignment * type.alignment;
+        offsets.push_back(size);
+        size += type.size;
+    }
+
+    contextStorage.reset(new std::max_align_t[(size + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t)]);
+    std::byte* memory = reinterpret_cast<std::byte*>(contextStorage.get());
+    for (size_t i = 0; i < nodes.size(); ++i)
+        nodes[i].context = nodes[i].task->GetContextType().construct(memory + offsets[i], context);
 }
 
 void StateNode_Tree::UpdateStrategies(const std::string& name, BotState type)
@@ -84,7 +113,7 @@ void StateNode_Tree::ExitActive()
         return;
 
     RuntimeNode& node = nodes[active];
-    node.task->OnExit();
+    node.task->OnExit(*node.context);
     if (node.activityId && context.activity)
         context.activity->End(node.activityId);
     node.activityId = 0;
@@ -117,7 +146,7 @@ void StateNode_Tree::Update(uint32 elapsed, bool minimal)
         nodes[i].failed = false;
         if (context.activity && nodes[i].task->LogsNodeActivity())
             nodes[i].activityId = context.activity->Begin("node", nodes[i].def->name, nodes[i].task->GetTaskClass());
-        nodes[i].task->OnEnter();
+        nodes[i].task->OnEnter(*nodes[i].context);
         break;
     }
 
@@ -125,7 +154,7 @@ void StateNode_Tree::Update(uint32 elapsed, bool minimal)
         return;
 
     RuntimeNode& node = nodes[active];
-    const EActionRunStatus status = node.task->Update(elapsed, minimal);
+    const EActionRunStatus status = node.task->Update(*node.context, elapsed, minimal);
     if (status == EActionRunStatus::Running)
         return;
 
@@ -182,7 +211,7 @@ std::vector<StateNodeDebugChild> StateNode_Tree::GetDebugChildren() const
         child.name = node.def->name;
         child.taskClass = node.task->GetTaskClass();
         child.active = int(i) == active;
-        child.info = node.task->GetDebugInfo();
+        child.info = node.task->GetDebugInfo(*node.context);
 
         for (size_t c = 0; c < node.def->conditions.size(); ++c)
             child.conditions.emplace_back(node.def->conditions[c].GetText(), node.results[c]);

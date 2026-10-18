@@ -14,36 +14,39 @@ namespace ai
     // (again when the target moved), finishing with Succeeded once inside the radius while the target stands
     // still (Failed when the target is gone, flying, on another map or transport, or not reached in time);
     // OnExit stops the movement the task started.
-    class Task_Follow : public STAI_Task
+    struct Task_FollowContext : public STAI_TaskContext
     {
-    public:
-        Task_Follow(const STAI_TaskContext& context, const std::string& acceptableRadius);
-
-        static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskContext& context, const STAI_TaskConfig& config);
-
-        virtual const char* GetTaskClass() const override { return "Task_Follow"; }
-
-        virtual void OnEnter() override;
-        virtual EActionRunStatus Update(uint32 elapsed, bool minimal) override;
-        virtual void OnExit() override;
-
-        virtual std::string GetDebugInfo() const override;
-
-    private:
-        Unit* GetTarget() const;
-        float GetRadius() const;
-        void MoveTo(float x, float y, float z);
-
-        PlayerbotAI* ai;
-        Player* bot;
-        std::string acceptableRadius;   // yards or a range name
-
         float relativeAngle = 0.0f;     // side of the target to stand on, relative to its orientation
         bool moving = false;            // a move ordered by this task is in progress
         bool hasDestination = false;
         float destinationX = 0.0f, destinationY = 0.0f, destinationZ = 0.0f;
         uint32 elapsedMs = 0;
         float lastDistance = -1.0f;
+    };
+
+    class Task_Follow : public STAI_Task
+    {
+    public:
+        explicit Task_Follow(const std::string& acceptableRadius);
+
+        static void Validate(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_Task> Create(const STAI_TaskContext& context, const STAI_TaskConfig& config);
+
+        virtual const char* GetTaskClass() const override { return "Task_Follow"; }
+
+        virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_FollowContext>(); }
+
+        virtual void OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus Update(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
+        virtual void OnExit(STAI_TaskContext& context) const override;
+
+        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+
+    private:
+        static Unit* GetTarget(const STAI_TaskContext& context);
+        float GetRadius(const STAI_TaskContext& context) const;
+        static void MoveTo(Task_FollowContext& context, float x, float y, float z);
+
+        std::string acceptableRadius;   // yards or a range name
     };
 }
