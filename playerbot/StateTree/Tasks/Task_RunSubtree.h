@@ -54,7 +54,7 @@ namespace ai
 
         virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const override;
         virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
-        virtual std::vector<StateNodeDebugChild> GetDebugChildren(const STAI_TaskContext& context) const override;
+        virtual void AppendDebugTreeStack(const STAI_TaskContext& context, std::vector<StateNodeDebugTree>& stack) const override;
 
     private:
         std::string file;   // relative to the config directory

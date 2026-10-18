@@ -176,7 +176,9 @@ static std::string SanitizeDebugField(std::string_view value)
 // Snapshot format (records separated by '~', fields by '^'):
 //   H^<active type>^<ms in active state>^<previous type or ->
 //   N^<type>^<node name>^<active 0|1>^<last action>^<last relevance>^<last status>^<strategy,strategy,...>
-//   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>     (tree nodes of the state above)
+//   K^<type>^<depth>^<tree name>^<running 0|1>       tree stack of the state above, bottom (depth 0) to top
+//   G^<type>^<depth>^<task name>                       global task of the tree K^<type>^<depth>
+//   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>     (nodes of the top tree)
 //       conditions: <result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked
 //   T^<from type or *>^<to type or <prev>>^<condition label>
 std::string StateMachine::BuildDebugSnapshot() const
@@ -230,7 +232,17 @@ std::string StateMachine::BuildDebugSnapshot() const
 
         out << "^" << lastAction << "^" << relevance << "^" << status << "^" << strategies;
 
-        for (const StateNodeDebugChild& child : node->GetDebugChildren())
+        const std::vector<StateNodeDebugTree> stack = node->GetDebugTreeStack();
+        for (size_t depth = 0; depth < stack.size(); ++depth)
+        {
+            out << "~K^" << GetHLSStateTypeName(type) << "^" << depth << "^" << SanitizeDebugField(stack[depth].name)
+                << "^" << (stack[depth].running ? 1 : 0);
+            for (const std::string& global : stack[depth].globalTasks)
+                out << "~G^" << GetHLSStateTypeName(type) << "^" << depth << "^" << SanitizeDebugField(global);
+        }
+
+        static const std::vector<StateNodeDebugChild> noNodes;
+        for (const StateNodeDebugChild& child : stack.empty() ? noNodes : stack.back().nodes)
         {
             std::string conditions;
             for (const auto& [text, result] : child.conditions)

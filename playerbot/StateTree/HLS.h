@@ -30,6 +30,15 @@ struct StateNodeDebugChild
     bool active = false;
 };
 
+// tree on the tree stack of a state, as shown by the StateTree debug view
+struct StateNodeDebugTree
+{
+    std::string name;
+    bool running = false;
+    std::vector<std::string> globalTasks;           // names of the scopeless <Global> tasks
+    std::vector<StateNodeDebugChild> nodes;
+};
+
 enum class HLSStateType : uint8_t
 {
     NonCombat,
@@ -56,7 +65,8 @@ public:
 
     // debug visualization: engine whose strategies / last action are shown for this node
     virtual Engine* GetDebugEngine() const { return nullptr; }
-    virtual std::vector<StateNodeDebugChild> GetDebugChildren() const { return {}; }
+    // trees the state runs, bottom (its initial tree) to top (the tree selecting nodes)
+    virtual std::vector<StateNodeDebugTree> GetDebugTreeStack() const { return {}; }
 };
 
 

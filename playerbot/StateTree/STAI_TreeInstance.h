@@ -52,8 +52,8 @@ namespace ai
         IReactionChecker* FindReactionChecker() const;
 
         Engine* GetDebugEngine() const;
-        // the nodes of the tree, subtree nodes below their node with deeper indentation
-        std::vector<StateNodeDebugChild> GetDebugChildren() const;
+        // adds this tree and the trees stacked on its running node (bottom to top)
+        void AppendDebugTreeStack(std::vector<StateNodeDebugTree>& stack) const;
         const char* GetActiveNodeName() const;
 
     private:

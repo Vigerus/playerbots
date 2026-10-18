@@ -32,7 +32,12 @@ namespace ai
         virtual bool IsReacting() override;
 
         virtual Engine* GetDebugEngine() const override { return tree.GetDebugEngine(); }
-        virtual std::vector<StateNodeDebugChild> GetDebugChildren() const override { return tree.GetDebugChildren(); }
+        virtual std::vector<StateNodeDebugTree> GetDebugTreeStack() const override
+        {
+            std::vector<StateNodeDebugTree> stack;
+            tree.AppendDebugTreeStack(stack);
+            return stack;
+        }
 
     private:
         HLSStateType state;

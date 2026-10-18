@@ -128,8 +128,9 @@ std::string Task_RunSubtree::GetDebugInfo(const STAI_TaskContext& baseContext) c
     return context.subtree->GetAsset().name + (activeNode ? std::string(" > ") + activeNode : "");
 }
 
-std::vector<StateNodeDebugChild> Task_RunSubtree::GetDebugChildren(const STAI_TaskContext& baseContext) const
+void Task_RunSubtree::AppendDebugTreeStack(const STAI_TaskContext& baseContext, std::vector<StateNodeDebugTree>& stack) const
 {
     const Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    return context.subtree ? context.subtree->GetDebugChildren() : std::vector<StateNodeDebugChild>();
+    if (context.subtree && context.subtree->IsRunning())
+        context.subtree->AppendDebugTreeStack(stack);
 }

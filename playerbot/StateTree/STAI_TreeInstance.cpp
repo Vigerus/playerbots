@@ -262,18 +262,14 @@ Engine* STAI_TreeInstance::GetDebugEngine() const
     return nullptr;
 }
 
-std::vector<StateNodeDebugChild> STAI_TreeInstance::GetDebugChildren() const
+void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& stack) const
 {
-    std::vector<StateNodeDebugChild> children;
+    StateNodeDebugTree tree;
+    tree.name = asset->name;
+    tree.running = running;
+
     for (const GlobalTask& global : globals)
-    {
-        StateNodeDebugChild child;
-        child.name = "[Global] " + global.def->name;
-        child.taskClass = global.def->task->GetTaskClass();
-        child.active = running;
-        child.info = global.def->task->GetDebugInfo(*global.context);
-        children.push_back(std::move(child));
-    }
+        tree.globalTasks.push_back(global.def->name);
 
     for (size_t i = 0; i < nodes.size(); ++i)
     {
@@ -288,16 +284,13 @@ std::vector<StateNodeDebugChild> STAI_TreeInstance::GetDebugChildren() const
         for (size_t c = 0; c < node.def->conditions.size(); ++c)
             child.conditions.emplace_back(node.def->conditions[c].GetText(), node.results[c]);
 
-        children.push_back(std::move(child));
-
-        for (StateNodeDebugChild& subtreeChild : node.def->task->GetDebugChildren(*node.context))
-        {
-            subtreeChild.name = "    " + subtreeChild.name;
-            subtreeChild.active = subtreeChild.active && int(i) == active;
-            children.push_back(std::move(subtreeChild));
-        }
+        tree.nodes.push_back(std::move(child));
     }
-    return children;
+
+    stack.push_back(std::move(tree));
+
+    if (active >= 0)
+        nodes[active].def->task->AppendDebugTreeStack(*nodes[active].context, stack);
 }
 
 const char* STAI_TreeInstance::GetActiveNodeName() const

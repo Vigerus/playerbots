@@ -102,8 +102,8 @@ namespace ai
         // debug visualization
         virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const { return nullptr; }
         virtual std::string GetDebugInfo(const STAI_TaskContext& context) const { return ""; }
-        // nodes shown below this task's node (subtrees)
-        virtual std::vector<StateNodeDebugChild> GetDebugChildren(const STAI_TaskContext& context) const { return {}; }
+        // adds the trees this task stacked on its node's tree (a running subtree)
+        virtual void AppendDebugTreeStack(const STAI_TaskContext& context, std::vector<StateNodeDebugTree>& stack) const {}
 
     protected:
         // view of the context as the task's own context class (the one GetContextType names)
