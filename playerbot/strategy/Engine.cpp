@@ -107,8 +107,14 @@ void Engine::Init()
     {
         Strategy* strategy = i->second;
         strategy->InitMultipliers(multipliers, state);
+
+        const size_t triggerCount = triggers.size();
         strategy->InitTriggers(triggers, state);
-        MultiplyAndPush(strategy->getDefaultActions(state), 0.0f, false, Event(), "default");
+        for (auto node = std::next(triggers.begin(), triggerCount); node != triggers.end(); ++node)
+            if (*node)
+                (*node)->setStrategy(i->first);
+
+        MultiplyAndPush(strategy->getDefaultActions(state), 0.0f, false, Event(), "default", i->first);
     }
 
 	if (testMode)
@@ -145,6 +151,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
             float relevance = basket->getRelevance(), oldRelevance = relevance; // just for reference
             bool skipPrerequisites = basket->isSkipPrerequisites();
             Event event = basket->getEvent();
+            const std::string source = basket->getSource();
             if (minimal && (relevance < 100))
                 continue;
             // NOTE: queue.Pop() deletes basket
@@ -218,16 +225,16 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                     if (relevance < oldRelevance && peekAction && peekAction->getRelevance() > relevance) //Relevance changed. Try again.
                     {
                         modifiedActions.push_back(action);
-                        PushAgain(actionNode, relevance, event);
+                        PushAgain(actionNode, relevance, event, source);
                         continue;
                     }
 
                     if (!skipPrerequisites)
                     {
                         LogAction("A:%s - PREREQ", action->getName().c_str());
-                        if (MultiplyAndPush(actionNode->getPrerequisites(), relevance + 0.02, false, event, "prereq"))
+                        if (MultiplyAndPush(actionNode->getPrerequisites(), relevance + 0.02, false, event, "prereq", source))
                         {
-                            PushAgain(actionNode, relevance + 0.01, event);
+                            PushAgain(actionNode, relevance + 0.01, event, source);
                             continue;
                         }
                     }
@@ -239,6 +246,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                     if (isPossible && relevance)
                     {
                         auto pmo4 = sPerformanceMonitor.start(PERF_MON_ACTION, "Execute", &aiObjectContext->performanceStack);
+                        executingSource = source;
                         actionExecuted = ListenAndExecute(action, event);
                         pmo4.reset();
 
@@ -251,7 +259,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                         if (actionExecuted)
                         {
                             LogAction("A:%s - OK", action->getName().c_str());
-                            MultiplyAndPush(actionNode->getContinuers(), 0, false, event, "cont");
+                            MultiplyAndPush(actionNode->getContinuers(), 0, false, event, "cont", source);
                             lastActionContext->relevance = relevance;
                             delete actionNode;
                             break;
@@ -259,7 +267,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                         else
                         {
                             LogAction("A:%s - FAILED", action->getName().c_str());
-                            MultiplyAndPush(actionNode->getAlternatives(), relevance + 0.03, false, event, "alt");
+                            MultiplyAndPush(actionNode->getAlternatives(), relevance + 0.03, false, event, "alt", source);
                         }
                     }
                     else
@@ -287,7 +295,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                             }
                         }
                         LogAction("A:%s - IMPOSSIBLE", action->getName().c_str());
-                        MultiplyAndPush(actionNode->getAlternatives(), relevance + 0.03, false, event, "alt");
+                        MultiplyAndPush(actionNode->getAlternatives(), relevance + 0.03, false, event, "alt", source);
                     }
                 }
                 else
@@ -374,7 +382,7 @@ ActionNode* Engine::CreateActionNode(const std::string& name)
     return actionNode;
 }
 
-bool Engine::MultiplyAndPush(NextAction** actions, float forceRelevance, bool skipPrerequisites, const Event& event, const char* pushType)
+bool Engine::MultiplyAndPush(NextAction** actions, float forceRelevance, bool skipPrerequisites, const Event& event, const char* pushType, const std::string& source)
 {
     bool pushed = false;
     if (actions)
@@ -412,7 +420,7 @@ bool Engine::MultiplyAndPush(NextAction** actions, float forceRelevance, bool sk
                 if (shouldPush)
                 {
                     LogAction("PUSH:%s - %f (%s)", actionNode->getName().c_str(), k, pushType);
-                    queue.Push(new ActionBasket(actionNode, k, skipPrerequisites, event));
+                    queue.Push(new ActionBasket(actionNode, k, skipPrerequisites, event, source));
                     pushed = true;
                 }
                 else
@@ -454,6 +462,7 @@ ActionResult Engine::ExecuteAction(const std::string& name, Event& event)
                 {
                     action->MakeVerbose(event.getOwner() != nullptr);
                     auto pmo4 = sPerformanceMonitor.start(PERF_MON_ACTION, "Execute", &aiObjectContext->performanceStack);
+                    executingSource.clear();
                     bool executionResult = ListenAndExecute(action, event);
                     pmo4.reset();
 
@@ -624,7 +633,7 @@ void Engine::ProcessTriggers(bool minimal)
             if (!event.IsValid())
                 continue;
 
-            MultiplyAndPush(node->getHandlers(), 0.0f, false, event, "trigger");
+            MultiplyAndPush(node->getHandlers(), 0.0f, false, event, "trigger", node->getStrategy());
             LogAction("T:%s", trigger->getName().c_str());
         }
     }
@@ -641,7 +650,7 @@ void Engine::PushDefaultActions()
     for (std::map<std::string, Strategy*>::iterator i = strategies.begin(); i != strategies.end(); i++)
     {
         Strategy* strategy = i->second;
-        MultiplyAndPush(strategy->getDefaultActions(state), 0.0f, false, Event(), "default");
+        MultiplyAndPush(strategy->getDefaultActions(state), 0.0f, false, Event(), "default", i->first);
     }
 }
 
@@ -669,12 +678,12 @@ std::list<std::string_view> Engine::GetStrategies()
     return result;
 }
 
-void Engine::PushAgain(ActionNode* actionNode, float relevance, const Event& event)
+void Engine::PushAgain(ActionNode* actionNode, float relevance, const Event& event, const std::string& source)
 {
     NextAction** nextAction = new NextAction*[2];
     nextAction[0] = new NextAction(actionNode->getName(), relevance);
     nextAction[1] = NULL;
-    MultiplyAndPush(nextAction, relevance, true, event, "again");
+    MultiplyAndPush(nextAction, relevance, true, event, "again", source);
     delete actionNode;
 }
 
@@ -714,6 +723,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
     std::unique_ptr<ActionRunContext> context = std::make_unique<ActionRunContext>();
     context->name = action->getName();
     context->relevance = action->getRelevance();
+    context->strategy = executingSource;
 
     EActionRunStatus Status = action->Enter(*context, event);
 
@@ -721,6 +731,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
 
     if (actionExecuted)
     {
+        ++executedActionCount;
         lastExecutedAction = action;
         lastExecutedActionStatus = Status;
         lastActionContext = std::move(context);

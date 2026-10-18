@@ -255,3 +255,31 @@ std::string StateMachine::BuildDebugSnapshot() const
 
     return out.str();
 }
+
+// History format (records separated by '~', fields by '^'), newest first:
+//   Y^<entries in the log>
+//   A^<ms since start>^<duration ms>^<running 0|1>^<kind: node|action>^<name>^<source: task class|strategy>
+// running entries report the time so far as duration
+std::string StateMachine::BuildDebugHistory()
+{
+    static constexpr size_t maxEntries = 50;
+
+    const uint32 now = WorldTimer::getMSTime();
+    const std::deque<STAI_ActivityLog::Entry>& entries = activityLog.GetEntries();
+
+    std::ostringstream out;
+    out << "Y^" << entries.size();
+
+    size_t sent = 0;
+    for (auto it = entries.rbegin(); it != entries.rend() && sent < maxEntries; ++it, ++sent)
+    {
+        const uint32 age = WorldTimer::getMSTimeDiff(it->startMs, now);
+        const bool running = it->open || WorldTimer::getMSTimeDiff(it->startMs, it->endMs) > age;
+        const uint32 duration = running ? age : WorldTimer::getMSTimeDiff(it->startMs, it->endMs);
+
+        out << "~A^" << age << "^" << duration << "^" << (running ? 1 : 0) << "^" << it->kind
+            << "^" << SanitizeDebugField(it->name) << "^" << SanitizeDebugField(it->source);
+    }
+
+    return out.str();
+}

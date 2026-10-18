@@ -45,6 +45,7 @@ namespace ai
             std::vector<StateNodeConditionResult> results;        // per condition, last update
             bool failed = false;
             uint32 failedAtMs = 0;
+            uint64 activityId = 0;
         };
 
         bool CanEnter(RuntimeNode& node, uint32 now);

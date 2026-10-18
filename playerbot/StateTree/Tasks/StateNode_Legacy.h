@@ -24,9 +24,11 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskContext& context, const STAI_TaskConfig& config);
 
         virtual const char* GetTaskClass() const override { return "StateNode_Legacy"; }
+        virtual bool LogsNodeActivity() const override { return false; }
 
         virtual void OnEnter() override;
         virtual EActionRunStatus Update(uint32 elapsed, bool minimal) override;
+        virtual void OnExit() override;
 
         // temporary, for compatibility
         virtual void UpdateStrategies(const std::string& name, BotState type) override;
@@ -44,6 +46,8 @@ namespace ai
         Player* bot;
         HLSStateType stateType;
         std::shared_ptr<const LegacyBrain> brain;
+        STAI_ActivityLog* activity;
+        uint64 lastActionEntry = 0;
     };
 
     // Runs the reaction engine; lets the Reaction state preempt the others.
@@ -56,6 +60,7 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskContext& context, const STAI_TaskConfig& config);
 
         virtual const char* GetTaskClass() const override { return "StateNode_Reaction"; }
+        virtual bool LogsNodeActivity() const override { return false; }
 
         virtual void OnExit() override;
         virtual EActionRunStatus Update(uint32 elapsed, bool minimal) override;
@@ -80,5 +85,7 @@ namespace ai
         Player* bot;
         std::shared_ptr<const LegacyBrain> brain;
         std::unique_ptr<ReactionEngine> reactionEngine;
+        STAI_ActivityLog* activity;
+        uint64 lastActionEntry = 0;
     };
 }

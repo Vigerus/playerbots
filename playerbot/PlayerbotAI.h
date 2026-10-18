@@ -732,6 +732,7 @@ protected:
 
     // player waiting for a StateTree snapshot ("BOT\tstatetree" addon request); set from chat, consumed in UpdateAI
     std::atomic<uint64> stateTreeDebugRequester{ 0 };
+    std::atomic<bool> stateTreeDebugHistory{ false };
     uint8 stateTreeDebugSeq = 0;
 
 #ifdef BUILD_ELUNA

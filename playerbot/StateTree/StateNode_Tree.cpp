@@ -3,6 +3,7 @@
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/strategy/AiObjectContext.h"
 #include "playerbot/strategy/Trigger.h"
+#include "playerbot/StateTree/STAI_ActivityLog.h"
 
 using namespace ai;
 
@@ -82,7 +83,11 @@ void StateNode_Tree::ExitActive()
     if (active < 0)
         return;
 
-    nodes[active].task->OnExit();
+    RuntimeNode& node = nodes[active];
+    node.task->OnExit();
+    if (node.activityId && context.activity)
+        context.activity->End(node.activityId);
+    node.activityId = 0;
     active = -1;
 }
 
@@ -110,6 +115,8 @@ void StateNode_Tree::Update(uint32 elapsed, bool minimal)
         ExitActive();
         active = i;
         nodes[i].failed = false;
+        if (context.activity && nodes[i].task->LogsNodeActivity())
+            nodes[i].activityId = context.activity->Begin("node", nodes[i].def->name, nodes[i].task->GetTaskClass());
         nodes[i].task->OnEnter();
         break;
     }

@@ -15,6 +15,7 @@ namespace ai
     {
         std::string name;
         float relevance = 0.0f;
+        std::string strategy;   // strategy that pushed the action, empty when unknown
         // Add other fields (owner, timestamps, debug info) as needed
     };
 

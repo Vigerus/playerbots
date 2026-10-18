@@ -250,7 +250,7 @@ PlayerbotAI::PlayerbotAI(Player* bot) : PlayerbotAIBase()
             tree = STAI_TreeAsset::MakeSingleTask(defaultNames[(uint8)state], state == HLSStateType::Reaction ? "StateNode_Reaction" : "StateNode_Legacy");
         }
 
-        StateMachine.RegisterNode(std::make_unique<StateNode_Tree>(STAI_TaskContext{ this, bot, state }, tree), state == HLSStateType::NonCombat);
+        StateMachine.RegisterNode(std::make_unique<StateNode_Tree>(STAI_TaskContext{ this, bot, state, &StateMachine.GetActivityLog() }, tree), state == HLSStateType::NonCombat);
     }
     StateMachine.TransitionTo(HLSStateType::NonCombat);
 #endif
@@ -1325,12 +1325,21 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
     {
         filtered = filtered.substr(4);
 
-        // BotStateTree addon poll: "statetree" (whisper) or "statetree <bot name>" (party/raid, every bot sees it).
+        // BotStateTree addon poll: "statetree [history]" (whisper) or "statetree [history] <bot name>" (party/raid,
+        // every bot sees it); "history" asks for the recent activity instead of the tree.
         // Answered from UpdateAI so the snapshot is taken on the bot's own update.
         if (filtered.rfind("statetree", 0) == 0)
         {
-            if (filtered == "statetree" || filtered == "statetree " + std::string(bot->GetName()))
+            std::string request = filtered.substr(9);
+            const bool history = request.rfind(" history", 0) == 0;
+            if (history)
+                request = request.substr(8);
+
+            if (request.empty() || request == " " + std::string(bot->GetName()))
+            {
+                stateTreeDebugHistory = history;
                 stateTreeDebugRequester = fromPlayer.GetObjectGuid().GetRawValue();
+            }
             return;
         }
     }
@@ -6263,7 +6272,7 @@ void PlayerbotAI::SendStateTreeDebug()
     // addon messages are limited to 255 chars, so the snapshot goes out in chunks:
     // "BOTST\tS<seq>:<index>/<count>:<payload part>" (index is 1-based)
     static constexpr size_t chunkSize = 220;
-    const std::string snapshot = StateMachine.BuildDebugSnapshot();
+    const std::string snapshot = stateTreeDebugHistory ? StateMachine.BuildDebugHistory() : StateMachine.BuildDebugSnapshot();
     const size_t count = std::max<size_t>(1, (snapshot.size() + chunkSize - 1) / chunkSize);
     const uint32 seq = ++stateTreeDebugSeq;
 

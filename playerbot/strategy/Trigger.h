@@ -84,6 +84,9 @@ namespace ai
         Trigger* getTrigger() { return trigger; }
         void setTrigger(Trigger* trigger) { this->trigger = trigger; }
         std::string getName() { return name; }
+        // strategy that added this trigger (set by Engine::Init)
+        const std::string& getStrategy() const { return strategy; }
+        void setStrategy(const std::string& strategy) { this->strategy = strategy; }
 
     public:
         NextAction** getHandlers();
@@ -92,5 +95,6 @@ namespace ai
         std::string name;
         Trigger* trigger;
         NextAction** handlers;
+        std::string strategy;
     };
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HLS.h"
+#include "STAI_ActivityLog.h"
 
 #include "Log/LogHelper.h"
 
@@ -41,12 +42,17 @@ namespace ai
 
         // serialized tree state for the client-side StateTree visualizer addon (see BotStateTree addon)
         std::string BuildDebugSnapshot() const;
+        // serialized recent activity (history tab of the addon)
+        std::string BuildDebugHistory();
+
+        STAI_ActivityLog& GetActivityLog() { return activityLog; }
 
     private:
         log4cxx::LoggerPtr m_logger;
 
         bool bInitialized = false;
         uint32 activeSinceMs = 0;
+        STAI_ActivityLog activityLog;
 
         IStateNode* FindNode(HLSStateType type) const;
     };

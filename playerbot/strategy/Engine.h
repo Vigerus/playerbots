@@ -89,6 +89,8 @@ namespace ai
         const Action* GetLastExecutedAction() const { return lastExecutedAction; }
         const ActionRunContext* GetLastActionContext() const { return lastActionContext.get(); }
         EActionRunStatus GetLastExecutedActionStatus() const { return lastExecutedActionStatus; }
+        // increases with every executed action, lets callers notice that DoNextAction executed one
+        uint32 GetExecutedActionCount() const { return executedActionCount; }
 
         // source of the default strategies: STAI brain name or "AiFactory" (shown by the StateTree debug view)
         const std::string& GetBrainName() const { return brainName; }
@@ -113,11 +115,11 @@ namespace ai
 	    virtual ~Engine(void);
 
     protected:
-        bool MultiplyAndPush(NextAction** actions, float forceRelevance, bool skipPrerequisites, const Event& event, const char* pushType);
+        bool MultiplyAndPush(NextAction** actions, float forceRelevance, bool skipPrerequisites, const Event& event, const char* pushType, const std::string& source = "");
         void Reset();
         void ProcessTriggers(bool minimal);
         void PushDefaultActions();
-        void PushAgain(ActionNode* actionNode, float relevance, const Event& event);
+        void PushAgain(ActionNode* actionNode, float relevance, const Event& event, const std::string& source = "");
         ActionNode* CreateActionNode(const std::string& name);
         virtual Action* InitializeAction(ActionNode* actionNode);
         virtual bool ListenAndExecute(Action* action, Event& event);
@@ -138,6 +140,8 @@ namespace ai
         Action* lastExecutedAction = nullptr;
         EActionRunStatus lastExecutedActionStatus = EActionRunStatus::Succeeded;
         std::string brainName;
+        std::string executingSource;     // strategy of the action being executed
+        uint32 executedActionCount = 0;
 
         std::map<Trigger*, Event> fires;
 

@@ -13,6 +13,7 @@ namespace ai
 {
     class Engine;
     class IReactionChecker;
+    class STAI_ActivityLog;
 
     // what a task is created for: the bot and the HLS state whose tree contains it
     struct STAI_TaskContext
@@ -20,6 +21,7 @@ namespace ai
         PlayerbotAI* ai = nullptr;
         Player* bot = nullptr;
         HLSStateType state = HLSStateType::NonCombat;
+        STAI_ActivityLog* activity = nullptr;   // the bot's recent activity, tasks may add entries
     };
 
     // Task of a STAI state tree node (<Task class="...">). Created once per bot when its tree is built.
@@ -43,6 +45,9 @@ namespace ai
 
         // reaction tasks let the Reaction state preempt other states
         virtual IReactionChecker* GetReactionChecker() { return nullptr; }
+
+        // the tree logs OnEnter..OnExit of the node; tasks that never finish (legacy engines) log their own entries
+        virtual bool LogsNodeActivity() const { return true; }
 
         // debug visualization
         virtual Engine* GetDebugEngine() const { return nullptr; }

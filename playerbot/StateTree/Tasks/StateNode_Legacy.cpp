@@ -1,6 +1,7 @@
 #include "StateNode_Legacy.h"
 
 #include "playerbot/AiFactory.h"
+#include "playerbot/StateTree/STAI_ActivityLog.h"
 #include "playerbot/StateTree/Tasks/LegacyBrain.h"
 
 namespace
@@ -40,6 +41,28 @@ namespace
             return nullptr;
         }
     }
+
+    // runs DoNextAction on the engine and logs the action it executed: from now until the bot is free again
+    // (cast time / reaction delay the action set), ended earlier when the next action starts
+    void DoNextActionLogged(PlayerbotAI* ai, Engine* engine, bool minimal, STAI_ActivityLog* activity, uint64& lastActionEntry)
+    {
+        const uint32 executedBefore = engine->GetExecutedActionCount();
+        ai->DoNextAction(minimal, engine);
+
+        if (!activity || engine->GetExecutedActionCount() == executedBefore)
+            return;
+
+        const ActionRunContext* context = engine->GetLastActionContext();
+        if (!context)
+            return;
+
+        if (lastActionEntry)
+            activity->Shorten(lastActionEntry);
+
+        const uint32 now = WorldTimer::getMSTime();
+        const uint32 busyMs = std::max(ai->GetAIInternalUpdateDelay(), 1U);
+        lastActionEntry = activity->Add("action", context->name, context->strategy.empty() ? "-" : context->strategy, now, now + busyMs);
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -47,7 +70,7 @@ namespace
 // ---------------------------------------------------------------------------------------------------
 
 StateNode_Legacy::StateNode_Legacy(const STAI_TaskContext& context, std::shared_ptr<const LegacyBrain> brain)
-    : ai(context.ai), bot(context.bot), stateType(context.state), brain(std::move(brain))
+    : ai(context.ai), bot(context.bot), stateType(context.state), brain(std::move(brain)), activity(context.activity)
 {
     if (this->brain)
         if (Engine* engine = GetEngine())
@@ -106,7 +129,7 @@ EActionRunStatus StateNode_Legacy::Update(uint32 elapsed, bool minimal)
     }
     if (ai->UpdateAIInternal(elapsed, minimal))
     {
-        ai->DoNextAction(minimal, &ai->GetCurrentEngine());
+        DoNextActionLogged(ai, &ai->GetCurrentEngine(), minimal, activity, lastActionEntry);
     }
     bool min = minimal;
     if (!bot->IsInCombat())
@@ -115,6 +138,14 @@ EActionRunStatus StateNode_Legacy::Update(uint32 elapsed, bool minimal)
         min = false;
     ai->YieldAIInternalThread(min);
     return EActionRunStatus::Running;
+}
+
+void StateNode_Legacy::OnExit()
+{
+    // an interrupted action ends with the node
+    if (lastActionEntry && activity)
+        activity->Shorten(lastActionEntry);
+    lastActionEntry = 0;
 }
 
 void StateNode_Legacy::UpdateStrategies(const std::string& name, BotState type)
@@ -199,7 +230,7 @@ std::string StateNode_Legacy::GetDebugInfo() const
 // ---------------------------------------------------------------------------------------------------
 
 StateNode_Reaction::StateNode_Reaction(const STAI_TaskContext& context, std::shared_ptr<const LegacyBrain> brain)
-    : ai(context.ai), bot(context.bot), brain(std::move(brain))
+    : ai(context.ai), bot(context.bot), brain(std::move(brain)), activity(context.activity)
 {
     reactionEngine = AiFactory::createReactionEngine(bot, ai, ai->GetAiObjectContext());
 
@@ -234,6 +265,10 @@ void StateNode_Reaction::ApplyBrain(Engine* engine)
 void StateNode_Reaction::OnExit()
 {
     reactionEngine->Reset();
+
+    if (lastActionEntry && activity)
+        activity->Shorten(lastActionEntry);
+    lastActionEntry = 0;
 }
 
 void StateNode_Reaction::UpdateStrategies(const std::string& name, BotState type)
@@ -290,7 +325,7 @@ EActionRunStatus StateNode_Reaction::Update(uint32 elapsed, bool minimal)
     if (ai->UpdateAIInternal(elapsed, minimal))
     {
         //ai->DoNextAction(minimal, reactionEngine.get());
-        ai->DoNextAction(minimal, ai->engines[(uint8)BotState::BOT_STATE_REACTION].get());
+        DoNextActionLogged(ai, ai->engines[(uint8)BotState::BOT_STATE_REACTION].get(), minimal, activity, lastActionEntry);
     }
     bool min = minimal;
     if (!bot->IsInCombat())

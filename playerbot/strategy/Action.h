@@ -166,11 +166,12 @@ namespace ai
     class ActionBasket
     {
     public:
-        ActionBasket(ActionNode* action, float relevance, bool skipPrerequisites, const Event& event) :
+        ActionBasket(ActionNode* action, float relevance, bool skipPrerequisites, const Event& event, const std::string& source = "") :
           action(action),
           relevance(relevance),
           skipPrerequisites(skipPrerequisites),
-          event(event)
+          event(event),
+          source(source)
         {
             created = time(0);
         }
@@ -182,6 +183,8 @@ namespace ai
         ActionNode* getAction() const { return action; }
         const Event& getEvent() const { return event; }
         bool isSkipPrerequisites() const { return skipPrerequisites; }
+        // strategy whose trigger or default actions pushed this action, empty when unknown
+        const std::string& getSource() const { return source; }
         void AmendRelevance(float k) {relevance *= k; }
         void setRelevance(float relevance) { this->relevance = relevance; }
         void setEvent(Event event) { this->event = event; }
@@ -192,6 +195,7 @@ namespace ai
         float relevance;
         bool skipPrerequisites;
         Event event;
+        std::string source;
         time_t created;
     };
 }

@@ -71,6 +71,13 @@ Tasks:
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`) and are registered in `STAI_BuiltinTasks.cpp`.
 
+Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
+`STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. The tree adds an entry from `OnEnter` to
+`OnExit` of each node (tasks return `false` from `LogsNodeActivity()` to opt out, like the legacy nodes). Tasks add
+their own entries with `Begin`/`End` (open-ended) or `Add`/`Shorten` (known expected end): `StateNode_Legacy` and
+`StateNode_Reaction` add every executed action with the strategy that pushed it, lasting until the bot is free again
+(cast time, reaction delay) or the next action starts.
+
 ## Legacy strategy list (`Legacy_*.json`)
 
 JSON (`.json`) or XML (`.xml`, same structure, fields as attributes, root element `<brain>`).
