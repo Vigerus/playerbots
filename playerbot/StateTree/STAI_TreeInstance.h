@@ -16,7 +16,10 @@ namespace ai
     // the running one as soon as its conditions pass; the running node stays active until its task returns
     // Succeeded or Failed (a failed node is skipped for a while). The tasks of a node run one after another: a
     // succeeded task is exited and the next one entered (ticked from the next tick on), the node succeeds with its
-    // last task; a failed task fails the node, the next tick starts again at the first node. Once every node was evaluated (the node finished,
+    // last task; a failed task fails the node. A finished node is followed by its first matching transition: the
+    // target node is entered on the next tick when its conditions pass (no other node is selected in that tick);
+    // without a matching transition (or when the target cannot be entered) the next tick starts again at the first
+    // node. An interrupted node takes no transition. Once every node was evaluated (the node finished,
     // or none can be entered) the tree loops over: the next tick starts again at its first node.
     // A tree runs until a STAI_FinishTreeTask node of it succeeds; that is the only way it finishes on its own.
     // Trees form a stack (Task_RunSubtree): only the top tree selects nodes, the trees below it just tick their
@@ -79,8 +82,9 @@ namespace ai
         };
 
         void CreateContexts();
-        bool CanEnter(RuntimeNode& node, uint32 now);
+        bool CanEnter(RuntimeNode& node, uint32 now, bool ignoreFailedDelay = false);
         void EnterNode(int index);
+        void FinishNode(RuntimeNode& node, EActionRunStatus status);
         void ExitActive();
         void EnterGlobals();
         void ExitGlobals();
@@ -92,5 +96,6 @@ namespace ai
         bool running = false;                                    // between OnStart and OnFinish, the global tasks are entered
         std::unique_ptr<std::max_align_t[]> contextStorage;      // the contexts of all nodes, one after another
         int active = -1;
+        int pendingTransition = -1;                              // node to enter on the next tick
     };
 }

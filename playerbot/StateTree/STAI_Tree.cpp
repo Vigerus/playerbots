@@ -5,6 +5,7 @@
 #include <boost/property_tree/xml_parser.hpp>
 
 #include <algorithm>
+#include <cstring>
 #include <cctype>
 #include <functional>
 #include <stdexcept>
@@ -59,6 +60,30 @@ namespace
         return def;
     }
 
+    const char* const rootPathPrefix = "Root|";
+
+    // <Transition type="..." node="Root|..."/>, the target node is resolved once the whole tree is read
+    STAI_TransitionDef ParseTransition(const ptree& transition, const std::string& where)
+    {
+        STAI_TransitionDef def;
+
+        const std::string type = Attribute(transition, "type");
+        if (type == "OnSuccess")
+            def.type = STAI_TransitionDef::Type::OnSuccess;
+        else if (type == "OnFailure")
+            def.type = STAI_TransitionDef::Type::OnFailure;
+        else if (type == "OnFinish")
+            def.type = STAI_TransitionDef::Type::OnFinish;
+        else
+            throw STAI_TreeFatalError(where + ": <Transition> type must be OnSuccess, OnFailure or OnFinish, got '" + type + "'");
+
+        def.path = Attribute(transition, "node");
+        if (def.path.rfind(rootPathPrefix, 0) != 0 || def.path.size() == strlen(rootPathPrefix))
+            throw STAI_TreeFatalError(where + ": <Transition> node must be a path starting with Root, e.g. \"Root|Legacy\", got '" + def.path + "'");
+
+        return def;
+    }
+
     // <Task class="..."> settings </Task>: validated and created (shared by every bot)
     void ParseTask(const ptree& task, const std::string& where, STAI_TaskDef& def)
     {
@@ -107,6 +132,7 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
 
     int index = 0;
     bool hasGlobal = false;
+    std::map<std::string, int> nodeIndexByName; // node names are unique in a tree
     for (const auto& [key, node] : *root)
     {
         if (key == "<xmlattr>" || key == "<xmlcomment>")
@@ -165,18 +191,35 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
                 ParseTask(child, where + " task #" + std::to_string(def.tasks.size() + 1), task);
                 def.tasks.push_back(std::move(task));
             }
+            else if (childKey == "Transitions")
+            {
+                for (const auto& [transitionKey, transition] : child)
+                {
+                    if (transitionKey == "<xmlattr>" || transitionKey == "<xmlcomment>")
+                        continue;
+                    if (transitionKey != "Transition")
+                        throw STAI_TreeFatalError(where + ": unexpected <" + transitionKey + "> in <Transitions> (expected <Transition type=\"...\" node=\"Root|...\"/>)");
+                    def.transitions.push_back(ParseTransition(transition, where));
+                }
+            }
             else if (childKey == "Global")
                 throw std::runtime_error(where + ": <Global> is only allowed directly under <Root>");
             else
-                throw std::runtime_error(where + ": unexpected <" + childKey + "> in <Node> (expected <Conditions> or <Task>)");
+                throw std::runtime_error(where + ": unexpected <" + childKey + "> in <Node> (expected <Conditions>, <Task> or <Transitions>)");
         }
 
         if (def.tasks.empty())
             throw std::runtime_error(where + ": missing <Task class=\"...\">");
 
         def.name = Attribute(node, "name");
-        if (def.name.empty())
+        const bool named = !def.name.empty();
+        if (!named)
             def.name = def.tasks.front().taskClass;
+
+        auto [used, inserted] = nodeIndexByName.emplace(def.name, index);
+        if (!inserted)
+            throw STAI_TreeFatalError(where + ": node name '" + def.name + "' is already used by node #" + std::to_string(used->second)
+                + (named ? "" : " (a node without name=\"...\" is named after its first task class)") + ", node names must be unique in a tree");
 
         asset->nodes.push_back(std::move(def));
     }
@@ -184,7 +227,26 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
     if (asset->nodes.empty())
         throw std::runtime_error(file + ": no <Node> in <Root>");
 
+    // transition targets: Root|<node name>, nodes are direct children of Root
+    for (size_t i = 0; i < asset->nodes.size(); ++i)
+    {
+        for (STAI_TransitionDef& transition : asset->nodes[i].transitions)
+        {
+            const std::string name = transition.path.substr(strlen(rootPathPrefix));
+            auto target = nodeIndexByName.find(name);
+            if (target == nodeIndexByName.end())
+                throw STAI_TreeFatalError(file + " node #" + std::to_string(i + 1) + ": <Transition> to unknown node '" + transition.path + "'");
+            transition.target = target->second - 1;
+        }
+    }
+
     return asset;
+}
+
+std::string STAI_TransitionDef::GetText() const
+{
+    const char* typeName = type == Type::OnSuccess ? "OnSuccess" : type == Type::OnFailure ? "OnFailure" : "OnFinish";
+    return std::string(typeName) + " " + path;
 }
 
 std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeSingleTask(const std::string& name, const std::string& taskClass)
@@ -298,8 +360,15 @@ void STAI_TreeLibrary::RemoveBrokenSubtrees(FileMap& files, uint32& errors)
 
 void STAI_TreeLibrary::LoadFromConfig()
 {
+    if (IsLoaded())
+    {
+        sLog.outString("StateTree: tree files are loaded only at server start, not reloaded");
+        return;
+    }
+
     auto loaded = std::make_shared<Snapshot>();
     uint32 errors = 0;
+    std::vector<std::string> fatalErrors;
 
     auto loadFile = [&](const std::string& file) -> bool
     {
@@ -311,6 +380,13 @@ void STAI_TreeLibrary::LoadFromConfig()
         {
             loaded->files.emplace(key, STAI_TreeAsset::Load(file));
             return true;
+        }
+        catch (const STAI_TreeFatalError& error)
+        {
+            sLog.outError("StateTree: %s not loaded: %s", file.c_str(), error.what());
+            fatalErrors.push_back(error.what());
+            ++errors;
+            return false;
         }
         catch (const std::exception& error)
         {
@@ -370,6 +446,13 @@ void STAI_TreeLibrary::LoadFromConfig()
     }
 
     sLog.outString("StateTree: %u tree files loaded, %u tree slots configured (%u errors)", uint32(loaded->files.size()), uint32(loaded->trees.size()), errors);
+
+    if (!fatalErrors.empty())
+    {
+        sLog.outError("StateTree: %u tree file(s) with fatal errors (see above), the server does not start", uint32(fatalErrors.size()));
+        Log::WaitBeforeContinueIfNeed();
+        exit(1);
+    }
 
     std::lock_guard<std::mutex> lock(mutex);
     snapshot = std::move(loaded);

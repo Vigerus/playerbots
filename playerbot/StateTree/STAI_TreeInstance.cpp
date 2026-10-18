@@ -112,11 +112,11 @@ void STAI_TreeInstance::ReInit()
             task.def->task->ReInit(*task.context);
 }
 
-bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now)
+bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now, bool ignoreFailedDelay)
 {
     std::fill(node.results.begin(), node.results.end(), StateNodeConditionResult::NotChecked);
 
-    if (node.failed && WorldTimer::getMSTimeDiff(node.failedAtMs, now) < failedRetryDelayMs)
+    if (!ignoreFailedDelay && node.failed && WorldTimer::getMSTimeDiff(node.failedAtMs, now) < failedRetryDelayMs)
         return false;
 
     // all conditions must pass; the ones after the first failure are not checked
@@ -191,6 +191,7 @@ void STAI_TreeInstance::ExitGlobals()
 
 void STAI_TreeInstance::OnStart()
 {
+    pendingTransition = -1;
     ExitActive();
     ExitGlobals();
     EnterGlobals();
@@ -201,6 +202,7 @@ void STAI_TreeInstance::OnFinish()
     // opposite to the activation order (OnStart, global tasks OnEnter, node OnEnter, subtree OnStart, ...):
     // the running node first, which finishes the trees stacked on it (Task_RunSubtree), then the global tasks,
     // then the tree itself is finished
+    pendingTransition = -1;
     ExitActive();
     ExitGlobals();
 }
@@ -221,6 +223,20 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
         if (i != active)
             std::fill(nodes[i].results.begin(), nodes[i].results.end(), StateNodeConditionResult::NotChecked);
 
+    // a transition of the node that finished last tick: its target is entered when its conditions pass (an
+    // explicit jump, so the retry delay of a failed node does not apply), else the selection starts at the first node
+    bool enteredByTransition = false;
+    if (pendingTransition >= 0)
+    {
+        const int target = pendingTransition;
+        pendingTransition = -1;
+        if (active < 0 && CanEnter(nodes[target], now, true))
+        {
+            EnterNode(target);
+            enteredByTransition = true;
+        }
+    }
+
     // earlier nodes have priority: they interrupt the running node when their conditions pass; a tree below the
     // top of the stack (the running task of its running node runs a subtree) only ticks that node
     bool holdsActiveTree = false;
@@ -230,7 +246,7 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
         holdsActiveTree = task.def->task->HoldsActiveTree(*task.context);
     }
 
-    const int limit = holdsActiveTree ? 0 : active >= 0 ? active : int(nodes.size());
+    const int limit = holdsActiveTree || enteredByTransition ? 0 : active >= 0 ? active : int(nodes.size());
     for (int i = 0; i < limit; ++i)
     {
         if (!CanEnter(nodes[i], now))
@@ -250,12 +266,12 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
     if (status == EActionRunStatus::Running)
         return status;
 
-    // a failed task fails the node: the next tick starts again at the first node
+    // a failed task fails the node: its transition, or the next tick starts again at the first node
     if (status == EActionRunStatus::Failed)
     {
         node.failed = true;
         node.failedAtMs = now;
-        ExitActive();
+        FinishNode(node, status);
         return EActionRunStatus::Running;
     }
 
@@ -274,8 +290,23 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
         return EActionRunStatus::Running;
     }
 
-    ExitActive();
+    FinishNode(node, status);
     return EActionRunStatus::Running;
+}
+
+void STAI_TreeInstance::FinishNode(RuntimeNode& node, EActionRunStatus status)
+{
+    // the first matching transition replaces the selection from the first node on the next tick
+    for (const STAI_TransitionDef& transition : node.def->transitions)
+    {
+        if (transition.Matches(status))
+        {
+            pendingTransition = transition.target;
+            break;
+        }
+    }
+
+    ExitActive();
 }
 
 IReactionChecker* STAI_TreeInstance::FindReactionChecker() const
@@ -327,6 +358,8 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
         child.taskClass = shown.def->task->GetTaskClass();
         child.info = shown.def->task->GetDebugInfo(*shown.context);
         child.currentTask = node.current;
+        for (const STAI_TransitionDef& transition : node.def->transitions)
+            child.transitions.push_back(transition.GetText());
         for (const TaskSlot& task : node.tasks)
             child.tasks.push_back(task.def->task->GetTaskClass());
 

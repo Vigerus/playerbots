@@ -759,9 +759,13 @@ bool PlayerbotAIConfig::Initialize()
     if (sPlayerbotAIConfig.randomBotJoinBG)
         sRandomPlayerbotMgr.LoadBattleMastersCache();
 
-    sLog.outString("Loading state trees...");
-    sLegacyBrainLibrary.Clear();
-    sSTAITreeLibrary.LoadFromConfig();
+    // state trees (and the legacy strategy lists they use) are loaded once, a config reload keeps them
+    if (!sSTAITreeLibrary.IsLoaded())
+    {
+        sLog.outString("Loading state trees...");
+        sLegacyBrainLibrary.Clear();
+        sSTAITreeLibrary.LoadFromConfig();
+    }
 
     sLog.outString("---------------------------------------");
     sLog.outString("        AI Playerbot initialized       ");

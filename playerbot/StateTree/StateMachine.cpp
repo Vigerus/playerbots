@@ -1,5 +1,7 @@
 #include "StateMachine.h"
 
+#include <algorithm>
+
 StateMachine::StateMachine() :
     m_logger(log4cxx::Logger::getLogger("StateMachine"))
 {
@@ -173,14 +175,23 @@ static std::string SanitizeDebugField(std::string_view value)
     return result;
 }
 
+// transition text for the snapshot: '|' is a separator there, the path is sent as Root/<node>
+static std::string SanitizeTransition(const std::string& text)
+{
+    std::string result = text;
+    std::replace(result.begin(), result.end(), '|', '/');
+    return SanitizeDebugField(result);
+}
+
 // Snapshot format (records separated by '~', fields by '^'):
 //   H^<active type>^<ms in active state>^<previous type or ->
 //   N^<type>^<node name>^<active 0|1>^<last action>^<last relevance>^<last status>^<strategy,strategy,...>
 //   K^<type>^<depth>^<tree name>^<running 0|1>       tree stack of the state above, bottom (depth 0) to top
 //   G^<type>^<depth>^<task name>                       global task of the tree K^<type>^<depth>
 //   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>^<running task index or -1>^<task;task;...>
-//       nodes of the top tree; task class / info of the running task (the first one while inactive), then every
-//       task of the node in the order they run
+//       ^<transition;transition;...>
+//       nodes of the top tree; task class / info of the running task (the first one while inactive), every task
+//       of the node in the order they run, its transitions "<type> Root/<node>" in the order they are checked
 //       conditions: <result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked
 //   T^<from type or *>^<to type or <prev>>^<condition label>
 std::string StateMachine::BuildDebugSnapshot() const
@@ -260,6 +271,9 @@ std::string StateMachine::BuildDebugSnapshot() const
                 << "^" << conditions << "^" << SanitizeDebugField(child.info) << "^" << child.currentTask << "^";
             for (size_t task = 0; task < child.tasks.size(); ++task)
                 out << (task ? ";" : "") << SanitizeDebugField(child.tasks[task]);
+            out << "^";
+            for (size_t transition = 0; transition < child.transitions.size(); ++transition)
+                out << (transition ? ";" : "") << SanitizeTransition(child.transitions[transition]);
         }
     }
 

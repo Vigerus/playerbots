@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,14 @@ namespace ai
         std::string GetText() const { return negate ? "NOT " + trigger : trigger; }
     };
 
+    // error in a tree file that stops the server (other load errors only leave the file out):
+    // two nodes of one tree with the same name, a transition that is invalid or names an unknown node
+    class STAI_TreeFatalError : public std::runtime_error
+    {
+    public:
+        using std::runtime_error::runtime_error;
+    };
+
     // <Task class="..."> task settings </Task>
     struct STAI_TaskDef
     {
@@ -29,13 +38,33 @@ namespace ai
         std::unique_ptr<STAI_Task> task;             // shared by every bot running the tree
     };
 
-    // Node of a tree. Its tasks run one after another: the first is entered with the node; when one succeeds it
+    // <Transition type="OnSuccess|OnFailure|OnFinish" node="Root|<node name>"/>: where the tree goes when the node
+    // finished (OnSuccess: its last task succeeded, OnFailure: one of its tasks failed, OnFinish: either one)
+    struct STAI_TransitionDef
+    {
+        enum class Type : uint8 { OnSuccess, OnFailure, OnFinish };
+
+        Type type = Type::OnFinish;
+        std::string path;   // Root|<node name>
+        int target = -1;    // index of the node in the tree
+
+        bool Matches(EActionRunStatus status) const
+        {
+            return type == Type::OnFinish || (type == Type::OnSuccess) == (status == EActionRunStatus::Succeeded);
+        }
+        std::string GetText() const;
+    };
+
+    // Node of a tree, its name is unique in the tree. Its tasks run one after another: the first is entered with the node; when one succeeds it
     // is exited and the next one entered; the node succeeds with its last task and fails with any of them.
     struct STAI_NodeDef
     {
         std::string name;
         std::vector<STAI_ConditionDef> conditions;   // all must pass, empty = always
         std::vector<STAI_TaskDef> tasks;             // in order, at least one
+        // checked in order when the node finished, the first matching one is taken; none = the tree starts again
+        // at its first node
+        std::vector<STAI_TransitionDef> transitions;
     };
 
     // A state tree loaded from a STAI_*.xml file:
@@ -48,6 +77,10 @@ namespace ai
     //       <Conditions> <Condition trigger="..."/> ... </Conditions>
     //       <Task class="..."> task settings </Task>
     //       ...                                   more tasks, run one after another
+    //       <Transitions>                         optional
+    //         <Transition type="OnSuccess" node="Root|<node name>"/>
+    //         ...
+    //       </Transitions>
     //     </Node>
     //     ...
     //   </Root>
@@ -62,7 +95,8 @@ namespace ai
         // when it finishes (their OnTick result is ignored)
         std::vector<STAI_TaskDef> globalTasks;
 
-        // Throws std::runtime_error with a readable message on parse/validation errors.
+        // Throws std::runtime_error with a readable message on parse/validation errors, STAI_TreeFatalError when
+        // two nodes have the same name or a transition is invalid.
         static std::shared_ptr<const STAI_TreeAsset> Load(const std::string& file);
 
         // tree with one unconditional node running the given task class without settings
@@ -80,9 +114,11 @@ namespace ai
             return library;
         }
 
-        // (Re)loads the statetree directory and every configured file; errors are logged and the file is left
-        // out (configured slots using it fall back to the built-in tree). Running bots keep their trees.
+        // Loads the statetree directory and every configured file, once at server start (a config reload keeps
+        // the trees); errors are logged and the file is left out (configured slots using it fall back to the
+        // built-in tree), a STAI_TreeFatalError stops the server.
         void LoadFromConfig();
+        bool IsLoaded() const { return GetSnapshot() != nullptr; }
 
         // tree for the class (or Default), nullptr when none is configured
         std::shared_ptr<const STAI_TreeAsset> Get(HLSStateType state, uint8 classId) const;
