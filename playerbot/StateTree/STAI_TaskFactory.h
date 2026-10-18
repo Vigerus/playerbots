@@ -17,14 +17,14 @@ namespace ai
     using STAI_TaskConfig = boost::property_tree::ptree;
 
     // Task classes usable in STAI_*.xml. Each class validates its config when the tree file is loaded
-    // (throw std::runtime_error to reject the file) and creates a task instance per bot.
+    // (throw std::runtime_error to reject the file) and creates the node's task, shared by every bot.
     class STAI_TaskFactory
     {
     public:
         struct TaskClass
         {
             std::function<void(const STAI_TaskConfig& config)> validate;
-            std::function<std::unique_ptr<STAI_Task>(const STAI_TaskContext& context, const STAI_TaskConfig& config)> create;
+            std::function<std::unique_ptr<STAI_Task>(const STAI_TaskConfig& config)> create;
         };
 
         static STAI_TaskFactory& instance();

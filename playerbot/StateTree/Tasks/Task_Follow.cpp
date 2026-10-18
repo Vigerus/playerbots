@@ -52,7 +52,7 @@ void Task_Follow::Validate(const STAI_TaskConfig& config)
     ParseRadius(config);
 }
 
-std::unique_ptr<STAI_Task> Task_Follow::Create(const STAI_TaskContext& context, const STAI_TaskConfig& config)
+std::unique_ptr<STAI_Task> Task_Follow::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<Task_Follow>(ParseRadius(config));
 }
@@ -106,7 +106,7 @@ void Task_Follow::OnEnter(STAI_TaskContext& baseContext) const
         context.relativeAngle = target->GetAngle(context.bot) - target->GetOrientation();
 }
 
-EActionRunStatus Task_Follow::Update(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
+EActionRunStatus Task_Follow::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
     Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
     PlayerbotAI* ai = context.ai;

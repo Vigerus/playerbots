@@ -4,6 +4,9 @@
 
 #include <boost/property_tree/xml_parser.hpp>
 
+#include <algorithm>
+#include <cctype>
+#include <functional>
 #include <stdexcept>
 
 using namespace ai;
@@ -55,6 +58,29 @@ namespace
 
         return def;
     }
+
+    // <Task class="..."> settings </Task>: validated and created (shared by every bot)
+    void ParseTask(const ptree& task, const std::string& where, STAI_NodeDef& def)
+    {
+        def.taskClass = Attribute(task, "class");
+        const STAI_TaskFactory::TaskClass* taskClass = sSTAITaskFactory.FindTask(def.taskClass);
+        if (!taskClass)
+            throw std::runtime_error(where + ": unknown task class '" + def.taskClass + "'");
+
+        def.taskConfig = task;
+        try
+        {
+            taskClass->validate(def.taskConfig);
+        }
+        catch (const std::exception& error)
+        {
+            throw std::runtime_error(where + " (" + def.taskClass + "): " + error.what());
+        }
+
+        def.task = taskClass->create(def.taskConfig);
+        if (!def.task)
+            throw std::runtime_error(where + " (" + def.taskClass + "): the task could not be created");
+    }
 }
 
 std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& file)
@@ -80,12 +106,37 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
     asset->name = path.stem().string();
 
     int index = 0;
+    bool hasGlobal = false;
     for (const auto& [key, node] : *root)
     {
         if (key == "<xmlattr>" || key == "<xmlcomment>")
             continue;
+
+        if (key == "Global")
+        {
+            if (hasGlobal)
+                throw std::runtime_error(file + ": more than one <Global> in <Root>");
+            hasGlobal = true;
+
+            int globalIndex = 0;
+            for (const auto& [taskKey, task] : node)
+            {
+                if (taskKey == "<xmlattr>" || taskKey == "<xmlcomment>")
+                    continue;
+                if (taskKey != "Task")
+                    throw std::runtime_error(file + ": unexpected <" + taskKey + "> in <Global> (expected <Task class=\"...\">)");
+
+                ++globalIndex;
+                STAI_NodeDef def;
+                ParseTask(task, file + " global task #" + std::to_string(globalIndex), def);
+                def.name = def.taskClass;
+                asset->globalTasks.push_back(std::move(def));
+            }
+            continue;
+        }
+
         if (key != "Node")
-            throw std::runtime_error(file + ": unexpected <" + key + "> in <Root> (expected <Node>)");
+            throw std::runtime_error(file + ": unexpected <" + key + "> in <Root> (expected <Node> or <Global>)");
 
         ++index;
         const std::string where = file + " node #" + std::to_string(index);
@@ -104,24 +155,14 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
             }
         }
 
+        if (node.get_child_optional("Global"))
+            throw std::runtime_error(where + ": <Global> is only allowed directly under <Root>");
+
         auto task = node.get_child_optional("Task");
         if (!task)
             throw std::runtime_error(where + ": missing <Task class=\"...\">");
 
-        def.taskClass = Attribute(*task, "class");
-        const STAI_TaskFactory::TaskClass* taskClass = sSTAITaskFactory.FindTask(def.taskClass);
-        if (!taskClass)
-            throw std::runtime_error(where + ": unknown task class '" + def.taskClass + "'");
-
-        def.taskConfig = *task;
-        try
-        {
-            taskClass->validate(def.taskConfig);
-        }
-        catch (const std::exception& error)
-        {
-            throw std::runtime_error(where + " (" + def.taskClass + "): " + error.what());
-        }
+        ParseTask(*task, where, def);
 
         def.name = Attribute(node, "name");
         if (def.name.empty())
@@ -145,68 +186,212 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeSingleTask(const std::
     def.name = taskClass;
     def.taskClass = taskClass;
     def.taskConfig.put("<xmlattr>.class", taskClass);
+    if (const STAI_TaskFactory::TaskClass* factoryClass = sSTAITaskFactory.FindTask(taskClass))
+        def.task = factoryClass->create(def.taskConfig);
+    if (!def.task)
+        throw std::runtime_error("unknown task class '" + taskClass + "'");
     asset->nodes.push_back(std::move(def));
 
     return asset;
 }
 
-void STAI_TreeLibrary::LoadFromConfig()
+std::string STAI_TreeLibrary::GetFileKey(const std::string& file)
 {
-    auto loaded = std::make_shared<TreeMap>();
-    std::map<std::string, std::shared_ptr<const STAI_TreeAsset>> files;
-    uint32 errors = 0;
+    std::string key = STAI_TaskFactory::ResolvePath(file).generic_string();
+#ifdef _WIN32
+    std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+#endif
+    return key;
+}
 
-    auto loadSlot = [&](HLSStateType state, const char* stateName, uint8 classId, const char* slotName)
+// drops trees running a subtree that is not loaded (failed or missing) or running themselves through subtrees
+void STAI_TreeLibrary::RemoveBrokenSubtrees(FileMap& files, uint32& errors)
+{
+    auto referencedTrees = [](const STAI_TreeAsset& asset)
     {
-        const std::string key = std::string("AiPlayerbot.StateTree.") + stateName + "." + slotName;
-        const std::string file = sPlayerbotAIConfig.GetConfigString(key, "");
-        if (file.empty())
-            return;
-
-        auto cached = files.find(file);
-        if (cached == files.end())
-        {
-            try
-            {
-                cached = files.emplace(file, STAI_TreeAsset::Load(file)).first;
-            }
-            catch (const std::exception& error)
-            {
-                sLog.outError("StateTree: %s = %s not loaded, using the built-in tree: %s", key.c_str(), file.c_str(), error.what());
-                ++errors;
-                return;
-            }
-        }
-
-        (*loaded)[{ state, classId }] = cached->second;
+        std::vector<std::string> references;
+        for (const auto* defs : { &asset.globalTasks, &asset.nodes })
+            for (const STAI_NodeDef& def : *defs)
+                for (const std::string& file : def.task->GetReferencedTrees())
+                    references.push_back(file);
+        return references;
     };
 
+    for (bool removed = true; removed; )
+    {
+        removed = false;
+
+        // missing subtrees
+        for (auto it = files.begin(); it != files.end(); )
+        {
+            std::string missing;
+            for (const std::string& file : referencedTrees(*it->second))
+                if (!files.count(GetFileKey(file)))
+                    missing = file;
+
+            if (missing.empty())
+            {
+                ++it;
+                continue;
+            }
+
+            sLog.outError("StateTree: %s not loaded: subtree %s is not loaded", it->second->file.c_str(), missing.c_str());
+            ++errors;
+            it = files.erase(it);
+            removed = true;
+        }
+
+        // cycles: depth-first walk from every tree, a tree reached again while on the path closes a cycle
+        std::map<std::string, int> visit; // 1 = on the path, 2 = done
+        std::string cycle;
+        std::function<bool(const std::string&)> walk = [&](const std::string& key)
+        {
+            const int state = visit[key];
+            if (state == 1)
+            {
+                cycle = key;
+                return true;
+            }
+            if (state == 2)
+                return false;
+
+            visit[key] = 1;
+            for (const std::string& file : referencedTrees(*files.at(key)))
+                if (walk(GetFileKey(file)))
+                    return true;
+            visit[key] = 2;
+            return false;
+        };
+
+        for (const auto& entry : files)
+            if (walk(entry.first))
+                break;
+
+        if (!cycle.empty())
+        {
+            sLog.outError("StateTree: %s not loaded: it runs itself through its subtrees", files.at(cycle)->file.c_str());
+            ++errors;
+            files.erase(cycle);
+            removed = true;
+        }
+    }
+}
+
+void STAI_TreeLibrary::LoadFromConfig()
+{
+    auto loaded = std::make_shared<Snapshot>();
+    uint32 errors = 0;
+
+    auto loadFile = [&](const std::string& file) -> bool
+    {
+        const std::string key = GetFileKey(file);
+        if (loaded->files.count(key))
+            return true;
+
+        try
+        {
+            loaded->files.emplace(key, STAI_TreeAsset::Load(file));
+            return true;
+        }
+        catch (const std::exception& error)
+        {
+            sLog.outError("StateTree: %s not loaded: %s", file.c_str(), error.what());
+            ++errors;
+            return false;
+        }
+    };
+
+    // every tree of the statetree directory, so subtrees need no config entry
+    const std::filesystem::path directory = STAI_TaskFactory::ResolvePath("statetree");
+    std::error_code error;
+    for (const auto& entry : std::filesystem::directory_iterator(directory, error))
+    {
+        const std::filesystem::path& path = entry.path();
+        if (entry.is_regular_file() && path.extension() == ".xml" && path.stem().string().rfind("STAI_", 0) == 0)
+            loadFile("statetree/" + path.filename().string());
+    }
+    if (error)
+        sLog.outError("StateTree: %s not readable: %s", directory.string().c_str(), error.message().c_str());
+
+    // configured trees (also the ones outside the directory)
+    struct Slot
+    {
+        HLSStateType state;
+        uint8 classId;
+        std::string key;
+        std::string file;
+    };
+    std::vector<Slot> slots;
     for (const auto& [state, stateName] : stateNames)
     {
-        loadSlot(state, stateName, 0, "Default");
+        auto addSlot = [&](uint8 classId, const char* slotName)
+        {
+            const std::string key = std::string("AiPlayerbot.StateTree.") + stateName + "." + slotName;
+            const std::string file = sPlayerbotAIConfig.GetConfigString(key, "");
+            if (!file.empty() && loadFile(file))
+                slots.push_back({ state, classId, key, file });
+        };
+
+        addSlot(0, "Default");
         for (const auto& [classId, className] : classNames)
-            loadSlot(state, stateName, classId, className);
+            addSlot(classId, className);
     }
 
-    sLog.outString("StateTree: %u tree slots configured from %u files (%u errors)", uint32(loaded->size()), uint32(files.size()), errors);
+    RemoveBrokenSubtrees(loaded->files, errors);
+
+    for (const Slot& slot : slots)
+    {
+        auto it = loaded->files.find(GetFileKey(slot.file));
+        if (it == loaded->files.end())
+        {
+            sLog.outError("StateTree: %s = %s not loaded, using the built-in tree", slot.key.c_str(), slot.file.c_str());
+            continue;
+        }
+        loaded->trees[{ slot.state, slot.classId }] = it->second;
+    }
+
+    sLog.outString("StateTree: %u tree files loaded, %u tree slots configured (%u errors)", uint32(loaded->files.size()), uint32(loaded->trees.size()), errors);
 
     std::lock_guard<std::mutex> lock(mutex);
-    trees = std::move(loaded);
+    snapshot = std::move(loaded);
+}
+
+std::shared_ptr<const STAI_TreeLibrary::Snapshot> STAI_TreeLibrary::GetSnapshot() const
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    return snapshot;
 }
 
 std::shared_ptr<const STAI_TreeAsset> STAI_TreeLibrary::Get(HLSStateType state, uint8 classId) const
 {
-    std::shared_ptr<const TreeMap> current;
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-        current = trees;
-    }
-
+    std::shared_ptr<const Snapshot> current = GetSnapshot();
     if (!current)
         return nullptr;
 
-    auto it = current->find({ state, classId });
-    if (it == current->end())
-        it = current->find({ state, uint8(0) });
-    return it == current->end() ? nullptr : it->second;
+    auto it = current->trees.find({ state, classId });
+    if (it == current->trees.end())
+        it = current->trees.find({ state, uint8(0) });
+    return it == current->trees.end() ? nullptr : it->second;
+}
+
+std::shared_ptr<const STAI_TreeAsset> STAI_TreeLibrary::Find(const std::string& file) const
+{
+    std::shared_ptr<const Snapshot> current = GetSnapshot();
+    if (!current)
+        return nullptr;
+
+    auto it = current->files.find(GetFileKey(file));
+    return it == current->files.end() ? nullptr : it->second;
+}
+
+std::shared_ptr<const STAI_TreeAsset> STAI_TreeLibrary::GetBuiltin(HLSStateType state)
+{
+    static const std::shared_ptr<const STAI_TreeAsset> builtin[] =
+    {
+        STAI_TreeAsset::MakeSingleTask("Legacy_NonCombat", "StateNode_Legacy"),
+        STAI_TreeAsset::MakeSingleTask("Legacy_Combat", "StateNode_Legacy"),
+        STAI_TreeAsset::MakeSingleTask("Legacy_Reaction", "StateNode_Reaction"),
+        STAI_TreeAsset::MakeSingleTask("Legacy_Dead", "StateNode_Legacy"),
+    };
+    return builtin[(uint8)state];
 }

@@ -1,68 +1,41 @@
 #pragma once
 
 #include "playerbot/StateTree/StateMachine.h"
-#include "playerbot/StateTree/STAI_Tree.h"
+#include "playerbot/StateTree/STAI_TreeInstance.h"
 
-#include <cstddef>
 #include <memory>
 #include <vector>
 
 namespace ai
 {
-    class Trigger;
-
-    // HLS state running a STAI tree. Nodes are checked top to bottom: the first node whose conditions pass
-    // is entered; an earlier node interrupts the running one as soon as its conditions pass; the running
-    // node stays active until its task returns Succeeded or Failed (a failed node is skipped for a while).
+    // HLS state running a STAI tree (the initial tree of the state, bottom of the tree stack): OnEnter starts it,
+    // Update ticks it, OnExit finishes it. When the tree finished itself (STAI_FinishTreeTask) the next update
+    // starts it again.
     class StateNode_Tree : public IStateNode, public IReactionChecker
     {
     public:
         StateNode_Tree(const STAI_TaskContext& context, std::shared_ptr<const STAI_TreeAsset> asset);
-        virtual ~StateNode_Tree();
 
-        StateNode_Tree(const StateNode_Tree&) = delete;
-        StateNode_Tree& operator=(const StateNode_Tree&) = delete;
-
-        virtual const char* GetName() const override { return asset->name.c_str(); }
-        virtual HLSStateType GetStateType() const override { return context.state; }
+        virtual const char* GetName() const override { return tree.GetAsset().name.c_str(); }
+        virtual HLSStateType GetStateType() const override { return state; }
 
         // temporary, for compatibility: forwarded to every task
-        virtual void UpdateStrategies(const std::string& name, BotState type) override;
-        virtual void ResetStrategies() override;
-        virtual void ReInit() override;
+        virtual void UpdateStrategies(const std::string& name, BotState type) override { tree.UpdateStrategies(name, type); }
+        virtual void ResetStrategies() override { tree.ResetStrategies(); }
+        virtual void ReInit() override { tree.ReInit(); }
 
-        virtual void OnEnter() override {}
-        virtual void OnExit() override;
-        virtual void Update(uint32 elapsed, bool minimal) override;
+        virtual void OnEnter() override { tree.OnStart(); }
+        virtual void OnExit() override { tree.OnFinish(); }
+        virtual void Update(uint32 elapsed, bool minimal) override { tree.OnTick(elapsed, minimal); }
 
         virtual bool ShouldEnterReaction() override;
         virtual bool IsReacting() override;
 
-        virtual Engine* GetDebugEngine() const override;
-        virtual std::vector<StateNodeDebugChild> GetDebugChildren() const override;
+        virtual Engine* GetDebugEngine() const override { return tree.GetDebugEngine(); }
+        virtual std::vector<StateNodeDebugChild> GetDebugChildren() const override { return tree.GetDebugChildren(); }
 
     private:
-        struct RuntimeNode
-        {
-            const STAI_NodeDef* def = nullptr;
-            std::unique_ptr<STAI_Task> task;
-            STAI_TaskContext* context = nullptr;                  // the task's runtime context, in contextStorage
-            std::vector<Trigger*> triggers;                       // per condition, nullptr = unknown trigger
-            std::vector<StateNodeConditionResult> results;        // per condition, last update
-            bool failed = false;
-            uint32 failedAtMs = 0;
-            uint64 activityId = 0;
-        };
-
-        void CreateContexts();
-        bool CanEnter(RuntimeNode& node, uint32 now);
-        void ExitActive();
-        IReactionChecker* FindReactionChecker() const;
-
-        STAI_TaskContext context;
-        std::shared_ptr<const STAI_TreeAsset> asset;
-        std::vector<RuntimeNode> nodes;
-        std::unique_ptr<std::max_align_t[]> contextStorage;      // the contexts of all nodes, one after another
-        int active = -1;
+        HLSStateType state;
+        STAI_TreeInstance tree;
     };
 }

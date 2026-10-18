@@ -10,7 +10,7 @@ namespace ai
     //     <Target value="player"/>            player = the bot's master
     //     <AcceptableRadius value="follow"/>  yards, or a range name ("follow": the bot's follow distance)
     //   </Task>
-    // OnEnter picks the side to stand on; Update recomputes the destination next to the target and moves there
+    // OnEnter picks the side to stand on; OnTick recomputes the destination next to the target and moves there
     // (again when the target moved), finishing with Succeeded once inside the radius while the target stands
     // still (Failed when the target is gone, flying, on another map or transport, or not reached in time);
     // OnExit stops the movement the task started.
@@ -30,14 +30,14 @@ namespace ai
         explicit Task_Follow(const std::string& acceptableRadius);
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskContext& context, const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
 
         virtual const char* GetTaskClass() const override { return "Task_Follow"; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_FollowContext>(); }
 
         virtual void OnEnter(STAI_TaskContext& context) const override;
-        virtual EActionRunStatus Update(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
+        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
         virtual void OnExit(STAI_TaskContext& context) const override;
 
         virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;

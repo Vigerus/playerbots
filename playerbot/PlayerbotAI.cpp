@@ -245,10 +245,7 @@ PlayerbotAI::PlayerbotAI(Player* bot) : PlayerbotAIBase()
     {
         std::shared_ptr<const STAI_TreeAsset> tree = sSTAITreeLibrary.Get(state, bot->getClass());
         if (!tree)
-        {
-            static const char* defaultNames[] = { "Legacy_NonCombat", "Legacy_Combat", "Legacy_Reaction", "Legacy_Dead" };
-            tree = STAI_TreeAsset::MakeSingleTask(defaultNames[(uint8)state], state == HLSStateType::Reaction ? "StateNode_Reaction" : "StateNode_Legacy");
-        }
+            tree = STAI_TreeLibrary::GetBuiltin(state);
 
         StateMachine.RegisterNode(std::make_unique<StateNode_Tree>(STAI_TaskContext{ this, bot, state, &StateMachine.GetActivityLog() }, tree), state == HLSStateType::NonCombat);
     }

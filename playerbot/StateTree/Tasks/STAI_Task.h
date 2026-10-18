@@ -7,6 +7,7 @@
 #include <new>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 class Player;
 class PlayerbotAI;
@@ -57,10 +58,11 @@ namespace ai
         }
     };
 
-    // Task of a STAI state tree node (<Task class="...">). Created once per bot when its tree is built.
-    // Lifecycle while the node is selected: OnEnter, Update every bot update until it returns Succeeded or
+    // Task of a STAI state tree node (<Task class="...">). Created once per tree file when it is loaded and
+    // shared by every bot running that tree: tasks hold only their configuration, everything per bot lives in
+    // the context the tree constructs for the node (see GetContextType) and passes to every call.
+    // Lifecycle while the node is selected: OnEnter, OnTick every bot update until it returns Succeeded or
     // Failed (Running keeps the node active), OnExit (also called when an earlier node interrupts it).
-    // The lifecycle is const: runtime state lives in the context the tree passes in (see GetContextType).
     class STAI_Task
     {
     public:
@@ -70,25 +72,38 @@ namespace ai
 
         // the context class the tree constructs for this task, override for tasks with their own context
         virtual const STAI_TaskContextType& GetContextType() const { return STAI_TaskContextType::Of<STAI_TaskContext>(); }
+        // called once per bot after its context was constructed (bot setup the task needs before it runs)
+        virtual void InitContext(STAI_TaskContext& context) const {}
 
         virtual void OnEnter(STAI_TaskContext& context) const {}
-        virtual EActionRunStatus Update(STAI_TaskContext& context, uint32 elapsed, bool minimal) const = 0;
+        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const = 0;
         virtual void OnExit(STAI_TaskContext& context) const {}
 
-        // temporary, for compatibility with the legacy engines (forwarded by the state node to every task)
-        virtual void UpdateStrategies(const std::string& name, BotState type) {}
-        virtual void ResetStrategies() {}
-        virtual void ReInit() {}
+        // the tree of the node finishes (OnFinish) once this task succeeded, see STAI_FinishTreeTask
+        virtual bool FinishesTree() const { return false; }
+        // the node runs a tree stacked on top of the node's tree (Task_RunSubtree): while it does, the node's tree
+        // only ticks the node, no other node is selected
+        virtual bool HoldsActiveTree(const STAI_TaskContext& context) const { return false; }
+
+        // tree files this task runs (relative to the config directory), checked when the trees are loaded
+        virtual std::vector<std::string> GetReferencedTrees() const { return {}; }
+
+        // temporary, for compatibility with the legacy engines (forwarded by the tree to every task)
+        virtual void UpdateStrategies(STAI_TaskContext& context, const std::string& name, BotState type) const {}
+        virtual void ResetStrategies(STAI_TaskContext& context) const {}
+        virtual void ReInit(STAI_TaskContext& context) const {}
 
         // reaction tasks let the Reaction state preempt other states
-        virtual IReactionChecker* GetReactionChecker() { return nullptr; }
+        virtual IReactionChecker* GetReactionChecker(STAI_TaskContext& context) const { return nullptr; }
 
         // the tree logs OnEnter..OnExit of the node; tasks that never finish (legacy engines) log their own entries
         virtual bool LogsNodeActivity() const { return true; }
 
         // debug visualization
-        virtual Engine* GetDebugEngine() const { return nullptr; }
+        virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const { return nullptr; }
         virtual std::string GetDebugInfo(const STAI_TaskContext& context) const { return ""; }
+        // nodes shown below this task's node (subtrees)
+        virtual std::vector<StateNodeDebugChild> GetDebugChildren(const STAI_TaskContext& context) const { return {}; }
 
     protected:
         // view of the context as the task's own context class (the one GetContextType names)
