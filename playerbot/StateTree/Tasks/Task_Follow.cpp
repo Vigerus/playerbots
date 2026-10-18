@@ -4,6 +4,7 @@
 #include "playerbot/ServerFacade.h"
 
 #include <iomanip>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 
@@ -11,26 +12,33 @@ using namespace ai;
 
 namespace
 {
-    constexpr float defaultAcceptableRadius = 10.0f;
+    // time the bot may spend outside the radius before the task fails
     constexpr uint32 timeoutMs = 30000;
+    // a new move is ordered when the destination moved further than this
+    constexpr float repathDistance = 1.0f;
 
-    float ParseRadius(const STAI_TaskConfig& config)
+    const std::regex numberPattern(R"(^\d+(?:\.\d+)?$)");
+    const std::regex rangePattern(R"(^[a-z][a-z ]*$)");
+
+    // yards or a range name for ai->GetRange(); default: the bot's follow distance
+    std::string ParseRadius(const STAI_TaskConfig& config)
     {
-        const std::optional<std::string> value = STAI_TaskFactory::GetSetting(config, "AcceptableRadius");
-        if (!value)
-            return defaultAcceptableRadius;
+        const std::string value = STAI_TaskFactory::GetSetting(config, "AcceptableRadius").value_or("follow");
 
-        float radius = 0.0f;
-        try { radius = std::stof(*value); }
-        catch (const std::exception&) { throw std::runtime_error("AcceptableRadius: expected a number, got '" + *value + "'"); }
+        if (std::regex_match(value, numberPattern))
+        {
+            if (std::stof(value) <= 0.0f)
+                throw std::runtime_error("AcceptableRadius must be greater than 0");
+            return value;
+        }
 
-        if (radius <= 0.0f)
-            throw std::runtime_error("AcceptableRadius must be greater than 0");
-        return radius;
+        if (!std::regex_match(value, rangePattern))
+            throw std::runtime_error("AcceptableRadius: expected yards or a range name such as \"follow\", got '" + value + "'");
+        return value;
     }
 }
 
-Task_Follow::Task_Follow(const STAI_TaskContext& context, float acceptableRadius)
+Task_Follow::Task_Follow(const STAI_TaskContext& context, const std::string& acceptableRadius)
     : ai(context.ai), bot(context.bot), acceptableRadius(acceptableRadius)
 {
 }
@@ -61,16 +69,25 @@ Unit* Task_Follow::GetTarget() const
     return master;
 }
 
-void Task_Follow::StartMoving(Unit* target)
+float Task_Follow::GetRadius() const
+{
+    if (std::regex_match(acceptableRadius, numberPattern))
+        return std::stof(acceptableRadius);
+    return ai->GetRange(acceptableRadius);
+}
+
+void Task_Follow::MoveTo(float x, float y, float z)
 {
     if (bot->IsSitState())
         bot->SetStandState(UNIT_STAND_STATE_STAND);
 
-    // stop well inside the radius so the bot does not hover at its edge
-    const float followDistance = std::min(sPlayerbotAIConfig.followDistance, acceptableRadius * 0.5f);
-    const float angle = target->GetAngle(bot) - target->GetOrientation();
+    // always run, also when the master walks
+    bot->GetMotionMaster()->MovePoint(0, x, y, z, FORCED_MOVEMENT_RUN, true);
 
-    bot->GetMotionMaster()->MoveFollow(target, followDistance, angle);
+    destinationX = x;
+    destinationY = y;
+    destinationZ = z;
+    hasDestination = true;
     moving = true;
 }
 
@@ -78,44 +95,72 @@ void Task_Follow::OnEnter()
 {
     elapsedMs = 0;
     lastDistance = -1.0f;
+    hasDestination = false;
+    moving = false;
 
+    // keep the side the bot comes from
     if (Unit* target = GetTarget())
-        StartMoving(target);
+        relativeAngle = target->GetAngle(bot) - target->GetOrientation();
 }
 
 EActionRunStatus Task_Follow::Update(uint32 elapsed, bool minimal)
 {
     Unit* target = GetTarget();
-    if (!target)
+    if (!target || target->IsTaxiFlying() || bot->GetTransport() != target->GetTransport())
         return EActionRunStatus::Failed;
 
+    const float radius = GetRadius();
     lastDistance = sServerFacade.GetDistance2d(bot, target);
-    if (lastDistance <= acceptableRadius)
-        return EActionRunStatus::Succeeded;
 
-    elapsedMs += elapsed;
-    if (elapsedMs > timeoutMs)
-        return EActionRunStatus::Failed;
+    if (lastDistance <= radius)
+    {
+        // caught up: done once the target stands still, otherwise keep walking along
+        if (!target->IsMoving())
+            return EActionRunStatus::Succeeded;
+        elapsedMs = 0;
+    }
+    else
+    {
+        elapsedMs += elapsed;
+        if (elapsedMs > timeoutMs)
+            return EActionRunStatus::Failed;
+    }
 
-    // something else replaced the movement (knockback, fear, ...): follow again
-    if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
-        StartMoving(target);
+    if (!ai->CanMove())
+        return EActionRunStatus::Running;
+
+    // destination next to the target, on the bot's side, well inside the radius
+    float x, y, z;
+    const float standDistance = std::min(ai->GetRange("follow"), radius * 0.5f);
+    target->GetNearPoint(bot, x, y, z, bot->GetObjectBoundingRadius(), standDistance, target->GetOrientation() + relativeAngle);
+
+    const bool destinationMoved = !hasDestination
+        || (x - destinationX) * (x - destinationX) + (y - destinationY) * (y - destinationY) > repathDistance * repathDistance;
+    const bool stopped = bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != POINT_MOTION_TYPE;
+
+    if (destinationMoved || (stopped && lastDistance > radius))
+        MoveTo(x, y, z);
 
     return EActionRunStatus::Running;
 }
 
 void Task_Follow::OnExit()
 {
-    if (moving && bot->GetMotionMaster()->GetCurrentMovementGeneratorType() == FOLLOW_MOTION_TYPE)
+    if (moving && bot->GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE)
         ai->StopMoving();
 
     moving = false;
+    hasDestination = false;
 }
 
 std::string Task_Follow::GetDebugInfo() const
 {
     std::ostringstream out;
-    out << std::fixed << std::setprecision(1) << "player, radius " << acceptableRadius;
+    out << std::fixed << std::setprecision(1) << "player, radius ";
+    if (std::regex_match(acceptableRadius, numberPattern))
+        out << GetRadius();
+    else
+        out << acceptableRadius << " (" << GetRadius() << ")";
     if (lastDistance >= 0.0f)
         out << ", distance " << lastDistance;
     return out.str();

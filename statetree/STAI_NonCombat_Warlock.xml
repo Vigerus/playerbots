@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- NonCombat state tree for Warlock bots: AiPlayerbot.StateTree.NonCombat.Warlock -->
 <Root>
+  <Node name="Follow player">
+    <Conditions>
+      <Condition trigger="has strategy::follow"/>
+      <Condition trigger="has strategy::stay" negate="true"/>
+      <Condition trigger="distance from master::greater::follow"/>
+    </Conditions>
+    <Task class="Task_Follow">
+      <Target value="player"/>
+      <AcceptableRadius value="follow"/>
+    </Task>
+  </Node>
   <Node name="Legacy">
     <Conditions/>
     <Task class="StateNode_Legacy">

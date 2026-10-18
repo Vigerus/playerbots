@@ -10,6 +10,8 @@
 
 #include "playerbot/StateTree/Tasks/StateTreeTask.h"
 
+#include <set>
+
 namespace ai
 {
     class ActionExecutionListener
@@ -92,6 +94,11 @@ namespace ai
         // increases with every executed action, lets callers notice that DoNextAction executed one
         uint32 GetExecutedActionCount() const { return executedActionCount; }
 
+        // Passive strategies stay in the engine (HasStrategy, lists, state tree conditions) but add no triggers,
+        // multipliers or actions; used for strategies whose behaviour moved to state tree tasks (follow, stay).
+        void SetPassiveStrategies(const std::set<std::string>& names) { passiveStrategies = names; }
+        bool IsPassiveStrategy(const std::string& name) const { return passiveStrategies.count(name) > 0; }
+
         // source of the default strategies: STAI brain name or "AiFactory" (shown by the StateTree debug view)
         const std::string& GetBrainName() const { return brainName; }
         void SetBrainName(const std::string& name) { brainName = name; }
@@ -141,6 +148,7 @@ namespace ai
         EActionRunStatus lastExecutedActionStatus = EActionRunStatus::Succeeded;
         std::string brainName;
         std::string executingSource;     // strategy of the action being executed
+        std::set<std::string> passiveStrategies;
         uint32 executedActionCount = 0;
 
         std::map<Trigger*, Event> fires;

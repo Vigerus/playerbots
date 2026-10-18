@@ -6,7 +6,7 @@
     {"description": "Balance talents", "add": ["balance", "dps assist"], "if": {"spec": 0}},
     {"description": "Feral talents", "add": ["tank feral", "tank assist"], "if": {"spec": 1}},
     {"description": "Restoration talents", "add": ["restoration", "dps assist"], "if": {"spec": 2}},
-    {"add": ["cure", "aoe", "cc", "buff", "boost"]},
+    {"add": ["cure", "aoe", "cc", "buff"]},
     {"include": "Legacy_NonCombat_Common.json"}
   ]
 }

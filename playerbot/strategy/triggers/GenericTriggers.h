@@ -675,7 +675,9 @@ namespace ai
     };
 
     // "distance from master::greater::10": 2D distance to the master compared with yards
-    // (equal, greater, greater or equal, lesser, lesser or equal); inactive without a master in the same map
+    // (equal, greater, greater or equal, lesser, lesser or equal); instead of yards a range name such as
+    // "follow" uses ai->GetRange() (the bot's "range" setting or the config default); inactive without a master
+    // in the same map
     class DistanceFromMasterTrigger : public Trigger, public Qualified
     {
     public:

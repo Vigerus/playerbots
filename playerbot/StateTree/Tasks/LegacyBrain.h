@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <map>
+#include <set>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -49,6 +50,7 @@ namespace ai
         std::string name;        // "brain" field, defaults to the file name
         std::string file;        // file name as configured
         std::string state;       // "NonCombat", "Combat", "Reaction", "Dead"
+        std::set<std::string> passive;   // "passive" of the file and its includes, see Engine::SetPassiveStrategies
         std::vector<LegacyEntry> entries;
 
         // Throws std::runtime_error with a readable message (file, line) on parse/validation errors.

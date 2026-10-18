@@ -1,12 +1,13 @@
 {
   "brain": "Legacy_NonCombat_Common",
   "state": "NonCombat",
-  "description": "Class independent NonCombat strategies (context: random bots, groups, battlegrounds, config overrides). Included by the Default and class strategy lists.",
+  "description": "Class independent NonCombat strategies (context: random bots, groups, battlegrounds, config overrides). Included by the Default and class strategy lists. Passive strategies stay in the engine as tree conditions (has strategy::...) but do nothing: tree tasks move the bot.",
+  "passive": ["follow", "stay"],
   "strategies": [
     {"add": ["wbuff", "avoid mobs"]},
     {"description": "AiPlayerbot.LLMEnabled = 2", "add": "ai chat", "if": {"config": "llmChat"}},
     {
-      "add": ["racials", "nc", "food", "follow", "default", "quest", "loot", "gather", "duel", "emote", "buff", "mount"],
+      "add": ["racials", "nc", "food", "follow", "default", "quest", "loot", "gather", "buff", "mount"],
       "if": {"battleground": false}
     },
     {
@@ -21,7 +22,6 @@
         {"add": "rpg jump", "if": {"chance": "jumpNoCombatChance"}}
       ]
     },
-    {"add": "follow jump", "if": {"battleground": false, "config": "jumpFollow"}},
     {
       "description": "bot plays on its own outside battlegrounds",
       "if": {"autonomous": true, "battleground": false},
@@ -70,7 +70,7 @@
       "description": "battleground switch",
       "if": {"battleground": true},
       "strategies": [
-        {"add": ["racials", "nc", "default", "buff", "food", "mount", "collision", "dps assist", "attack tagged", "emote"]},
+        {"add": ["racials", "nc", "default", "buff", "food", "mount", "collision", "dps assist", "attack tagged"]},
         {"remove": ["custom::say", "travel", "tfish", "rpg", "rpg craft", "follow", "grind"]},
         {
           "description": "arena",

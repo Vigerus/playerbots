@@ -223,6 +223,8 @@ std::string StateMachine::BuildDebugSnapshot() const
                 if (!strategies.empty())
                     strategies += ",";
                 strategies += SanitizeDebugField(strategy);
+                if (engine->IsPassiveStrategy(std::string(strategy)))
+                    strategies += " (passive)";
             }
         }
 

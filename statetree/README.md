@@ -26,12 +26,13 @@ The StateTree debug addon shows each state's tree nodes, the active one highligh
 <Root>
   <Node name="Follow player">
     <Conditions>
-      <Condition trigger="distance from master::greater::10"/>
+      <Condition trigger="has strategy::follow"/>
       <Condition trigger="has strategy::stay" negate="true"/>
+      <Condition trigger="distance from master::greater::follow"/>
     </Conditions>
     <Task class="Task_Follow">
       <Target value="player"/>
-      <AcceptableRadius value="10"/>
+      <AcceptableRadius value="follow"/>
     </Task>
   </Node>
   <Node name="Legacy">
@@ -58,7 +59,7 @@ Triggers added for trees:
 
 | trigger | active when |
 |---------|-------------|
-| `distance from master::<comparison>::<yards>` | 2D distance to the master compared with `equal`, `greater`, `greater or equal`, `lesser`, `lesser or equal`; never without a master in the same map |
+| `distance from master::<comparison>::<yards or range>` | 2D distance to the master compared with `equal`, `greater`, `greater or equal`, `lesser`, `lesser or equal`; instead of yards a range name (`follow`, `spell`, ...) uses the bot's range (`range` command, else the config default, e.g. `AiPlayerbot.FollowDistance`); never without a master in the same map |
 | `has strategy::<name>` | the engine of the bot's current state has the strategy |
 
 Tasks:
@@ -67,7 +68,7 @@ Tasks:
 |----------------------|----------|------|
 | `StateNode_Legacy`   | `<Config filename="..."/>` (optional) | runs the legacy engine of the state with the Legacy_*.json strategy list (AiFactory defaults without Config); never finishes |
 | `StateNode_Reaction` | `<Config filename="..."/>` (optional) | runs the reaction engine; lets the Reaction state preempt the others |
-| `Task_Follow`        | `<Target value="player"/>`, `<AcceptableRadius value="10"/>` | moves to the master; Succeeded inside the radius, Failed when the master is gone, on another map, or after 30s |
+| `Task_Follow`        | `<Target value="player"/>`, `<AcceptableRadius value="follow"/>` (yards or a range name, default `follow`) | the only owner of follow movement: `Update` recomputes the spot next to the master and moves there again when it moved; Succeeded inside the radius once the master stands still; Failed when the master is gone, flying, on another map or transport, or after 30s outside the radius; `OnExit` stops its movement |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`) and are registered in `STAI_BuiltinTasks.cpp`.
 
@@ -114,6 +115,11 @@ Entries run in order. Each has exactly one of:
 
 Optional: `if` (condition), `else` (list run when `if` fails), `enabled: false` (entry is skipped),
 `description` (ignored).
+
+Top-level `"passive": ["follow", "stay"]` (also read from included files): those strategies stay in the engine, so
+commands like `follow` / `stay` still set them and trees can test them (`has strategy::follow`), but they add no
+triggers, multipliers or actions. The shipped NonCombat lists make `follow` and `stay` passive (Task_Follow moves the
+bot) and the Reaction lists `follow` (its `stop follow` reaction). The debug addon marks them `(passive)`.
 
 Strategies such as `aoe frost pve` are not listed: the placeholder strategies (`aoe`, `buff`, `cure`, ...) pick
 them from the spec strategy and the content at runtime.

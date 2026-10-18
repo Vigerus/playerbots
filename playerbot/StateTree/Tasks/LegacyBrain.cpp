@@ -294,6 +294,18 @@ namespace
 
     std::vector<LegacyEntry> ParseEntries(const ptree& list, const std::filesystem::path& directory, const std::string& where, int depth);
 
+    // passive strategies of the brain being loaded, collected from the file and its includes
+    thread_local std::set<std::string>* passiveSink = nullptr;
+
+    void CollectPassive(const ptree& brainNode)
+    {
+        if (!passiveSink)
+            return;
+        if (const ptree* passive = FindField(brainNode, "passive"))
+            for (const std::string& name : ValuesOf(*passive))
+                passiveSink->insert(name);
+    }
+
     std::vector<LegacyEntry> LoadIncludedEntries(const std::filesystem::path& directory, const std::string& file, int depth, const std::string& where)
     {
         if (depth > maxIncludeDepth)
@@ -301,6 +313,7 @@ namespace
 
         ParsedFile parsed;
         ReadFile(directory / file, parsed);
+        CollectPassive(*parsed.brain);
 
         const ptree* strategies = FindField(*parsed.brain, "strategies");
         if (!strategies)
@@ -581,6 +594,14 @@ std::shared_ptr<const LegacyBrain> LegacyBrain::Load(const std::filesystem::path
     brain->name = GetString(*parsed.brain, "brain").value_or(path.stem().string());
     brain->state = GetString(*parsed.brain, "state").value_or("");
 
+    struct PassiveSinkScope
+    {
+        explicit PassiveSinkScope(std::set<std::string>* sink) { passiveSink = sink; }
+        ~PassiveSinkScope() { passiveSink = nullptr; }
+    } passiveScope(&brain->passive);
+
+    CollectPassive(*parsed.brain);
+
     if (const ptree* strategies = FindField(*parsed.brain, "strategies"))
         brain->entries = ParseEntries(*strategies, directory, file, 0);
 
@@ -589,6 +610,8 @@ std::shared_ptr<const LegacyBrain> LegacyBrain::Load(const std::filesystem::path
 
 void LegacyBrain::Apply(Player* player, PlayerbotAI* ai, Engine* engine) const
 {
+    engine->SetPassiveStrategies(passive);
+
     ApplyContext context{ player, ai, engine };
     ApplyEntries(entries, context);
     engine->SetBrainName(name);

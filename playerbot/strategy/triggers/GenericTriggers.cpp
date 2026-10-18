@@ -561,7 +561,8 @@ bool HasNoAuraTrigger::IsActive()
 
 bool DistanceFromMasterTrigger::IsActive()
 {
-    static const std::regex pattern(R"(^([^:]+)::(\d+(?:\.\d+)?)$)");
+    static const std::regex pattern(R"(^([^:]+)::([^:]+)$)");
+    static const std::regex number(R"(^\d+(?:\.\d+)?$)");
     const std::string qualifier = getQualifier();
     std::smatch match;
     if (!std::regex_match(qualifier, match, pattern))
@@ -574,7 +575,8 @@ bool DistanceFromMasterTrigger::IsActive()
         return false;
 
     const float distance = sServerFacade.GetDistance2d(bot, master);
-    const float yards = std::stof(match[2].str());
+    const std::string limit = match[2].str();
+    const float yards = std::regex_match(limit, number) ? std::stof(limit) : ai->GetRange(limit);
     const std::string comparison = match[1].str();
 
     if (comparison == "equal")

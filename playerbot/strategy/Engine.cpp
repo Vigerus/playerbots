@@ -105,6 +105,9 @@ void Engine::Init()
 
     for (std::map<std::string, Strategy*>::iterator i = strategies.begin(); i != strategies.end(); i++)
     {
+        if (IsPassiveStrategy(i->first))
+            continue;
+
         Strategy* strategy = i->second;
         strategy->InitMultipliers(multipliers, state);
 
@@ -649,6 +652,9 @@ void Engine::PushDefaultActions()
 {
     for (std::map<std::string, Strategy*>::iterator i = strategies.begin(); i != strategies.end(); i++)
     {
+        if (IsPassiveStrategy(i->first))
+            continue;
+
         Strategy* strategy = i->second;
         MultiplyAndPush(strategy->getDefaultActions(state), 0.0f, false, Event(), "default", i->first);
     }
