@@ -1,0 +1,11 @@
+{
+  "brain": "Legacy_Reaction_Shaman",
+  "state": "Reaction",
+  "description": "Shaman Reaction strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Elemental, 1 Enhancement, 2 Restoration).",
+  "strategies": [
+    {"description": "Elemental talents", "add": ["elemental"], "if": {"spec": 0}},
+    {"description": "Enhancement talents", "add": ["enhancement"], "if": {"spec": 1}},
+    {"description": "Restoration talents", "add": ["restoration"], "if": {"spec": 2}},
+    {"include": "Legacy_Reaction_Common.json"}
+  ]
+}

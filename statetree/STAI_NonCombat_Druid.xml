@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NonCombat state tree for Druid bots: AiPlayerbot.StateTree.NonCombat.Druid -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_NonCombat_Druid.json"/>
+    </Task>
+  </Node>
+</Root>

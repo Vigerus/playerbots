@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NonCombat state tree for Rogue bots: AiPlayerbot.StateTree.NonCombat.Rogue -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_NonCombat_Rogue.json"/>
+    </Task>
+  </Node>
+</Root>

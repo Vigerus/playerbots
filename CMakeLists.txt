@@ -25,6 +25,9 @@ set(bots_PCH "${CMAKE_CURRENT_SOURCE_DIR}/botpch.h")
 file(GLOB Playerbot_Source ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/*.h)
     source_group("Player Bot" FILES ${Playerbot_Source})
 
+file(GLOB Playerbot_StateTree ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/*.h ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/Tasks/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/Tasks/*.h)
+    source_group("Player Bot\\StateTree" FILES ${Playerbot_StateTree})
+
 file(GLOB Instancebot_Source ${CMAKE_CURRENT_SOURCE_DIR}/instancebot/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/instancebot/*.h)
     source_group("Instance Bot" FILES ${Instancebot_Source})
 
@@ -34,6 +37,7 @@ file(GLOB AHbot_Source ${CMAKE_CURRENT_SOURCE_DIR}/ahbot/*.cpp ${CMAKE_CURRENT_S
 #Define base source library
 set(LIBRARY_SRCS
     ${Playerbot_Source}
+    ${Playerbot_StateTree}
     ${Instancebot_Source}
     ${AHbot_Source}
     ${bots_PCH}
@@ -188,6 +192,8 @@ if (NOT CONF_INSTALL_DIR)
   set(CONF_INSTALL_DIR ${CONF_DIR})
 endif()
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/aiplayerbot.conf.dist DESTINATION ${CONF_INSTALL_DIR})
+# STAI state tree brains (AiPlayerbot.StateTree.*), looked up next to aiplayerbot.conf
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/statetree DESTINATION ${CONF_INSTALL_DIR})
 
 set_target_properties(${LIBRARY_NAME} PROPERTIES PROJECT_LABEL "PlayerBots")
 

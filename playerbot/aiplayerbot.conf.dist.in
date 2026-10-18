@@ -828,6 +828,62 @@ AiPlayerbot.FleeingEnabled = 1
 #AiPlayerbot.ReactStrategies = 
 #AiPlayerbot.DeadStrategies = 
 
+# State trees (STAI_*.xml) of the bot states. Each tree lists nodes with conditions and a task, checked top
+# to bottom; StateNode_Legacy / StateNode_Reaction tasks run the legacy strategy engine with the strategy
+# list of their Legacy_*.json config. The class entry wins over Default; an empty value (or a file that
+# fails to load, see the server log) uses a single legacy node with the built-in AiFactory strategies.
+# Formats are described in statetree/README.md. Paths are relative to the directory of aiplayerbot.conf.
+
+AiPlayerbot.StateTree.NonCombat.Default = statetree/STAI_NonCombat.xml
+AiPlayerbot.StateTree.Combat.Default = statetree/STAI_Combat.xml
+AiPlayerbot.StateTree.Reaction.Default = statetree/STAI_Reaction.xml
+AiPlayerbot.StateTree.Dead.Default = statetree/STAI_Dead.xml
+
+AiPlayerbot.StateTree.NonCombat.Warrior = statetree/STAI_NonCombat_Warrior.xml
+AiPlayerbot.StateTree.Combat.Warrior = statetree/STAI_Combat_Warrior.xml
+AiPlayerbot.StateTree.Reaction.Warrior = statetree/STAI_Reaction_Warrior.xml
+AiPlayerbot.StateTree.Dead.Warrior = statetree/STAI_Dead_Warrior.xml
+
+AiPlayerbot.StateTree.NonCombat.Paladin = statetree/STAI_NonCombat_Paladin.xml
+AiPlayerbot.StateTree.Combat.Paladin = statetree/STAI_Combat_Paladin.xml
+AiPlayerbot.StateTree.Reaction.Paladin = statetree/STAI_Reaction_Paladin.xml
+AiPlayerbot.StateTree.Dead.Paladin = statetree/STAI_Dead_Paladin.xml
+
+AiPlayerbot.StateTree.NonCombat.Hunter = statetree/STAI_NonCombat_Hunter.xml
+AiPlayerbot.StateTree.Combat.Hunter = statetree/STAI_Combat_Hunter.xml
+AiPlayerbot.StateTree.Reaction.Hunter = statetree/STAI_Reaction_Hunter.xml
+AiPlayerbot.StateTree.Dead.Hunter = statetree/STAI_Dead_Hunter.xml
+
+AiPlayerbot.StateTree.NonCombat.Rogue = statetree/STAI_NonCombat_Rogue.xml
+AiPlayerbot.StateTree.Combat.Rogue = statetree/STAI_Combat_Rogue.xml
+AiPlayerbot.StateTree.Reaction.Rogue = statetree/STAI_Reaction_Rogue.xml
+AiPlayerbot.StateTree.Dead.Rogue = statetree/STAI_Dead_Rogue.xml
+
+AiPlayerbot.StateTree.NonCombat.Priest = statetree/STAI_NonCombat_Priest.xml
+AiPlayerbot.StateTree.Combat.Priest = statetree/STAI_Combat_Priest.xml
+AiPlayerbot.StateTree.Reaction.Priest = statetree/STAI_Reaction_Priest.xml
+AiPlayerbot.StateTree.Dead.Priest = statetree/STAI_Dead_Priest.xml
+
+AiPlayerbot.StateTree.NonCombat.Shaman = statetree/STAI_NonCombat_Shaman.xml
+AiPlayerbot.StateTree.Combat.Shaman = statetree/STAI_Combat_Shaman.xml
+AiPlayerbot.StateTree.Reaction.Shaman = statetree/STAI_Reaction_Shaman.xml
+AiPlayerbot.StateTree.Dead.Shaman = statetree/STAI_Dead_Shaman.xml
+
+AiPlayerbot.StateTree.NonCombat.Mage = statetree/STAI_NonCombat_Mage.xml
+AiPlayerbot.StateTree.Combat.Mage = statetree/STAI_Combat_Mage.xml
+AiPlayerbot.StateTree.Reaction.Mage = statetree/STAI_Reaction_Mage.xml
+AiPlayerbot.StateTree.Dead.Mage = statetree/STAI_Dead_Mage.xml
+
+AiPlayerbot.StateTree.NonCombat.Warlock = statetree/STAI_NonCombat_Warlock.xml
+AiPlayerbot.StateTree.Combat.Warlock = statetree/STAI_Combat_Warlock.xml
+AiPlayerbot.StateTree.Reaction.Warlock = statetree/STAI_Reaction_Warlock.xml
+AiPlayerbot.StateTree.Dead.Warlock = statetree/STAI_Dead_Warlock.xml
+
+AiPlayerbot.StateTree.NonCombat.Druid = statetree/STAI_NonCombat_Druid.xml
+AiPlayerbot.StateTree.Combat.Druid = statetree/STAI_Combat_Druid.xml
+AiPlayerbot.StateTree.Reaction.Druid = statetree/STAI_Reaction_Druid.xml
+AiPlayerbot.StateTree.Dead.Druid = statetree/STAI_Dead_Druid.xml
+
 # Quest items to leave (do not destroy)
 #AiPlayerbot.RandomBotQuestItems = 6948,5175,5176,5177,5178,16309,12382,13704,11000
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dead state tree for Priest bots: AiPlayerbot.StateTree.Dead.Priest -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_Dead_Priest.json"/>
+    </Task>
+  </Node>
+</Root>

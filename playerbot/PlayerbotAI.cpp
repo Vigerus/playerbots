@@ -54,7 +54,7 @@
 #endif
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
 
-#include "StateTree/StateNode_Legacy.h"
+#include "StateTree/StateNode_Tree.h"
 
 using namespace ai;
 
@@ -240,10 +240,18 @@ PlayerbotAI::PlayerbotAI(Player* bot) : PlayerbotAIBase()
 #endif
 
 #ifdef USE_HLS
-    StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_NonCombat", HLSStateType::NonCombat), true);
-    StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_Combat", HLSStateType::Combat));
-    StateMachine.RegisterNode(std::make_unique<StateNode_Legacy>(this, bot, "Legacy_Dead", HLSStateType::Dead));
-    StateMachine.RegisterNode(std::make_unique<StateNode_Reaction>(this, bot));
+    // one STAI tree per state (AiPlayerbot.StateTree.<State>.<Class|Default>), or a single legacy engine node
+    for (HLSStateType state : { HLSStateType::NonCombat, HLSStateType::Combat, HLSStateType::Dead, HLSStateType::Reaction })
+    {
+        std::shared_ptr<const STAI_TreeAsset> tree = sSTAITreeLibrary.Get(state, bot->getClass());
+        if (!tree)
+        {
+            static const char* defaultNames[] = { "Legacy_NonCombat", "Legacy_Combat", "Legacy_Reaction", "Legacy_Dead" };
+            tree = STAI_TreeAsset::MakeSingleTask(defaultNames[(uint8)state], state == HLSStateType::Reaction ? "StateNode_Reaction" : "StateNode_Legacy");
+        }
+
+        StateMachine.RegisterNode(std::make_unique<StateNode_Tree>(STAI_TaskContext{ this, bot, state }, tree), state == HLSStateType::NonCombat);
+    }
     StateMachine.TransitionTo(HLSStateType::NonCombat);
 #endif
 

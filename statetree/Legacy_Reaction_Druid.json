@@ -1,0 +1,11 @@
+{
+  "brain": "Legacy_Reaction_Druid",
+  "state": "Reaction",
+  "description": "Druid Reaction strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Balance, 1 Feral, 2 Restoration).",
+  "strategies": [
+    {"description": "Balance talents", "add": ["balance"], "if": {"spec": 0}},
+    {"description": "Feral talents", "add": ["tank feral"], "if": {"spec": 1}},
+    {"description": "Restoration talents", "add": ["restoration"], "if": {"spec": 2}},
+    {"include": "Legacy_Reaction_Common.json"}
+  ]
+}

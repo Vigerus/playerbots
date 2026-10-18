@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dead state tree for Druid bots: AiPlayerbot.StateTree.Dead.Druid -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_Dead_Druid.json"/>
+    </Task>
+  </Node>
+</Root>

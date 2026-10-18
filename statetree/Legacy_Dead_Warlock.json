@@ -1,0 +1,11 @@
+{
+  "brain": "Legacy_Dead_Warlock",
+  "state": "Dead",
+  "description": "Warlock Dead strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Affliction, 1 Demonology, 2 Destruction).",
+  "strategies": [
+    {"description": "Affliction talents", "add": ["affliction"], "if": {"spec": 0}},
+    {"description": "Demonology talents", "add": ["demonology"], "if": {"spec": 1}},
+    {"description": "Destruction talents", "add": ["destruction"], "if": {"spec": 2}},
+    {"include": "Legacy_Dead_Common.json"}
+  ]
+}

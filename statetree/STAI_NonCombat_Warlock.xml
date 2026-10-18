@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NonCombat state tree for Warlock bots: AiPlayerbot.StateTree.NonCombat.Warlock -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_NonCombat_Warlock.json"/>
+    </Task>
+  </Node>
+</Root>

@@ -1,0 +1,12 @@
+{
+  "brain": "Legacy_NonCombat_Paladin",
+  "state": "NonCombat",
+  "description": "Paladin NonCombat strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Holy, 1 Protection, 2 Retribution).",
+  "strategies": [
+    {"description": "Holy talents", "add": ["holy", "dps assist"], "if": {"spec": 0}},
+    {"description": "Protection talents", "add": ["protection", "tank assist"], "if": {"spec": 1}},
+    {"description": "Retribution talents", "add": ["retribution", "dps assist"], "if": {"spec": 2}},
+    {"add": ["cure", "buff", "boost", "blessing", "aura"]},
+    {"include": "Legacy_NonCombat_Common.json"}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "brain": "Legacy_Combat_Rogue",
+  "state": "Combat",
+  "description": "Rogue Combat strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Assassination, 1 Combat, 2 Subtlety).",
+  "strategies": [
+    {"description": "Assassination talents", "add": ["assassination"], "if": {"spec": 0}},
+    {"description": "Combat talents", "add": ["combat"], "if": {"spec": 1}},
+    {"description": "Subtlety talents", "add": ["subtlety"], "if": {"spec": 2}},
+    {"add": ["dps assist", "aoe", "close", "cc", "behind", "stealth", "poisons", "buff", "boost"]},
+    {"include": "Legacy_Combat_Common.json"},
+    {"add": ["behind", "stealth", "poisons", "buff"], "if": {"battleground": true}}
+  ]
+}

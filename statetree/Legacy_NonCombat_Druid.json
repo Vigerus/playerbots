@@ -1,0 +1,12 @@
+{
+  "brain": "Legacy_NonCombat_Druid",
+  "state": "NonCombat",
+  "description": "Druid NonCombat strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Balance, 1 Feral, 2 Restoration).",
+  "strategies": [
+    {"description": "Balance talents", "add": ["balance", "dps assist"], "if": {"spec": 0}},
+    {"description": "Feral talents", "add": ["tank feral", "tank assist"], "if": {"spec": 1}},
+    {"description": "Restoration talents", "add": ["restoration", "dps assist"], "if": {"spec": 2}},
+    {"add": ["cure", "aoe", "cc", "buff", "boost"]},
+    {"include": "Legacy_NonCombat_Common.json"}
+  ]
+}

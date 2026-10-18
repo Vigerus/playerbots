@@ -176,6 +176,8 @@ static std::string SanitizeDebugField(std::string_view value)
 // Snapshot format (records separated by '~', fields by '^'):
 //   H^<active type>^<ms in active state>^<previous type or ->
 //   N^<type>^<node name>^<active 0|1>^<last action>^<last relevance>^<last status>^<strategy,strategy,...>
+//   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>     (tree nodes of the state above)
+//       conditions: <result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked
 //   T^<from type or *>^<to type or <prev>>^<condition label>
 std::string StateMachine::BuildDebugSnapshot() const
 {
@@ -189,7 +191,12 @@ std::string StateMachine::BuildDebugSnapshot() const
 
     for (const auto& [type, node] : nodes)
     {
-        out << "~N^" << GetHLSStateTypeName(type) << "^" << SanitizeDebugField(node->GetName()) << "^" << (node.get() == active ? 1 : 0);
+        std::string nodeName = node->GetName();
+        if (Engine* engine = node->GetDebugEngine())
+            if (!engine->GetBrainName().empty())
+                nodeName += "  [" + engine->GetBrainName() + "]";
+
+        out << "~N^" << GetHLSStateTypeName(type) << "^" << SanitizeDebugField(nodeName) << "^" << (node.get() == active ? 1 : 0);
 
         std::string lastAction;
         float relevance = 0.0f;
@@ -220,6 +227,22 @@ std::string StateMachine::BuildDebugSnapshot() const
         }
 
         out << "^" << lastAction << "^" << relevance << "^" << status << "^" << strategies;
+
+        for (const StateNodeDebugChild& child : node->GetDebugChildren())
+        {
+            std::string conditions;
+            for (const auto& [text, result] : child.conditions)
+            {
+                if (!conditions.empty())
+                    conditions += "&&";
+                conditions += result == StateNodeConditionResult::Passed ? '+' : result == StateNodeConditionResult::Failed ? '-' : '?';
+                conditions += SanitizeDebugField(text);
+            }
+
+            out << "~C^" << GetHLSStateTypeName(type) << "^" << (child.active ? 1 : 0)
+                << "^" << SanitizeDebugField(child.name) << "^" << SanitizeDebugField(child.taskClass)
+                << "^" << conditions << "^" << SanitizeDebugField(child.info);
+        }
     }
 
     // transitions are triggered from PlayerbotAI (OnCombatStarted, OnDeath, ...) and from Update() (reaction preempt)

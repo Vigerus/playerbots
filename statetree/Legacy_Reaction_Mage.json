@@ -1,0 +1,11 @@
+{
+  "brain": "Legacy_Reaction_Mage",
+  "state": "Reaction",
+  "description": "Mage Reaction strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Arcane, 1 Fire, 2 Frost).",
+  "strategies": [
+    {"description": "Arcane talents", "add": ["arcane"], "if": {"spec": 0}},
+    {"description": "Fire talents", "add": ["fire"], "if": {"spec": 1}},
+    {"description": "Frost talents", "add": ["frost"], "if": {"spec": 2}},
+    {"include": "Legacy_Reaction_Common.json"}
+  ]
+}

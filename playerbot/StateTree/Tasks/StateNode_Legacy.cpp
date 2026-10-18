@@ -1,30 +1,108 @@
 #include "StateNode_Legacy.h"
 
 #include "playerbot/AiFactory.h"
+#include "playerbot/StateTree/Tasks/LegacyBrain.h"
 
-static BotState GetBotState(HLSStateType stateType)
+namespace
 {
-    switch (stateType)
+    BotState GetBotState(HLSStateType stateType)
     {
-        case ai::HLSStateType::NonCombat: return BotState::BOT_STATE_NON_COMBAT;
-        case ai::HLSStateType::Combat: return BotState::BOT_STATE_COMBAT;
-        case ai::HLSStateType::Reaction: return BotState::BOT_STATE_REACTION;
-        case ai::HLSStateType::Dead: return BotState::BOT_STATE_DEAD;
-        default: break;
+        switch (stateType)
+        {
+            case ai::HLSStateType::NonCombat: return BotState::BOT_STATE_NON_COMBAT;
+            case ai::HLSStateType::Combat: return BotState::BOT_STATE_COMBAT;
+            case ai::HLSStateType::Reaction: return BotState::BOT_STATE_REACTION;
+            case ai::HLSStateType::Dead: return BotState::BOT_STATE_DEAD;
+            default: break;
+        }
+        return BotState::BOT_STATE_ALL;
     }
-    return BotState::BOT_STATE_ALL;
+
+    // <Config filename="..."/>, empty when the task has no config
+    std::string GetConfigFile(const STAI_TaskConfig& config)
+    {
+        return STAI_TaskFactory::GetSetting(config, "Config", "filename").value_or("");
+    }
+
+    std::shared_ptr<const LegacyBrain> GetBrain(const STAI_TaskConfig& config)
+    {
+        const std::string file = GetConfigFile(config);
+        if (file.empty())
+            return nullptr;
+
+        try
+        {
+            return sLegacyBrainLibrary.Get(file);
+        }
+        catch (const std::exception& error)
+        {
+            sLog.outError("StateTree: %s not loaded, using AiFactory defaults: %s", file.c_str(), error.what());
+            return nullptr;
+        }
+    }
 }
 
-void StateNode_Legacy::Update(uint32 elapsed, bool minimal)
+// ---------------------------------------------------------------------------------------------------
+// StateNode_Legacy
+// ---------------------------------------------------------------------------------------------------
+
+StateNode_Legacy::StateNode_Legacy(const STAI_TaskContext& context, std::shared_ptr<const LegacyBrain> brain)
+    : ai(context.ai), bot(context.bot), stateType(context.state), brain(std::move(brain))
+{
+    if (this->brain)
+        if (Engine* engine = GetEngine())
+            ApplyBrain(engine);
+}
+
+void StateNode_Legacy::Validate(const STAI_TaskConfig& config)
+{
+    const std::string file = GetConfigFile(config);
+    if (!file.empty())
+        sLegacyBrainLibrary.Get(file); // throws with the parse error
+}
+
+std::unique_ptr<STAI_Task> StateNode_Legacy::Create(const STAI_TaskContext& context, const STAI_TaskConfig& config)
+{
+    return std::make_unique<StateNode_Legacy>(context, GetBrain(config));
+}
+
+Engine* StateNode_Legacy::GetEngine() const
+{
+    const BotState botState = GetBotState(stateType);
+    if (botState == BotState::BOT_STATE_ALL)
+        return nullptr;
+
+    return ai->engines[(uint8)botState].get();
+}
+
+void StateNode_Legacy::ApplyBrain(Engine* engine)
+{
+    engine->initMode = true;
+    engine->removeAllStrategies();
+    brain->Apply(bot, ai, engine);
+    engine->initMode = false;
+    engine->Init();
+}
+
+void StateNode_Legacy::OnEnter()
+{
+    // several legacy nodes of one state share its engine: switch the strategy list when another one was applied
+    if (brain)
+        if (Engine* engine = GetEngine())
+            if (engine->GetBrainName() != brain->name)
+                ApplyBrain(engine);
+}
+
+EActionRunStatus StateNode_Legacy::Update(uint32 elapsed, bool minimal)
 {
     if (!ai->CanUpdateAIInternal())
-        return;
+        return EActionRunStatus::Running;
     Spell* currentSpell = bot->GetCurrentSpell(CURRENT_GENERIC_SPELL);
     if (currentSpell && currentSpell->getState() == SPELL_STATE_CASTING && currentSpell->GetCastedTime() > 0U)
     {
         ai->SetAIInternalUpdateDelay(currentSpell->GetCastedTime() + sPlayerbotAIConfig.reactDelay + sWorld.GetAverageDiff());
         if (!ai->CanUpdateAIInternal())
-            return;
+            return EActionRunStatus::Running;
     }
     if (ai->UpdateAIInternal(elapsed, minimal))
     {
@@ -36,23 +114,12 @@ void StateNode_Legacy::Update(uint32 elapsed, bool minimal)
     if (bot && ai->HasRealPlayerMaster())
         min = false;
     ai->YieldAIInternalThread(min);
-}
-
-Engine* StateNode_Legacy::GetDebugEngine() const
-{
-    BotState botState = GetBotState(stateType);
-
-    if (botState == BotState::BOT_STATE_ALL)
-    {
-        return nullptr;
-    }
-
-    return ai->engines[(uint8)botState].get();
+    return EActionRunStatus::Running;
 }
 
 void StateNode_Legacy::UpdateStrategies(const std::string& name, BotState type)
 {
-    BotState botState = GetBotState(stateType);
+    const BotState botState = GetBotState(stateType);
 
     if (botState == BotState::BOT_STATE_ALL)
     {
@@ -64,22 +131,22 @@ void StateNode_Legacy::UpdateStrategies(const std::string& name, BotState type)
         return;
     }
 
-    Engine* engine = ai->engines[(uint8)botState].get();
-
-    engine->ChangeStrategy(name);
+    GetEngine()->ChangeStrategy(name);
 }
-
 
 void StateNode_Legacy::ResetStrategies()
 {
-    BotState botState = GetBotState(stateType);
-
-    if (botState == BotState::BOT_STATE_ALL)
+    Engine* engine = GetEngine();
+    if (!engine)
     {
         return;
     }
 
-    Engine* engine = ai->engines[(uint8)botState].get();
+    if (brain)
+    {
+        ApplyBrain(engine);
+        return;
+    }
 
     engine->initMode = true;
     engine->removeAllStrategies();
@@ -107,26 +174,61 @@ void StateNode_Legacy::ResetStrategies()
 
 void StateNode_Legacy::ReInit()
 {
-    BotState botState = GetBotState(stateType);
-
-    if (botState == BotState::BOT_STATE_ALL)
+    Engine* engine = GetEngine();
+    if (!engine)
     {
         return;
     }
-
-    Engine* engine = ai->engines[(uint8)botState].get();
 
     engine->initMode = false;
     engine->Init();
 }
 
-StateNode_Reaction::StateNode_Reaction(PlayerbotAI* ai, Player* bot)
-    : ai(ai), bot(bot)
+Engine* StateNode_Legacy::GetDebugEngine() const
+{
+    return GetEngine();
+}
+
+std::string StateNode_Legacy::GetDebugInfo() const
+{
+    return brain ? brain->file : "AiFactory defaults";
+}
+
+// ---------------------------------------------------------------------------------------------------
+// StateNode_Reaction
+// ---------------------------------------------------------------------------------------------------
+
+StateNode_Reaction::StateNode_Reaction(const STAI_TaskContext& context, std::shared_ptr<const LegacyBrain> brain)
+    : ai(context.ai), bot(context.bot), brain(std::move(brain))
 {
     reactionEngine = AiFactory::createReactionEngine(bot, ai, ai->GetAiObjectContext());
 
+    if (this->brain)
+    {
+        ApplyBrain(reactionEngine.get());
+        ApplyBrain(ai->engines[(uint8)BotState::BOT_STATE_REACTION].get());
+        return;
+    }
+
     reactionEngine->initMode = false;
     reactionEngine->Init();
+}
+
+std::unique_ptr<STAI_Task> StateNode_Reaction::Create(const STAI_TaskContext& context, const STAI_TaskConfig& config)
+{
+    return std::make_unique<StateNode_Reaction>(context, GetBrain(config));
+}
+
+void StateNode_Reaction::ApplyBrain(Engine* engine)
+{
+    if (!engine)
+        return;
+
+    engine->initMode = true;
+    engine->removeAllStrategies();
+    brain->Apply(bot, ai, engine);
+    engine->initMode = false;
+    engine->Init();
 }
 
 void StateNode_Reaction::OnExit()
@@ -144,6 +246,13 @@ void StateNode_Reaction::UpdateStrategies(const std::string& name, BotState type
 
 void StateNode_Reaction::ResetStrategies()
 {
+    if (brain)
+    {
+        ApplyBrain(reactionEngine.get());
+        ApplyBrain(ai->engines[(uint8)BotState::BOT_STATE_REACTION].get());
+        return;
+    }
+
     reactionEngine->initMode = true;
     reactionEngine->removeAllStrategies();
 
@@ -154,29 +263,29 @@ void StateNode_Reaction::ResetStrategies()
 }
 
 void StateNode_Reaction::ReInit()
-{ 
+{
     reactionEngine->initMode = false;
     reactionEngine->Init();
     //ai->engines[(uint8)BotState::BOT_STATE_REACTION].get()->Init();
 }
 
-void StateNode_Reaction::Update(uint32 elapsed, bool minimal)
+EActionRunStatus StateNode_Reaction::Update(uint32 elapsed, bool minimal)
 {
     bool doMinimalReaction = minimal;
     if (bot->IsTaxiFlying())
         doMinimalReaction = true;
     if (UpdateAIReaction(elapsed, doMinimalReaction, bot->IsTaxiFlying()))
     {
-        return;
+        return EActionRunStatus::Running;
     }
     if (!ai->CanUpdateAIInternal())
-        return;
+        return EActionRunStatus::Running;
     Spell* currentSpell = bot->GetCurrentSpell(CURRENT_GENERIC_SPELL);
     if (currentSpell && currentSpell->getState() == SPELL_STATE_CASTING && currentSpell->GetCastedTime() > 0U)
     {
         ai->SetAIInternalUpdateDelay(currentSpell->GetCastedTime() + sPlayerbotAIConfig.reactDelay + sWorld.GetAverageDiff());
         if (!ai->CanUpdateAIInternal())
-            return;
+            return EActionRunStatus::Running;
     }
     if (ai->UpdateAIInternal(elapsed, minimal))
     {
@@ -189,6 +298,7 @@ void StateNode_Reaction::Update(uint32 elapsed, bool minimal)
     if (bot && ai->HasRealPlayerMaster())
         min = false;
     ai->YieldAIInternalThread(min);
+    return EActionRunStatus::Running;
 }
 
 bool StateNode_Reaction::UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned)
@@ -197,7 +307,7 @@ bool StateNode_Reaction::UpdateAIReaction(uint32 elapsed, bool minimal, bool isS
     std::string mapString = WorldPosition(bot).isInstance() ? "I" : std::to_string(bot->GetMapId());
 
     auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIReaction " + mapString);
-    
+
     const bool reactionInProgress = reactionEngine->Update(elapsed, minimal, isStunned, reactionFound);
     //const bool reactionInProgress = dynamic_cast<ai::ReactionEngine*>(ai->engines[(uint8)BotState::BOT_STATE_REACTION].get())->Update(elapsed, minimal, isStunned, reactionFound);
     pmo.reset();
@@ -238,4 +348,9 @@ bool StateNode_Reaction::IsReacting()
 Engine* StateNode_Reaction::GetDebugEngine() const
 {
     return reactionEngine.get();
+}
+
+std::string StateNode_Reaction::GetDebugInfo() const
+{
+    return brain ? brain->file : "AiFactory defaults";
 }

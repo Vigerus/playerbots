@@ -1,0 +1,28 @@
+{
+  "brain": "Legacy_Combat_Warrior",
+  "state": "Combat",
+  "description": "Warrior Combat strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Arms, 1 Fury, 2 Protection).",
+  "strategies": [
+    {
+      "description": "Protection talents",
+      "if": {"spec": 2},
+      "strategies": [
+        {"add": ["protection", "tank assist", "pull", "pull back", "mark rti"]}
+      ],
+      "else": [
+        {
+          "description": "Arms talents or below level 30",
+          "if": {"any": [{"maxLevel": 29}, {"spec": 0}]},
+          "strategies": [
+            {"add": ["arms", "dps assist", "behind"]}
+          ],
+          "else": [
+            {"description": "Fury talents", "add": ["fury", "dps assist", "behind"]}
+          ]
+        }
+      ]
+    },
+    {"add": ["aoe", "cc", "buff", "boost"]},
+    {"include": "Legacy_Combat_Common.json"}
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "brain": "Legacy_Combat_Mage",
+  "state": "Combat",
+  "description": "Mage Combat strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Arcane, 1 Fire, 2 Frost).",
+  "strategies": [
+    {"description": "Arcane talents", "add": ["arcane"], "if": {"spec": 0}},
+    {"description": "Fire talents", "add": ["fire"], "if": {"spec": 1}},
+    {"description": "Frost talents", "add": ["frost"], "if": {"spec": 2}},
+    {"add": ["dps assist", "flee", "cure", "ranged", "cc", "buff", "aoe", "boost"]},
+    {"description": "pull with Shoot", "add": "pull", "enabled": false},
+    {"description": "save mana for longer fights", "add": "conserve mana", "enabled": false},
+    {"description": "keep distance from melee attackers", "add": "kite", "enabled": false},
+    {"description": "prefer instant/short casts", "add": "cast time", "enabled": false},
+    {"description": "avoid pulling aggro from the tank", "add": "threat", "enabled": false},
+    {"description": "attack the raid-icon marked target", "add": "focus rti targets", "enabled": false},
+    {"include": "Legacy_Combat_Common.json"}
+  ]
+}

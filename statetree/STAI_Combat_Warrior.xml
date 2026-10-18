@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Combat state tree for Warrior bots: AiPlayerbot.StateTree.Combat.Warrior -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_Combat_Warrior.json"/>
+    </Task>
+  </Node>
+</Root>

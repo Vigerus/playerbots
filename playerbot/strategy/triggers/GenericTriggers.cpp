@@ -559,6 +559,43 @@ bool HasNoAuraTrigger::IsActive()
     return !ai->HasAura(getName(), GetTarget());
 }
 
+bool DistanceFromMasterTrigger::IsActive()
+{
+    static const std::regex pattern(R"(^([^:]+)::(\d+(?:\.\d+)?)$)");
+    const std::string qualifier = getQualifier();
+    std::smatch match;
+    if (!std::regex_match(qualifier, match, pattern))
+        return false;
+
+    Player* master = ai->GetMaster();
+    if (!master || master == bot || !master->IsInWorld())
+        return false;
+    if (master->GetMapId() != bot->GetMapId() || master->GetInstanceId() != bot->GetInstanceId())
+        return false;
+
+    const float distance = sServerFacade.GetDistance2d(bot, master);
+    const float yards = std::stof(match[2].str());
+    const std::string comparison = match[1].str();
+
+    if (comparison == "equal")
+        return distance == yards;
+    if (comparison == "greater or equal")
+        return distance >= yards;
+    if (comparison == "lesser or equal")
+        return distance <= yards;
+    if (comparison == "greater")
+        return distance > yards;
+    if (comparison == "lesser")
+        return distance < yards;
+    return false;
+}
+
+bool HasStrategyTrigger::IsActive()
+{
+    const std::string strategy = getQualifier();
+    return !strategy.empty() && ai->HasStrategy(strategy, ai->GetState());
+}
+
 bool TankAssistTrigger::IsActive()
 {
     if (!AI_VALUE(bool, "has attackers"))

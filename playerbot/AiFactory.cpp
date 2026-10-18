@@ -288,6 +288,8 @@ BotRoles AiFactory::GetPlayerRoles(const Player* player)
 
 void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const facade, Engine* combatEngine)
 {
+    combatEngine->SetBrainName("AiFactory");
+
     int tab = GetPlayerSpecTab(player);
 
     combatEngine->addStrategies("mount", NULL);
@@ -638,6 +640,8 @@ std::unique_ptr<Engine> AiFactory::createCombatEngine(Player* player, PlayerbotA
 
 void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const facade, Engine* nonCombatEngine)
 {
+    nonCombatEngine->SetBrainName("AiFactory");
+
     const int tab = GetPlayerSpecTab(player);
     switch (player->getClass())
     {
@@ -1051,6 +1055,8 @@ std::unique_ptr<Engine> AiFactory::createNonCombatEngine(Player* player, Playerb
 
 void AiFactory::AddDefaultDeadStrategies(Player* player, PlayerbotAI* const facade, Engine* deadEngine)
 {
+    deadEngine->SetBrainName("AiFactory");
+
     deadEngine->addStrategies("dead", "stay", "default", "follow", "group", NULL);
     if (sRandomPlayerbotMgr.IsFreeBot(player) && !player->GetGroup())
     {
@@ -1242,6 +1248,8 @@ std::unique_ptr<Engine> AiFactory::createDeadEngine(Player* player, PlayerbotAI*
 
 void AiFactory::AddDefaultReactionStrategies(Player* player, PlayerbotAI* const facade, ReactionEngine* reactionEngine)
 {
+    reactionEngine->SetBrainName("AiFactory");
+
     reactionEngine->addStrategies("react", "chat", "avoid aoe", "potions", NULL);
 
     const int tab = GetPlayerSpecTab(player);

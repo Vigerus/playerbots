@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NonCombat state tree for Shaman bots: AiPlayerbot.StateTree.NonCombat.Shaman -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_NonCombat_Shaman.json"/>
+    </Task>
+  </Node>
+</Root>

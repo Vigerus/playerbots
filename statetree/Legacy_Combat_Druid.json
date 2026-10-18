@@ -1,0 +1,47 @@
+{
+  "brain": "Legacy_Combat_Druid",
+  "state": "Combat",
+  "description": "Druid Combat strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Balance, 1 Feral, 2 Restoration).",
+  "strategies": [
+    {"description": "Balance talents", "add": ["balance", "dps assist", "flee", "ranged"], "if": {"spec": 0}},
+    {
+      "description": "Feral talents",
+      "add": ["tank feral", "tank assist", "pull", "pull back", "close", "behind"],
+      "if": {"spec": 1}
+    },
+    {"description": "Restoration talents", "add": ["restoration", "dps assist", "flee", "ranged"], "if": {"spec": 2}},
+    {"add": ["cure", "aoe", "cc", "buff", "boost"]},
+    {
+      "description": "solo restoration druid fights as balance",
+      "if": {"autonomous": true, "inGroup": false, "spec": 2},
+      "strategies": [
+        {"add": ["balance", "ranged"]},
+        {"remove": "close"}
+      ]
+    },
+    {
+      "description": "half of solo feral druids play cat instead of bear",
+      "if": {"autonomous": true, "inGroup": false, "spec": 1, "minLevel": 20, "chance": 0.5},
+      "strategies": [
+        {"add": ["dps feral", "behind"]},
+        {"remove": "ranged"},
+        {
+          "description": "AiFactory adds \"close\" \"stealth\" (missing comma, so no stealth); enable to add it",
+          "add": "stealth",
+          "enabled": false
+        }
+      ]
+    },
+    {"include": "Legacy_Combat_Common.json"},
+    {
+      "description": "restoration druid fights as balance in battlegrounds",
+      "add": "balance",
+      "if": {"battleground": true, "spec": 2}
+    },
+    {
+      "description": "feral druid plays cat in battlegrounds",
+      "add": ["behind", "dps feral", "stealth"],
+      "if": {"battleground": true, "spec": 1}
+    }
+  ]
+}

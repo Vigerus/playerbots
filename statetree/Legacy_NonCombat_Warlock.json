@@ -1,0 +1,12 @@
+{
+  "brain": "Legacy_NonCombat_Warlock",
+  "state": "NonCombat",
+  "description": "Warlock NonCombat strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Affliction, 1 Demonology, 2 Destruction).",
+  "strategies": [
+    {"description": "Affliction talents", "add": ["affliction"], "if": {"spec": 0}},
+    {"description": "Demonology talents", "add": ["demonology"], "if": {"spec": 1}},
+    {"description": "Destruction talents", "add": ["destruction"], "if": {"spec": 2}},
+    {"add": ["dps assist", "pet", "buff", "boost"]},
+    {"include": "Legacy_NonCombat_Common.json"}
+  ]
+}

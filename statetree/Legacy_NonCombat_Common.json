@@ -1,0 +1,94 @@
+{
+  "brain": "Legacy_NonCombat_Common",
+  "state": "NonCombat",
+  "description": "Class independent NonCombat strategies (context: random bots, groups, battlegrounds, config overrides). Included by the Default and class strategy lists.",
+  "strategies": [
+    {"add": ["wbuff", "avoid mobs"]},
+    {"description": "AiPlayerbot.LLMEnabled = 2", "add": "ai chat", "if": {"config": "llmChat"}},
+    {
+      "add": ["racials", "nc", "food", "follow", "default", "quest", "loot", "gather", "duel", "emote", "buff", "mount"],
+      "if": {"battleground": false}
+    },
+    {
+      "if": {
+        "any": [
+          {"realPlayerMaster": true, "config": "jumpWithPlayer"},
+          {"battleground": true, "config": "jumpInBg"},
+          {"battleground": false, "realPlayerMaster": false}
+        ]
+      },
+      "strategies": [
+        {"add": "rpg jump", "if": {"chance": "jumpNoCombatChance"}}
+      ]
+    },
+    {"add": "follow jump", "if": {"battleground": false, "config": "jumpFollow"}},
+    {
+      "description": "bot plays on its own outside battlegrounds",
+      "if": {"autonomous": true, "battleground": false},
+      "strategies": [
+        {"add": "roll"},
+        {"description": "25% of free bots start duels", "add": "start duel", "if": {"chance": 0.25}},
+        {"add": "lfg", "if": {"config": "randomBotJoinLfg"}},
+        {
+          "description": "not grouped or group leader",
+          "if": {"any": [{"inGroup": false}, {"groupLeader": true}]},
+          "strategies": [
+            {"description": "25% help other players", "add": "attack tagged", "if": {"chance": 0.25}},
+            {"add": ["collision", "grind", "group", "guild"]},
+            {"if": {"config": "autoDoQuests"}, "strategies": [{"add": ["travel", "tfish", "rpg"]}, {"remove": "rpg craft"}]},
+            {"add": "bg", "if": {"config": "randomBotJoinBG"}},
+            {"add": "maintenance", "if": {"any": [{"hasMaster": false}, {"masterIsBot": true}]}},
+            {"description": "AiPlayerbot.RandomBotNonCombatStrategies", "change": "config:randomBotNonCombatStrategies"}
+          ],
+          "else": [
+            {
+              "if": {"hasMaster": true},
+              "strategies": [
+                {
+                  "description": "grouped under another bot",
+                  "if": {"any": [{"masterIsBot": true}, {"freeBot": true}]},
+                  "strategies": [
+                    {"add": ["collision", "grind", "group", "guild"]},
+                    {"if": {"config": "autoDoQuests"}, "strategies": [{"add": ["travel", "tfish", "rpg"]}, {"remove": "rpg craft"}]},
+                    {"add": "maintenance", "if": {"any": [{"hasMaster": false}, {"masterIsBot": true}]}},
+                    {"description": "AiPlayerbot.RandomBotNonCombatStrategies", "change": "config:randomBotNonCombatStrategies"}
+                  ],
+                  "else": [
+                    {"description": "AiPlayerbot.NonCombatStrategies", "change": "config:nonCombatStrategies"}
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "else": [
+        {"description": "AiPlayerbot.NonCombatStrategies", "change": "config:nonCombatStrategies"}
+      ]
+    },
+    {
+      "description": "battleground switch",
+      "if": {"battleground": true},
+      "strategies": [
+        {"add": ["racials", "nc", "default", "buff", "food", "mount", "collision", "dps assist", "attack tagged", "emote"]},
+        {"remove": ["custom::say", "travel", "tfish", "rpg", "rpg craft", "follow", "grind"]},
+        {
+          "description": "arena",
+          "if": {"arena": true},
+          "strategies": [
+            {"add": "arena"},
+            {"remove": "mount"}
+          ],
+          "else": [
+            {"description": "supported battlegrounds", "add": "battleground", "if": {"bgType": ["AV", "WS", "AB", "EY", "IC"]}},
+            {"add": "warsong", "if": {"bgType": "WS"}},
+            {"add": "alterac", "if": {"bgType": "AV"}},
+            {"add": "arathi", "if": {"bgType": "AB"}},
+            {"add": "eye", "if": {"bgType": "EY"}},
+            {"add": "isle", "if": {"bgType": "IC"}}
+          ]
+        }
+      ]
+    }
+  ]
+}

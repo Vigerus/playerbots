@@ -90,6 +90,10 @@ namespace ai
         const ActionRunContext* GetLastActionContext() const { return lastActionContext.get(); }
         EActionRunStatus GetLastExecutedActionStatus() const { return lastExecutedActionStatus; }
 
+        // source of the default strategies: STAI brain name or "AiFactory" (shown by the StateTree debug view)
+        const std::string& GetBrainName() const { return brainName; }
+        void SetBrainName(const std::string& name) { brainName = name; }
+
     public:
 	    virtual bool DoNextAction(Unit*, int depth, bool minimal, bool isStunned);
 	    ActionResult ExecuteAction(const std::string& name, Event& event);
@@ -133,6 +137,7 @@ namespace ai
         std::unique_ptr<ActionRunContext> lastActionContext;
         Action* lastExecutedAction = nullptr;
         EActionRunStatus lastExecutedActionStatus = EActionRunStatus::Succeeded;
+        std::string brainName;
 
         std::map<Trigger*, Event> fires;
 

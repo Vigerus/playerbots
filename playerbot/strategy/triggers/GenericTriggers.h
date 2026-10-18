@@ -674,6 +674,23 @@ namespace ai
         virtual bool IsActive() override;
     };
 
+    // "distance from master::greater::10": 2D distance to the master compared with yards
+    // (equal, greater, greater or equal, lesser, lesser or equal); inactive without a master in the same map
+    class DistanceFromMasterTrigger : public Trigger, public Qualified
+    {
+    public:
+        DistanceFromMasterTrigger(PlayerbotAI* ai) : Trigger(ai, "distance from master"), Qualified() {}
+        virtual bool IsActive() override;
+    };
+
+    // "has strategy::stay": the engine of the bot's current state has the strategy
+    class HasStrategyTrigger : public Trigger, public Qualified
+    {
+    public:
+        HasStrategyTrigger(PlayerbotAI* ai) : Trigger(ai, "has strategy"), Qualified() {}
+        virtual bool IsActive() override;
+    };
+
     class TimerTrigger : public Trigger
     {
     public:

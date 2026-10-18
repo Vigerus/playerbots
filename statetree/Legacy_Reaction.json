@@ -1,0 +1,89 @@
+{
+  "brain": "Legacy_Reaction",
+  "state": "Reaction",
+  "description": "Default Reaction strategies of StateNode_Legacy for every class (same as the built-in AiFactory defaults).",
+  "strategies": [
+    {
+      "description": "Warrior",
+      "if": {"class": "Warrior"},
+      "strategies": [
+        {"description": "Arms talents", "add": ["arms"], "if": {"spec": 0}},
+        {"description": "Fury talents", "add": ["fury"], "if": {"spec": 1}},
+        {"description": "Protection talents", "add": ["protection"], "if": {"spec": 2}}
+      ]
+    },
+    {
+      "description": "Paladin",
+      "if": {"class": "Paladin"},
+      "strategies": [
+        {"description": "Holy talents", "add": ["holy"], "if": {"spec": 0}},
+        {"description": "Protection talents", "add": ["protection"], "if": {"spec": 1}},
+        {"description": "Retribution talents", "add": ["retribution"], "if": {"spec": 2}}
+      ]
+    },
+    {
+      "description": "Hunter",
+      "if": {"class": "Hunter"},
+      "strategies": [
+        {"description": "Beast Mastery talents", "add": ["beast mastery"], "if": {"spec": 0}},
+        {"description": "Marksmanship talents", "add": ["marksmanship"], "if": {"spec": 1}},
+        {"description": "Survival talents", "add": ["survival"], "if": {"spec": 2}}
+      ]
+    },
+    {
+      "description": "Rogue",
+      "if": {"class": "Rogue"},
+      "strategies": [
+        {"description": "Assassination talents", "add": ["assassination"], "if": {"spec": 0}},
+        {"description": "Combat talents", "add": ["combat"], "if": {"spec": 1}},
+        {"description": "Subtlety talents", "add": ["subtlety"], "if": {"spec": 2}}
+      ]
+    },
+    {
+      "description": "Priest",
+      "if": {"class": "Priest"},
+      "strategies": [
+        {"description": "Discipline talents", "add": ["discipline"], "if": {"spec": 0}},
+        {"description": "Holy talents", "add": ["holy"], "if": {"spec": 1}},
+        {"description": "Shadow talents", "add": ["shadow"], "if": {"spec": 2}}
+      ]
+    },
+    {
+      "description": "Shaman",
+      "if": {"class": "Shaman"},
+      "strategies": [
+        {"description": "Elemental talents", "add": ["elemental"], "if": {"spec": 0}},
+        {"description": "Enhancement talents", "add": ["enhancement"], "if": {"spec": 1}},
+        {"description": "Restoration talents", "add": ["restoration"], "if": {"spec": 2}}
+      ]
+    },
+    {
+      "description": "Mage",
+      "if": {"class": "Mage"},
+      "strategies": [
+        {"description": "Arcane talents", "add": ["arcane"], "if": {"spec": 0}},
+        {"description": "Fire talents", "add": ["fire"], "if": {"spec": 1}},
+        {"description": "Frost talents", "add": ["frost"], "if": {"spec": 2}}
+      ]
+    },
+    {
+      "description": "Warlock",
+      "if": {"class": "Warlock"},
+      "strategies": [
+        {"description": "Affliction talents", "add": ["affliction"], "if": {"spec": 0}},
+        {"description": "Demonology talents", "add": ["demonology"], "if": {"spec": 1}},
+        {"description": "Destruction talents", "add": ["destruction"], "if": {"spec": 2}}
+      ]
+    },
+    {
+      "description": "Druid",
+      "if": {"class": "Druid"},
+      "strategies": [
+        {"description": "Balance talents", "add": ["balance"], "if": {"spec": 0}},
+        {"description": "Feral talents", "add": ["tank feral"], "if": {"spec": 1}},
+        {"description": "Restoration talents", "add": ["restoration"], "if": {"spec": 2}}
+      ]
+    },
+    {"include": "Legacy_Reaction_Common.json"}
+  ]
+}

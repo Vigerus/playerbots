@@ -1,0 +1,11 @@
+{
+  "brain": "Legacy_Reaction_Paladin",
+  "state": "Reaction",
+  "description": "Paladin Reaction strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Holy, 1 Protection, 2 Retribution).",
+  "strategies": [
+    {"description": "Holy talents", "add": ["holy"], "if": {"spec": 0}},
+    {"description": "Protection talents", "add": ["protection"], "if": {"spec": 1}},
+    {"description": "Retribution talents", "add": ["retribution"], "if": {"spec": 2}},
+    {"include": "Legacy_Reaction_Common.json"}
+  ]
+}

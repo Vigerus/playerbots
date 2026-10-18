@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reaction state tree for Shaman bots: AiPlayerbot.StateTree.Reaction.Shaman -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Reaction">
+      <Config filename="statetree/Legacy_Reaction_Shaman.json"/>
+    </Task>
+  </Node>
+</Root>

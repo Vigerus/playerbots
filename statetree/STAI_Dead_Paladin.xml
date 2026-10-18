@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dead state tree for Paladin bots: AiPlayerbot.StateTree.Dead.Paladin -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_Dead_Paladin.json"/>
+    </Task>
+  </Node>
+</Root>

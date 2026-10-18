@@ -1,0 +1,11 @@
+{
+  "brain": "Legacy_Dead_Priest",
+  "state": "Dead",
+  "description": "Priest Dead strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Discipline, 1 Holy, 2 Shadow).",
+  "strategies": [
+    {"description": "Discipline talents", "add": ["discipline"], "if": {"spec": 0}},
+    {"description": "Holy talents", "add": ["holy"], "if": {"spec": 1}},
+    {"description": "Shadow talents", "add": ["shadow"], "if": {"spec": 2}},
+    {"include": "Legacy_Dead_Common.json"}
+  ]
+}

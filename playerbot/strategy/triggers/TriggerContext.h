@@ -101,6 +101,8 @@ namespace ai
 
             creators["has area debuff"] = [](PlayerbotAI* ai) { return new HasAreaDebuffTrigger(ai); };
             creators["has aura"] = [](PlayerbotAI* ai) { return new HasAuraTrigger(ai); };
+            creators["distance from master"] = [](PlayerbotAI* ai) { return new DistanceFromMasterTrigger(ai); };
+            creators["has strategy"] = [](PlayerbotAI* ai) { return new HasStrategyTrigger(ai); };
 
             creators["enemy out of melee"] = [](PlayerbotAI* ai) { return new EnemyOutOfMeleeTrigger(ai); };
             creators["enemy out of spell"] = [](PlayerbotAI* ai) { return new EnemyOutOfSpellRangeTrigger(ai); };

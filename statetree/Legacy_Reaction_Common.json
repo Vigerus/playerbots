@@ -1,0 +1,14 @@
+{
+  "brain": "Legacy_Reaction_Common",
+  "state": "Reaction",
+  "description": "Class independent Reaction strategies (context: random bots, groups, battlegrounds, config overrides). Included by the Default and class strategy lists.",
+  "strategies": [
+    {"add": ["react", "chat", "avoid aoe", "potions"]},
+    {
+      "description": "AiPlayerbot.RandomBotReactStrategies",
+      "change": "config:randomBotReactStrategies",
+      "if": {"autonomous": true}
+    },
+    {"description": "AiPlayerbot.ReactStrategies", "change": "config:reactStrategies", "if": {"autonomous": false}}
+  ]
+}

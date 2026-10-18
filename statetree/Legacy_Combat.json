@@ -1,0 +1,201 @@
+{
+  "brain": "Legacy_Combat",
+  "state": "Combat",
+  "description": "Default Combat strategies of StateNode_Legacy for every class (same as the built-in AiFactory defaults).",
+  "strategies": [
+    {
+      "description": "Warrior",
+      "if": {"class": "Warrior"},
+      "strategies": [
+        {
+          "description": "Protection talents",
+          "if": {"spec": 2},
+          "strategies": [
+            {"add": ["protection", "tank assist", "pull", "pull back", "mark rti"]}
+          ],
+          "else": [
+            {
+              "description": "Arms talents or below level 30",
+              "if": {"any": [{"maxLevel": 29}, {"spec": 0}]},
+              "strategies": [
+                {"add": ["arms", "dps assist", "behind"]}
+              ],
+              "else": [
+                {"description": "Fury talents", "add": ["fury", "dps assist", "behind"]}
+              ]
+            }
+          ]
+        },
+        {"add": ["aoe", "cc", "buff", "boost"]}
+      ]
+    },
+    {
+      "description": "Paladin",
+      "if": {"class": "Paladin"},
+      "strategies": [
+        {"description": "Holy talents", "add": ["holy", "dps assist", "flee", "ranged"], "if": {"spec": 0}},
+        {
+          "description": "Protection talents",
+          "add": ["protection", "tank assist", "pull", "pull back", "close"],
+          "if": {"spec": 1}
+        },
+        {"description": "Retribution talents", "add": ["retribution", "dps assist", "close"], "if": {"spec": 2}},
+        {"add": ["cure", "aoe", "cc", "buff", "boost", "aura", "blessing"]},
+        {
+          "description": "solo holy paladin fights in melee",
+          "if": {"autonomous": true, "inGroup": false, "spec": 0},
+          "strategies": [
+            {"add": ["retribution", "close"]},
+            {"remove": "ranged"}
+          ]
+        }
+      ]
+    },
+    {
+      "description": "Hunter",
+      "if": {"class": "Hunter"},
+      "strategies": [
+        {"description": "Beast Mastery talents", "add": ["beast mastery"], "if": {"spec": 0}},
+        {"description": "Marksmanship talents", "add": ["marksmanship"], "if": {"spec": 1}},
+        {"description": "Survival talents", "add": ["survival"], "if": {"spec": 2}},
+        {"add": ["dps assist", "ranged", "cc", "aoe", "buff", "boost", "aspect", "sting", "pet"]}
+      ]
+    },
+    {
+      "description": "Rogue",
+      "if": {"class": "Rogue"},
+      "strategies": [
+        {"description": "Assassination talents", "add": ["assassination"], "if": {"spec": 0}},
+        {"description": "Combat talents", "add": ["combat"], "if": {"spec": 1}},
+        {"description": "Subtlety talents", "add": ["subtlety"], "if": {"spec": 2}},
+        {"add": ["dps assist", "aoe", "close", "cc", "behind", "stealth", "poisons", "buff", "boost"]}
+      ]
+    },
+    {
+      "description": "Priest",
+      "if": {"class": "Priest"},
+      "strategies": [
+        {"description": "Discipline talents", "add": ["discipline"], "if": {"spec": 0}},
+        {"description": "Holy talents", "add": ["holy"], "if": {"spec": 1}},
+        {"description": "Shadow talents", "add": ["shadow"], "if": {"spec": 2}},
+        {"add": ["dps assist", "flee", "cure", "ranged", "cc", "buff", "aoe", "boost"]},
+        {
+          "description": "solo healer also deals damage",
+          "add": "offdps",
+          "if": {"autonomous": true, "inGroup": false, "spec": [0, 1]}
+        }
+      ]
+    },
+    {
+      "description": "Shaman",
+      "if": {"class": "Shaman"},
+      "strategies": [
+        {"description": "Elemental talents", "add": ["elemental", "aoe", "cc", "flee", "ranged"], "if": {"spec": 0}},
+        {"description": "Enhancement talents", "add": ["enhancement", "aoe", "cc", "close"], "if": {"spec": 1}},
+        {"description": "Restoration talents", "add": ["restoration", "flee", "ranged"], "if": {"spec": 2}},
+        {"add": ["dps assist", "cure", "totems", "buff", "boost"]},
+        {
+          "description": "solo restoration shaman fights as elemental",
+          "add": ["elemental", "aoe", "cc"],
+          "if": {"autonomous": true, "inGroup": false, "spec": 2}
+        }
+      ]
+    },
+    {
+      "description": "Mage",
+      "if": {"class": "Mage"},
+      "strategies": [
+        {"description": "Arcane talents", "add": ["arcane"], "if": {"spec": 0}},
+        {"description": "Fire talents", "add": ["fire"], "if": {"spec": 1}},
+        {"description": "Frost talents", "add": ["frost"], "if": {"spec": 2}},
+        {"add": ["dps assist", "flee", "cure", "ranged", "cc", "buff", "aoe", "boost"]},
+        {"description": "pull with Shoot", "add": "pull", "enabled": false},
+        {"description": "save mana for longer fights", "add": "conserve mana", "enabled": false},
+        {"description": "keep distance from melee attackers", "add": "kite", "enabled": false},
+        {"description": "prefer instant/short casts", "add": "cast time", "enabled": false},
+        {"description": "avoid pulling aggro from the tank", "add": "threat", "enabled": false},
+        {"description": "attack the raid-icon marked target", "add": "focus rti targets", "enabled": false}
+      ]
+    },
+    {
+      "description": "Warlock",
+      "if": {"class": "Warlock"},
+      "strategies": [
+        {"description": "Affliction talents", "add": ["affliction"], "if": {"spec": 0}},
+        {"description": "Demonology talents", "add": ["demonology"], "if": {"spec": 1}},
+        {"description": "Destruction talents", "add": ["destruction"], "if": {"spec": 2}},
+        {"add": ["dps assist", "flee", "ranged", "cc", "pet", "aoe", "buff", "boost", "curse"]}
+      ]
+    },
+    {
+      "description": "Druid",
+      "if": {"class": "Druid"},
+      "strategies": [
+        {"description": "Balance talents", "add": ["balance", "dps assist", "flee", "ranged"], "if": {"spec": 0}},
+        {
+          "description": "Feral talents",
+          "add": ["tank feral", "tank assist", "pull", "pull back", "close", "behind"],
+          "if": {"spec": 1}
+        },
+        {"description": "Restoration talents", "add": ["restoration", "dps assist", "flee", "ranged"], "if": {"spec": 2}},
+        {"add": ["cure", "aoe", "cc", "buff", "boost"]},
+        {
+          "description": "solo restoration druid fights as balance",
+          "if": {"autonomous": true, "inGroup": false, "spec": 2},
+          "strategies": [
+            {"add": ["balance", "ranged"]},
+            {"remove": "close"}
+          ]
+        },
+        {
+          "description": "half of solo feral druids play cat instead of bear",
+          "if": {"autonomous": true, "inGroup": false, "spec": 1, "minLevel": 20, "chance": 0.5},
+          "strategies": [
+            {"add": ["dps feral", "behind"]},
+            {"remove": "ranged"},
+            {
+              "description": "AiFactory adds \"close\" \"stealth\" (missing comma, so no stealth); enable to add it",
+              "add": "stealth",
+              "enabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {"include": "Legacy_Combat_Common.json"},
+    {
+      "description": "Rogue",
+      "if": {"class": "Rogue"},
+      "strategies": [
+        {"add": ["behind", "stealth", "poisons", "buff"], "if": {"battleground": true}}
+      ]
+    },
+    {
+      "description": "Shaman",
+      "if": {"class": "Shaman"},
+      "strategies": [
+        {
+          "description": "restoration shaman fights as elemental in battlegrounds",
+          "add": ["elemental", "aoe", "cc"],
+          "if": {"battleground": true, "spec": 2}
+        }
+      ]
+    },
+    {
+      "description": "Druid",
+      "if": {"class": "Druid"},
+      "strategies": [
+        {
+          "description": "restoration druid fights as balance in battlegrounds",
+          "add": "balance",
+          "if": {"battleground": true, "spec": 2}
+        },
+        {
+          "description": "feral druid plays cat in battlegrounds",
+          "add": ["behind", "dps feral", "stealth"],
+          "if": {"battleground": true, "spec": 1}
+        }
+      ]
+    }
+  ]
+}

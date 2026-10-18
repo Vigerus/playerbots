@@ -10,6 +10,8 @@
 #include "playerbot/strategy/actions/CheatAction.h"
 
 #include "playerbot/TravelMgr.h"
+#include "playerbot/StateTree/STAI_Tree.h"
+#include "playerbot/StateTree/Tasks/LegacyBrain.h"
 
 #include "instancebot/GuildProgressSubsystem.h"
 
@@ -756,6 +758,10 @@ bool PlayerbotAIConfig::Initialize()
 
     if (sPlayerbotAIConfig.randomBotJoinBG)
         sRandomPlayerbotMgr.LoadBattleMastersCache();
+
+    sLog.outString("Loading state trees...");
+    sLegacyBrainLibrary.Clear();
+    sSTAITreeLibrary.LoadFromConfig();
 
     sLog.outString("---------------------------------------");
     sLog.outString("        AI Playerbot initialized       ");

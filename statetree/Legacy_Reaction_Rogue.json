@@ -1,0 +1,11 @@
+{
+  "brain": "Legacy_Reaction_Rogue",
+  "state": "Reaction",
+  "description": "Rogue Reaction strategies of StateNode_Legacy. Spec entries use the talent tab with the most points (0 Assassination, 1 Combat, 2 Subtlety).",
+  "strategies": [
+    {"description": "Assassination talents", "add": ["assassination"], "if": {"spec": 0}},
+    {"description": "Combat talents", "add": ["combat"], "if": {"spec": 1}},
+    {"description": "Subtlety talents", "add": ["subtlety"], "if": {"spec": 2}},
+    {"include": "Legacy_Reaction_Common.json"}
+  ]
+}

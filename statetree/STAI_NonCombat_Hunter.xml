@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NonCombat state tree for Hunter bots: AiPlayerbot.StateTree.NonCombat.Hunter -->
+<Root>
+  <Node name="Legacy">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_NonCombat_Hunter.json"/>
+    </Task>
+  </Node>
+</Root>
