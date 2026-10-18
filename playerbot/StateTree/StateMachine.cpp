@@ -178,7 +178,9 @@ static std::string SanitizeDebugField(std::string_view value)
 //   N^<type>^<node name>^<active 0|1>^<last action>^<last relevance>^<last status>^<strategy,strategy,...>
 //   K^<type>^<depth>^<tree name>^<running 0|1>       tree stack of the state above, bottom (depth 0) to top
 //   G^<type>^<depth>^<task name>                       global task of the tree K^<type>^<depth>
-//   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>     (nodes of the top tree)
+//   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>^<running task index or -1>^<task;task;...>
+//       nodes of the top tree; task class / info of the running task (the first one while inactive), then every
+//       task of the node in the order they run
 //       conditions: <result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked
 //   T^<from type or *>^<to type or <prev>>^<condition label>
 std::string StateMachine::BuildDebugSnapshot() const
@@ -255,7 +257,9 @@ std::string StateMachine::BuildDebugSnapshot() const
 
             out << "~C^" << GetHLSStateTypeName(type) << "^" << (child.active ? 1 : 0)
                 << "^" << SanitizeDebugField(child.name) << "^" << SanitizeDebugField(child.taskClass)
-                << "^" << conditions << "^" << SanitizeDebugField(child.info);
+                << "^" << conditions << "^" << SanitizeDebugField(child.info) << "^" << child.currentTask << "^";
+            for (size_t task = 0; task < child.tasks.size(); ++task)
+                out << (task ? ";" : "") << SanitizeDebugField(child.tasks[task]);
         }
     }
 

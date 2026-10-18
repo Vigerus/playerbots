@@ -14,7 +14,9 @@ namespace ai
     // another like a stack frame) and its resolved conditions; the tree and its tasks stay shared.
     // Nodes are checked top to bottom: the first node whose conditions pass is entered; an earlier node interrupts
     // the running one as soon as its conditions pass; the running node stays active until its task returns
-    // Succeeded or Failed (a failed node is skipped for a while). Once every node was evaluated (the node finished,
+    // Succeeded or Failed (a failed node is skipped for a while). The tasks of a node run one after another: a
+    // succeeded task is exited and the next one entered (ticked from the next tick on), the node succeeds with its
+    // last task; a failed task fails the node, the next tick starts again at the first node. Once every node was evaluated (the node finished,
     // or none can be entered) the tree loops over: the next tick starts again at its first node.
     // A tree runs until a STAI_FinishTreeTask node of it succeeds; that is the only way it finishes on its own.
     // Trees form a stack (Task_RunSubtree): only the top tree selects nodes, the trees below it just tick their
@@ -57,10 +59,18 @@ namespace ai
         const char* GetActiveNodeName() const;
 
     private:
+        // a task of the tree with the bot's context of it (in contextStorage)
+        struct TaskSlot
+        {
+            const STAI_TaskDef* def = nullptr;
+            STAI_TaskContext* context = nullptr;
+        };
+
         struct RuntimeNode
         {
             const STAI_NodeDef* def = nullptr;
-            STAI_TaskContext* context = nullptr;                  // the bot's context of the node, in contextStorage
+            std::vector<TaskSlot> tasks;                          // per task of the node, in order
+            int current = -1;                                     // task running while the node is active
             std::vector<Trigger*> triggers;                       // per condition, nullptr = unknown trigger
             std::vector<StateNodeConditionResult> results;        // per condition, last update
             bool failed = false;
@@ -68,14 +78,9 @@ namespace ai
             uint64 activityId = 0;
         };
 
-        struct GlobalTask
-        {
-            const STAI_NodeDef* def = nullptr;
-            STAI_TaskContext* context = nullptr;                  // in contextStorage
-        };
-
         void CreateContexts();
         bool CanEnter(RuntimeNode& node, uint32 now);
+        void EnterNode(int index);
         void ExitActive();
         void EnterGlobals();
         void ExitGlobals();
@@ -83,7 +88,7 @@ namespace ai
         STAI_TaskContext context;
         std::shared_ptr<const STAI_TreeAsset> asset;
         std::vector<RuntimeNode> nodes;
-        std::vector<GlobalTask> globals;
+        std::vector<TaskSlot> globals;
         bool running = false;                                    // between OnStart and OnFinish, the global tasks are entered
         std::unique_ptr<std::max_align_t[]> contextStorage;      // the contexts of all nodes, one after another
         int active = -1;

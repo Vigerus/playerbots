@@ -61,8 +61,9 @@ namespace ai
     // Task of a STAI state tree node (<Task class="...">). Created once per tree file when it is loaded and
     // shared by every bot running that tree: tasks hold only their configuration, everything per bot lives in
     // the context the tree constructs for the node (see GetContextType) and passes to every call.
-    // Lifecycle while the node is selected: OnEnter, OnTick every bot update until it returns Succeeded or
-    // Failed (Running keeps the node active), OnExit (also called when an earlier node interrupts it).
+    // Lifecycle when its turn in the node comes (a node's tasks run one after another): OnEnter, OnTick every bot
+    // update until it returns Succeeded (the next task of the node is entered) or Failed (the node fails), OnExit
+    // (also called when an earlier node interrupts the node or the tree finishes).
     class STAI_Task
     {
     public:

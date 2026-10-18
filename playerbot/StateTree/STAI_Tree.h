@@ -21,13 +21,21 @@ namespace ai
         std::string GetText() const { return negate ? "NOT " + trigger : trigger; }
     };
 
+    // <Task class="..."> task settings </Task>
+    struct STAI_TaskDef
+    {
+        std::string taskClass;
+        STAI_TaskConfig taskConfig;
+        std::unique_ptr<STAI_Task> task;             // shared by every bot running the tree
+    };
+
+    // Node of a tree. Its tasks run one after another: the first is entered with the node; when one succeeds it
+    // is exited and the next one entered; the node succeeds with its last task and fails with any of them.
     struct STAI_NodeDef
     {
         std::string name;
         std::vector<STAI_ConditionDef> conditions;   // all must pass, empty = always
-        std::string taskClass;
-        STAI_TaskConfig taskConfig;
-        std::unique_ptr<STAI_Task> task;             // shared by every bot running the tree
+        std::vector<STAI_TaskDef> tasks;             // in order, at least one
     };
 
     // A state tree loaded from a STAI_*.xml file:
@@ -39,6 +47,7 @@ namespace ai
     //     <Node name="...">
     //       <Conditions> <Condition trigger="..."/> ... </Conditions>
     //       <Task class="..."> task settings </Task>
+    //       ...                                   more tasks, run one after another
     //     </Node>
     //     ...
     //   </Root>
@@ -49,9 +58,9 @@ namespace ai
         std::string name;   // file stem, e.g. STAI_Combat_Mage
         std::string file;
         std::vector<STAI_NodeDef> nodes;
-        // scopeless tasks: not part of any node, entered when the tree starts, updated on every tick and exited
-        // when it finishes (their Update result is ignored); name = task class, no conditions
-        std::vector<STAI_NodeDef> globalTasks;
+        // scopeless tasks: not part of any node, entered when the tree starts, ticked on every tick and exited
+        // when it finishes (their OnTick result is ignored)
+        std::vector<STAI_TaskDef> globalTasks;
 
         // Throws std::runtime_error with a readable message on parse/validation errors.
         static std::shared_ptr<const STAI_TreeAsset> Load(const std::string& file);

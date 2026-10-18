@@ -60,7 +60,7 @@ namespace
     }
 
     // <Task class="..."> settings </Task>: validated and created (shared by every bot)
-    void ParseTask(const ptree& task, const std::string& where, STAI_NodeDef& def)
+    void ParseTask(const ptree& task, const std::string& where, STAI_TaskDef& def)
     {
         def.taskClass = Attribute(task, "class");
         const STAI_TaskFactory::TaskClass* taskClass = sSTAITaskFactory.FindTask(def.taskClass);
@@ -127,9 +127,8 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
                     throw std::runtime_error(file + ": unexpected <" + taskKey + "> in <Global> (expected <Task class=\"...\">)");
 
                 ++globalIndex;
-                STAI_NodeDef def;
+                STAI_TaskDef def;
                 ParseTask(task, file + " global task #" + std::to_string(globalIndex), def);
-                def.name = def.taskClass;
                 asset->globalTasks.push_back(std::move(def));
             }
             continue;
@@ -143,30 +142,41 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
 
         STAI_NodeDef def;
 
-        if (auto conditions = node.get_child_optional("Conditions"))
+        for (const auto& [childKey, child] : node)
         {
-            for (const auto& [conditionKey, condition] : *conditions)
+            if (childKey == "<xmlattr>" || childKey == "<xmlcomment>")
+                continue;
+
+            if (childKey == "Conditions")
             {
-                if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
-                    continue;
-                if (conditionKey != "Condition")
-                    throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition trigger=\"...\"/>)");
-                def.conditions.push_back(ParseCondition(condition, where));
+                for (const auto& [conditionKey, condition] : child)
+                {
+                    if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
+                        continue;
+                    if (conditionKey != "Condition")
+                        throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition trigger=\"...\"/>)");
+                    def.conditions.push_back(ParseCondition(condition, where));
+                }
             }
+            else if (childKey == "Task")
+            {
+                // tasks of a node run one after another, in file order
+                STAI_TaskDef task;
+                ParseTask(child, where + " task #" + std::to_string(def.tasks.size() + 1), task);
+                def.tasks.push_back(std::move(task));
+            }
+            else if (childKey == "Global")
+                throw std::runtime_error(where + ": <Global> is only allowed directly under <Root>");
+            else
+                throw std::runtime_error(where + ": unexpected <" + childKey + "> in <Node> (expected <Conditions> or <Task>)");
         }
 
-        if (node.get_child_optional("Global"))
-            throw std::runtime_error(where + ": <Global> is only allowed directly under <Root>");
-
-        auto task = node.get_child_optional("Task");
-        if (!task)
+        if (def.tasks.empty())
             throw std::runtime_error(where + ": missing <Task class=\"...\">");
-
-        ParseTask(*task, where, def);
 
         def.name = Attribute(node, "name");
         if (def.name.empty())
-            def.name = def.taskClass;
+            def.name = def.tasks.front().taskClass;
 
         asset->nodes.push_back(std::move(def));
     }
@@ -182,14 +192,17 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeSingleTask(const std::
     auto asset = std::make_shared<STAI_TreeAsset>();
     asset->name = name;
 
+    STAI_TaskDef task;
+    task.taskClass = taskClass;
+    task.taskConfig.put("<xmlattr>.class", taskClass);
+    if (const STAI_TaskFactory::TaskClass* factoryClass = sSTAITaskFactory.FindTask(taskClass))
+        task.task = factoryClass->create(task.taskConfig);
+    if (!task.task)
+        throw std::runtime_error("unknown task class '" + taskClass + "'");
+
     STAI_NodeDef def;
     def.name = taskClass;
-    def.taskClass = taskClass;
-    def.taskConfig.put("<xmlattr>.class", taskClass);
-    if (const STAI_TaskFactory::TaskClass* factoryClass = sSTAITaskFactory.FindTask(taskClass))
-        def.task = factoryClass->create(def.taskConfig);
-    if (!def.task)
-        throw std::runtime_error("unknown task class '" + taskClass + "'");
+    def.tasks.push_back(std::move(task));
     asset->nodes.push_back(std::move(def));
 
     return asset;
@@ -210,10 +223,16 @@ void STAI_TreeLibrary::RemoveBrokenSubtrees(FileMap& files, uint32& errors)
     auto referencedTrees = [](const STAI_TreeAsset& asset)
     {
         std::vector<std::string> references;
-        for (const auto* defs : { &asset.globalTasks, &asset.nodes })
-            for (const STAI_NodeDef& def : *defs)
-                for (const std::string& file : def.task->GetReferencedTrees())
-                    references.push_back(file);
+        auto add = [&](const STAI_TaskDef& task)
+        {
+            for (const std::string& file : task.task->GetReferencedTrees())
+                references.push_back(file);
+        };
+        for (const STAI_TaskDef& task : asset.globalTasks)
+            add(task);
+        for (const STAI_NodeDef& node : asset.nodes)
+            for (const STAI_TaskDef& task : node.tasks)
+                add(task);
         return references;
     };
 
