@@ -25,7 +25,7 @@ set(bots_PCH "${CMAKE_CURRENT_SOURCE_DIR}/botpch.h")
 file(GLOB Playerbot_Source ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/*.h)
     source_group("Player Bot" FILES ${Playerbot_Source})
 
-file(GLOB Playerbot_StateTree ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/*.h ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/Tasks/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/Tasks/*.h)
+file(GLOB Playerbot_StateTree ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/*.h ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/Tasks/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/Tasks/*.h ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/Providers/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/StateTree/Providers/*.h)
     source_group("Player Bot\\StateTree" FILES ${Playerbot_StateTree})
 
 file(GLOB Instancebot_Source ${CMAKE_CURRENT_SOURCE_DIR}/instancebot/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/instancebot/*.h)

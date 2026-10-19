@@ -1,82 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- NonCombat state tree for Mage bots: AiPlayerbot.StateTree.NonCombat.Mage -->
+<!-- picks the subtree for the bot's map; an instance change selects again -->
 <Root>
   <Global>
-    <!-- fires onMasterFar while the master is beyond follow range -->
-    <Task class="MasterDistance_GlobalTask">
-      <Range value="follow"/>
-    </Task>
-    <!-- watches the buffs of the bot and its group: needs, onMissingBuff -->
-    <Task class="BuffProvider_GlobalTask">
-      <Buff spellid="1459"/>   <!-- Arcane Intellect (single) -->
-      <Buff spellid="23028"/>  <!-- Arcane Brilliance (group, same buff as Arcane Intellect) -->
-      <Buff spellid="6117"/>   <!-- Mage Armor (self) -->
-    </Task>
-    <!-- watches the bot and its group for dispellable curses (no <Aura>: every curse): whoNeeds, onNeedsHelp -->
-    <Task class="CurseProvider_GlobalTask"/>
-    <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
-    <Task class="HealthProvider_GlobalTask"/>
-    <Task class="ManaProvider_GlobalTask"/>
+    <!-- the bot's map / instance: mapId, instanceId, inDungeon, onInstanceChanged -->
+    <Task class="InstanceProvider_GlobalTask"/>
   </Global>
-  <Node name="Follow player">
+  <Node name="Scholomance">
     <Conditions>
-      <Condition trigger="has strategy::follow"/>
-      <Condition trigger="has strategy::stay" negate="true"/>
-      <Condition trigger="distance from master::greater::follow"/>
+      <Condition binding="Root|InstanceProvider_GlobalTask::mapId" compare="equal" value="289"/>
     </Conditions>
-    <Task class="Task_Follow">
-      <Target value="player"/>
-      <AcceptableRadius value="follow"/>
-    </Task>
-  </Node>
-  <Node name="Check Decurse">
-    <Conditions>
-      <Condition binding="Root|CurseProvider_GlobalTask::whoNeeds"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Remove Lesser Curse">
-      <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
-    </Task>
-  </Node>
-  <Node name="Check Missing Buffs">
-    <Conditions>
-      <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
-    </Conditions>
-    <Task class="Task_CastBuff">
-      <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
-    </Task>
-  </Node>
-  <Node name="Eat and Drink">
-    <Conditions match="any">
-      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
-    </Conditions>
-    <Task class="Task_EatAndDrink">
-      <Health until="100"/>
-      <Mana until="100"/>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/STAI_NonCombat_Scholomance_Mage.xml"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
     </Transitions>
   </Node>
-  <Node name="Legacy">
+  <Node name="Outdoors">
     <Conditions/>
-    <Task class="StateNode_Legacy">
-      <Config filename="statetree/Legacy_NonCombat_Mage.json"/>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/STAI_NonCombat_Outdoors_Mage.xml"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
-      <Transition type="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" node="Root|Check Decurse"/>
-      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Missing Buffs"/>
-      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Eat and Drink">
-        <Conditions>
-          <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
-        </Conditions>
-      </Transition>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Eat and Drink">
-        <Conditions>
-          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
-        </Conditions>
-      </Transition>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
     </Transitions>
   </Node>
 </Root>

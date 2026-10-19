@@ -1,7 +1,7 @@
 #pragma once
 
 #include "playerbot/StateTree/STAI_TaskFactory.h"
-#include "playerbot/StateTree/Tasks/STAI_BuffTypes.h"
+#include "playerbot/StateTree/Providers/STAI_BuffTypes.h"
 
 #include "Entities/ObjectGuid.h"
 

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "playerbot/StateTree/Tasks/STAI_BuffTypes.h"
+#include "playerbot/StateTree/Providers/STAI_BuffTypes.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
-#include "playerbot/StateTree/Tasks/STAI_GroupAuraWatch.h"
+#include "playerbot/StateTree/Providers/STAI_GroupAuraWatch.h"
 
 #include <string>
 #include <vector>

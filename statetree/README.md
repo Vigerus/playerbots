@@ -80,10 +80,12 @@ Tasks:
 | `CurseProvider_GlobalTask` | `<Aura spellid="..."/>` per aura (any rank), optional | global task, not ticked: watches the bot and its group for the listed auras, or every dispellable curse when none is listed; property `whoNeeds` (the cursed members, the bot first), delegate `onNeedsHelp` fired when an evaluation finds any |
 | `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="whoNeeds" external="..."/>` | casts the spell on the first `whoNeeds` target it can reach; waits for the cast and the GCD; Succeeded also when `whoNeeds` is empty, Failed when the bot does not know the spell or reaches no target |
 | `HealthProvider_GlobalTask` / `ManaProvider_GlobalTask` | none | global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second |
+| `InstanceProvider_GlobalTask` | none | global task, not ticked: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again |
 | `Task_EatAndDrink`   | `<Health until="100"/>`, `<Mana until="100"/>` (percent, default 100) | eats (everyone) and drinks (mana users) in parallel with the legacy food / drink actions (bags or cheat, not their thresholds), again when the food ran out early; Succeeded when both targets are reached, Failed with nothing to eat or drink; `OnExit` stands the bot up |
 | `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
 
-New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`) and are registered in `STAI_BuiltinTasks.cpp`.
+New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`; global tasks that publish properties and delegates for
+the tree, the providers, in `playerbot/StateTree/Providers/`) and are registered in `STAI_BuiltinTasks.cpp`.
 
 Global tasks (`<Global>` directly under `<Root>`) belong to no node: they are entered when the tree starts and exited
 when it stops. Tasks expose properties and delegates of their context (`STAI_Task::GetProperties` / `GetDelegates`),
@@ -120,8 +122,10 @@ task.
 - `node="Root"` selects again from the first node, `Root|<name>` enters that node (its conditions still have to pass).
 
 Unknown paths, properties of different types and delegates that do not exist stop the server when the trees load.
-The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. `STAI_NonCombat_Mage.xml` also
-decurses and buffs: Legacy goes to Check Decurse when someone is cursed (Remove Lesser Curse) and to Check Missing
+The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. `STAI_NonCombat_Mage.xml` only picks
+a subtree by the bot's map (`InstanceProvider_GlobalTask`): `STAI_NonCombat_Scholomance_Mage.xml` in Scholomance (map
+289), `STAI_NonCombat_Outdoors_Mage.xml` everywhere else; `onInstanceChanged` sends it back to Root to pick again. Both
+subtrees (copies for now) also decurse and buff: Legacy goes to Check Decurse when someone is cursed (Remove Lesser Curse) and to Check Missing
 Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is missing; each casts once per visit and is
 selected again while its `whoNeeds` / `needs` is not empty. The `buff` strategy is not in the Legacy lists.
 

@@ -1,9 +1,10 @@
 #include "playerbot/StateTree/STAI_TaskFactory.h"
 
-#include "playerbot/StateTree/Tasks/BuffProvider_GlobalTask.h"
-#include "playerbot/StateTree/Tasks/CurseProvider_GlobalTask.h"
-#include "playerbot/StateTree/Tasks/MasterDistance_GlobalTask.h"
-#include "playerbot/StateTree/Tasks/ResourceProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/BuffProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/CurseProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/InstanceProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/MasterDistance_GlobalTask.h"
+#include "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/StateNode_Legacy.h"
@@ -31,5 +32,6 @@ namespace ai
         factory.RegisterTask("HealthProvider_GlobalTask", { &HealthProvider_GlobalTask::Validate, &HealthProvider_GlobalTask::Create });
         factory.RegisterTask("ManaProvider_GlobalTask", { &ManaProvider_GlobalTask::Validate, &ManaProvider_GlobalTask::Create });
         factory.RegisterTask("Task_EatAndDrink", { &Task_EatAndDrink::Validate, &Task_EatAndDrink::Create });
+        factory.RegisterTask("InstanceProvider_GlobalTask", { &InstanceProvider_GlobalTask::Validate, &InstanceProvider_GlobalTask::Create });
     }
 }
