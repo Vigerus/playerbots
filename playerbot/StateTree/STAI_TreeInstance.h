@@ -82,18 +82,26 @@ namespace ai
             std::vector<RuntimeBinding> bindings;
         };
 
+        // the bot's resolved conditions of a node or a transition
+        struct RuntimeConditions
+        {
+            const STAI_ConditionsDef* def = nullptr;
+            std::vector<Trigger*> triggers;                       // per condition, nullptr = unknown trigger or bound condition
+            std::vector<const void*> boundValues;                 // per condition, the bound property (bound conditions)
+        };
+
         struct RuntimeNode
         {
             const STAI_NodeDef* def = nullptr;
             std::vector<TaskSlot> tasks;                          // per task of the node, in order
             int current = -1;                                     // task running while the node is active
-            std::vector<Trigger*> triggers;                       // per condition, nullptr = unknown trigger or bound condition
-            std::vector<const void*> boundValues;                 // per condition, the bound property (bound conditions)
+            RuntimeConditions conditions;
             std::vector<StateNodeConditionResult> results;        // per condition, last update
             bool failed = false;
             uint32 failedAtMs = 0;
             uint64 activityId = 0;
-            std::vector<std::pair<size_t, int>> delegateTransitions;  // index in delegates, target node (-1 = Root)
+            std::vector<RuntimeConditions> transitionConditions;      // per transition
+            std::vector<std::pair<size_t, size_t>> delegateTransitions;  // index in delegates, index of the transition
         };
 
         void CreateContexts();
@@ -104,6 +112,8 @@ namespace ai
         void EnterGlobals();
         void ExitGlobals();
         void ResolveMembers();
+        void ResolveConditions(RuntimeConditions& conditions, const STAI_ConditionsDef& def, const std::string& nodeName);
+        static bool CheckConditions(const RuntimeConditions& conditions, std::vector<StateNodeConditionResult>* results = nullptr);
         STAI_TaskContext* GetContext(const STAI_MemberRef& ref) const;
         static void ApplyBindings(const TaskSlot& slot);
         static void EnterTask(const TaskSlot& slot);

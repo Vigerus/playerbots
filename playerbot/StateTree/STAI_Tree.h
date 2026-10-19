@@ -26,18 +26,33 @@ namespace ai
     // with negate="true".
     // <Condition binding="Root|BuffProvider_GlobalTask::needs"/>: passes while that property is set (a container
     // not empty, otherwise its bool value), or not set with negate="true".
+    // <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>: compares a number
+    // property (compare: equal, lesser, lesser or equal, greater, greater or equal).
     struct STAI_ConditionDef
     {
+        enum class Compare : uint8 { None, Equal, Lesser, LesserOrEqual, Greater, GreaterOrEqual };
+
         std::string trigger;
         STAI_MemberRef binding;                         // used when trigger is empty
         const STAI_PropertyDef* property = nullptr;     // the bound property, resolved when the tree is loaded
+        Compare compare = Compare::None;
+        std::string compareText;
+        double value = 0.0;
         bool negate = false;
 
-        std::string GetText() const
-        {
-            const std::string text = trigger.empty() ? binding.path : trigger;
-            return negate ? "NOT " + text : text;
-        }
+        // a bound condition on the value of its property
+        bool Passes(const void* boundValue) const;
+        std::string GetText() const;
+    };
+
+    // <Conditions match="all|any">: all conditions must pass (default), or one of them; empty always passes
+    struct STAI_ConditionsDef
+    {
+        bool any = false;
+        std::vector<STAI_ConditionDef> list;
+
+        bool empty() const { return list.empty(); }
+        size_t size() const { return list.size(); }
     };
 
     // <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/> in a <Task>: the external property
@@ -69,6 +84,7 @@ namespace ai
 
     // <Transition type="OnSuccess|OnFailure|OnFinish" node="Root|<node name>"/>: where the tree goes when the node
     // finished (OnSuccess: its last task succeeded, OnFailure: one of its tasks failed, OnFinish: either one).
+    // A transition may have its own <Conditions> (same as a node's): it is only taken while they pass.
     // <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Buffs"/>:
     // the source delegate fired (a task of the tree broadcast it); the running node with this transition leaves for
     // the target on the bot's next update, when the target's conditions pass. A delegate fired while no node with
@@ -83,6 +99,7 @@ namespace ai
         const STAI_DelegateDef* delegate = nullptr;     // OnDelegate, resolved when the tree is loaded
         std::string path;                               // Root|<node name>, or Root
         int target = -1;                                // index of the node in the tree, -1 = Root
+        STAI_ConditionsDef conditions;                  // all / any must pass for the transition to be taken
 
         bool Matches(EActionRunStatus status) const
         {
@@ -98,7 +115,7 @@ namespace ai
     struct STAI_NodeDef
     {
         std::string name;
-        std::vector<STAI_ConditionDef> conditions;   // all must pass, empty = always
+        STAI_ConditionsDef conditions;               // all (or any) must pass, empty = always
         std::vector<STAI_TaskDef> tasks;             // in order, at least one
         // checked in order when the node finished, the first matching one is taken; none = the tree starts again
         // at its first node
@@ -112,12 +129,14 @@ namespace ai
     //       ...
     //     </Global>
     //     <Node name="...">
-    //       <Conditions> <Condition trigger="..."/> <Condition binding="Root|..."/> ... </Conditions>
+    //       <Conditions match="all|any"> <Condition trigger="..."/> <Condition binding="Root|..."/> ... </Conditions>
     //       <Task class="..."> task settings, <Binding local="..." external="Root|..."/> </Task>
     //       ...                                   more tasks, run one after another
     //       <Transitions>                         optional
     //         <Transition type="OnSuccess" node="Root|<node name>"/>
-    //         <Transition type="OnDelegate" source="Root|..." node="Root|<node name>"/>
+    //         <Transition type="OnDelegate" source="Root|..." node="Root|<node name>">
+    //           <Conditions> ... </Conditions>      optional
+    //         </Transition>
     //         ...
     //       </Transitions>
     //     </Node>

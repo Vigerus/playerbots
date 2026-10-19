@@ -38,6 +38,7 @@ namespace ai
     // global task, Root|<node name>|<TaskClass>::<name> for a node's task):
     //   <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>   copied into the task's own property
     //   <Condition binding="Root|BuffProvider_GlobalTask::needs"/>                passes while the value is set
+    //   <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>   compares a number
     struct STAI_PropertyDef
     {
         std::string name;
@@ -45,6 +46,7 @@ namespace ai
         std::function<void*(STAI_TaskContext& context)> get;    // the value in the bot's context
         std::function<void(void* to, const void* from)> assign;
         std::function<bool(const void* value)> isSet;           // containers: not empty, else bool(value); empty when untestable
+        std::function<double(const void* value)> toNumber;      // numbers (and bool) for compared conditions; empty otherwise
 
         template <class Context, class T>
         static STAI_PropertyDef Of(const std::string& name, T Context::* member)
@@ -56,6 +58,8 @@ namespace ai
                 def.isSet = [](const void* value) { return !static_cast<const T*>(value)->empty(); };
             else if constexpr (std::is_convertible_v<T, bool>)
                 def.isSet = [](const void* value) { return static_cast<bool>(*static_cast<const T*>(value)); };
+            if constexpr (std::is_arithmetic_v<T>)
+                def.toNumber = [](const void* value) { return static_cast<double>(*static_cast<const T*>(value)); };
             return def;
         }
     };

@@ -56,7 +56,8 @@ Conditions are the bot's triggers, by the same names (and `::` qualifiers) as in
 for example `critical health`, `far from master` or `has aura::spellid::23341::greater or equal::5`. A condition
 passes while its trigger is active, or while it is inactive with `negate="true"`. `<Condition binding="Root|..."/>`
 tests a task property instead (see below): it passes while the property is set (a container not empty, else its
-bool value). Triggers are looked up per bot
+bool value); with `compare="equal|lesser|lesser or equal|greater|greater or equal" value="<number>"` it compares a
+number property. `<Conditions match="any">` passes when one condition passes (default `all`). Triggers are looked up per bot
 (class triggers included); an unknown name is logged when the bot loads and never passes. The debug addon shows each
 condition green (passed), red (failed) or gray (not checked in the last update).
 
@@ -78,6 +79,8 @@ Tasks:
 | `BuffProvider_GlobalTask` | `<Buff spellid="..." scope="self\|single\|group"/>` per spell (any rank; scope optional, read from the spell's targets) | global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any; spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance) |
 | `CurseProvider_GlobalTask` | `<Aura spellid="..."/>` per aura (any rank), optional | global task, not ticked: watches the bot and its group for the listed auras, or every dispellable curse when none is listed; property `whoNeeds` (the cursed members, the bot first), delegate `onNeedsHelp` fired when an evaluation finds any |
 | `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="whoNeeds" external="..."/>` | casts the spell on the first `whoNeeds` target it can reach; waits for the cast and the GCD; Succeeded also when `whoNeeds` is empty, Failed when the bot does not know the spell or reaches no target |
+| `HealthProvider_GlobalTask` / `ManaProvider_GlobalTask` | none | global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second |
+| `Task_EatAndDrink`   | `<Health until="100"/>`, `<Mana until="100"/>` (percent, default 100) | eats (everyone) and drinks (mana users) in parallel with the legacy food / drink actions (bags or cheat, not their thresholds), again when the food ran out early; Succeeded when both targets are reached, Failed with nothing to eat or drink; `OnExit` stands the bot up |
 | `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`) and are registered in `STAI_BuiltinTasks.cpp`.
@@ -109,8 +112,11 @@ task.
 - `<Transition type="OnSuccess|OnFailure|OnFinish">` is taken when the node finished (none matching: the next update
   selects from the first node).
 - `<Transition type="OnDelegate" source="...">` is taken when the source delegate fired: at the start of the next
-  update, if the node is running and the target's conditions pass (otherwise the node keeps running). A delegate fired
-  while no node with a transition on it runs is remembered until one does.
+  update, if the node is running and the target can be entered (its conditions, a failed node's retry delay;
+  otherwise the node keeps running). A delegate fired while no node with a transition on it runs is remembered until
+  one does.
+- A transition can have its own `<Conditions>`: it is only taken while they pass (an OnDelegate transition whose
+  conditions fail uses the delegate up, it waits for the next one).
 - `node="Root"` selects again from the first node, `Root|<name>` enters that node (its conditions still have to pass).
 
 Unknown paths, properties of different types and delegates that do not exist stop the server when the trees load.
@@ -118,6 +124,10 @@ The class NonCombat trees follow the master through `MasterDistance_GlobalTask`.
 decurses and buffs: Legacy goes to Check Decurse when someone is cursed (Remove Lesser Curse) and to Check Missing
 Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is missing; each casts once per visit and is
 selected again while its `whoNeeds` / `needs` is not empty. The `buff` strategy is not in the Legacy lists.
+
+Every NonCombat tree eats and drinks through Eat and Drink (above Legacy, below the buff / decurse nodes): Legacy goes
+there when health changed below 80% or mana below 90%, the node is also selected while one of them is that low, and
+`Task_EatAndDrink` restores both to 100%. The `food` strategy is not in the Legacy lists.
 
 Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
 `STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. The tree adds an entry from `OnEnter` to

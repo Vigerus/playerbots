@@ -7,7 +7,9 @@
 #include <algorithm>
 #include <cstring>
 #include <cctype>
+#include <cstdlib>
 #include <functional>
+#include <sstream>
 #include <stdexcept>
 
 using namespace ai;
@@ -58,6 +60,52 @@ namespace
         else if (!negate.empty() && negate != "false" && negate != "0")
             throw std::runtime_error(where + ": negate must be true or false, got '" + negate + "'");
 
+        def.compareText = Attribute(condition, "compare");
+        if (!def.compareText.empty())
+        {
+            using Compare = STAI_ConditionDef::Compare;
+            static const std::pair<const char*, Compare> compares[] =
+            {
+                { "equal", Compare::Equal }, { "lesser", Compare::Lesser }, { "lesser or equal", Compare::LesserOrEqual },
+                { "greater", Compare::Greater }, { "greater or equal", Compare::GreaterOrEqual },
+            };
+            for (const auto& [name, compare] : compares)
+                if (def.compareText == name)
+                    def.compare = compare;
+            if (def.compare == Compare::None)
+                throw std::runtime_error(where + ": compare must be equal, lesser, lesser or equal, greater or greater or equal, got '" + def.compareText + "'");
+            if (!def.trigger.empty())
+                throw std::runtime_error(where + ": compare is only allowed on a binding condition");
+
+            const std::string value = Attribute(condition, "value");
+            char* end = nullptr;
+            def.value = std::strtod(value.c_str(), &end);
+            if (value.empty() || *end)
+                throw std::runtime_error(where + ": compare needs a number in value=\"...\", got '" + value + "'");
+        }
+
+        return def;
+    }
+
+    // <Conditions match="all|any"> <Condition .../> ... </Conditions>
+    STAI_ConditionsDef ParseConditions(const ptree& conditions, const std::string& where)
+    {
+        STAI_ConditionsDef def;
+
+        const std::string match = Attribute(conditions, "match");
+        if (match == "any")
+            def.any = true;
+        else if (!match.empty() && match != "all")
+            throw std::runtime_error(where + ": <Conditions> match must be all or any, got '" + match + "'");
+
+        for (const auto& [conditionKey, condition] : conditions)
+        {
+            if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
+                continue;
+            if (conditionKey != "Condition")
+                throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition trigger=\"...\"/>)");
+            def.list.push_back(ParseCondition(condition, where));
+        }
         return def;
     }
 
@@ -87,6 +135,15 @@ namespace
         def.path = Attribute(transition, "node");
         if (def.path != "Root" && (def.path.rfind(rootPathPrefix, 0) != 0 || def.path.size() == strlen(rootPathPrefix)))
             throw STAI_TreeFatalError(where + ": <Transition> node must be Root or a path starting with Root, e.g. \"Root|Legacy\", got '" + def.path + "'");
+
+        for (const auto& [key, child] : transition)
+        {
+            if (key == "<xmlattr>" || key == "<xmlcomment>")
+                continue;
+            if (key != "Conditions")
+                throw STAI_TreeFatalError(where + ": unexpected <" + key + "> in <Transition> (expected <Conditions>)");
+            def.conditions = ParseConditions(child, where);
+        }
 
         return def;
     }
@@ -196,16 +253,7 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
                 continue;
 
             if (childKey == "Conditions")
-            {
-                for (const auto& [conditionKey, condition] : child)
-                {
-                    if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
-                        continue;
-                    if (conditionKey != "Condition")
-                        throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition trigger=\"...\"/>)");
-                    def.conditions.push_back(ParseCondition(condition, where));
-                }
-            }
+                def.conditions = ParseConditions(child, where);
             else if (childKey == "Task")
             {
                 // tasks of a node run one after another, in file order
@@ -312,19 +360,27 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
         for (STAI_TaskDef& task : asset->nodes[i].tasks)
             resolveBindings(task, where);
 
-        for (STAI_ConditionDef& condition : asset->nodes[i].conditions)
+        auto resolveConditions = [&](STAI_ConditionsDef& conditions)
         {
-            if (!condition.trigger.empty())
-                continue;
-            condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
-            if (!condition.property)
-                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
-            if (!condition.property->isSet)
-                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
-        }
+            for (STAI_ConditionDef& condition : conditions.list)
+            {
+                if (!condition.trigger.empty())
+                    continue;
+                condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
+                if (!condition.property)
+                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
+                if (condition.compare == STAI_ConditionDef::Compare::None && !condition.property->isSet)
+                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
+                if (condition.compare != STAI_ConditionDef::Compare::None && !condition.property->toNumber)
+                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a number, it cannot be compared");
+            }
+        };
+
+        resolveConditions(asset->nodes[i].conditions);
 
         for (STAI_TransitionDef& transition : asset->nodes[i].transitions)
         {
+            resolveConditions(transition.conditions);
             if (transition.type != STAI_TransitionDef::Type::OnDelegate)
                 continue;
             transition.delegate = resolve(transition.source, where).FindDelegate(transition.source.member);
@@ -353,6 +409,38 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
     }
 
     return asset;
+}
+
+bool STAI_ConditionDef::Passes(const void* boundValue) const
+{
+    bool passed;
+    if (compare == Compare::None)
+        passed = property->isSet(boundValue);
+    else
+    {
+        const double number = property->toNumber(boundValue);
+        switch (compare)
+        {
+            case Compare::Equal: passed = number == value; break;
+            case Compare::Lesser: passed = number < value; break;
+            case Compare::LesserOrEqual: passed = number <= value; break;
+            case Compare::Greater: passed = number > value; break;
+            default: passed = number >= value; break;
+        }
+    }
+    return passed != negate;
+}
+
+std::string STAI_ConditionDef::GetText() const
+{
+    std::string text = trigger.empty() ? binding.path : trigger;
+    if (compare != Compare::None)
+    {
+        std::ostringstream out;
+        out << " " << compareText << " " << value;
+        text += out.str();
+    }
+    return negate ? "NOT " + text : text;
 }
 
 std::string STAI_TransitionDef::GetText() const

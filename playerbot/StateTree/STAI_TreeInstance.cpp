@@ -24,20 +24,6 @@ STAI_TreeInstance::STAI_TreeInstance(const STAI_TaskContext& context, std::share
         node.def = &def;
         for (const STAI_TaskDef& task : def.tasks)
             node.tasks.push_back({ &task, nullptr, {} });
-
-        // conditions are the bot's triggers (class contexts included), so they can only be resolved per bot
-        for (const STAI_ConditionDef& condition : def.conditions)
-        {
-            Trigger* trigger = nullptr;
-            if (!condition.trigger.empty())
-            {
-                trigger = context.ai->GetAiObjectContext()->GetTrigger(condition.trigger);
-                if (!trigger)
-                    sLog.outError("StateTree: %s node '%s': unknown trigger '%s' for %s, the condition never passes",
-                        this->asset->file.c_str(), def.name.c_str(), condition.trigger.c_str(), context.bot->GetName());
-            }
-            node.triggers.push_back(trigger);
-        }
         node.results.assign(def.conditions.size(), StateNodeConditionResult::NotChecked);
 
         nodes.push_back(std::move(node));
@@ -53,6 +39,46 @@ STAI_TreeInstance::STAI_TreeInstance(const STAI_TaskContext& context, std::share
 STAI_TaskContext* STAI_TreeInstance::GetContext(const STAI_MemberRef& ref) const
 {
     return ref.node < 0 ? globals[ref.task].context : nodes[ref.node].tasks[ref.task].context;
+}
+
+void STAI_TreeInstance::ResolveConditions(RuntimeConditions& conditions, const STAI_ConditionsDef& def, const std::string& nodeName)
+{
+    conditions.def = &def;
+    for (const STAI_ConditionDef& condition : def.list)
+    {
+        // triggers are the bot's (class contexts included), bound conditions read the property in its context
+        Trigger* trigger = nullptr;
+        if (!condition.trigger.empty())
+        {
+            trigger = context.ai->GetAiObjectContext()->GetTrigger(condition.trigger);
+            if (!trigger)
+                sLog.outError("StateTree: %s node '%s': unknown trigger '%s' for %s, the condition never passes",
+                    asset->file.c_str(), nodeName.c_str(), condition.trigger.c_str(), context.bot->GetName());
+        }
+        conditions.triggers.push_back(trigger);
+        conditions.boundValues.push_back(condition.trigger.empty() ? condition.property->get(*GetContext(condition.binding)) : nullptr);
+    }
+}
+
+bool STAI_TreeInstance::CheckConditions(const RuntimeConditions& conditions, std::vector<StateNodeConditionResult>* results)
+{
+    const STAI_ConditionsDef& def = *conditions.def;
+    if (def.empty())
+        return true;
+
+    // all: stops at the first failure; any: stops at the first pass (the rest is not checked)
+    for (size_t i = 0; i < def.size(); ++i)
+    {
+        const STAI_ConditionDef& condition = def.list[i];
+        const bool passed = condition.trigger.empty()
+            ? condition.Passes(conditions.boundValues[i])
+            : conditions.triggers[i] && conditions.triggers[i]->IsActive() != condition.negate;
+        if (results)
+            (*results)[i] = passed ? StateNodeConditionResult::Passed : StateNodeConditionResult::Failed;
+        if (passed == def.any)
+            return passed;
+    }
+    return !def.any;
 }
 
 void STAI_TreeInstance::ResolveMembers()
@@ -71,13 +97,15 @@ void STAI_TreeInstance::ResolveMembers()
         for (TaskSlot& task : node.tasks)
             resolveBindings(task);
 
-        // bound conditions read the property in its context
-        for (const STAI_ConditionDef& condition : node.def->conditions)
-            node.boundValues.push_back(condition.trigger.empty() ? condition.property->get(*GetContext(condition.binding)) : nullptr);
+        ResolveConditions(node.conditions, node.def->conditions, node.def->name);
 
-        // OnDelegate transitions: one remembered flag per source delegate
-        for (const STAI_TransitionDef& transition : node.def->transitions)
+        node.transitionConditions.resize(node.def->transitions.size());
+        for (size_t t = 0; t < node.def->transitions.size(); ++t)
         {
+            const STAI_TransitionDef& transition = node.def->transitions[t];
+            ResolveConditions(node.transitionConditions[t], transition.conditions, node.def->name);
+
+            // OnDelegate transitions: one remembered flag per source delegate
             if (transition.type != STAI_TransitionDef::Type::OnDelegate)
                 continue;
 
@@ -90,7 +118,7 @@ void STAI_TreeInstance::ResolveMembers()
                 // the delegate lives in a context destroyed with the tree: no unsubscribing needed
                 delegate->AddLambda([this, index]() { firedDelegates[index] = 1; });
             }
-            node.delegateTransitions.emplace_back(index, transition.target);
+            node.delegateTransitions.emplace_back(index, t);
         }
     }
 
@@ -121,12 +149,18 @@ EActionRunStatus STAI_TreeInstance::TickTask(const TaskSlot& slot, uint32 elapse
 
 bool STAI_TreeInstance::TakeDelegateTransition(uint32 now)
 {
-    for (const auto& [index, target] : nodes[active].delegateTransitions)
+    RuntimeNode& node = nodes[active];
+    for (const auto& [index, transitionIndex] : node.delegateTransitions)
     {
         if (!firedDelegates[index])
             continue;
 
+        // taken or not, the delegate is used up: it fires again when it has news
         firedDelegates[index] = 0;
+        if (!CheckConditions(node.transitionConditions[transitionIndex]))
+            continue;
+
+        const int target = node.def->transitions[transitionIndex].target;
         if (target < 0)
         {
             // Root: selected again from the first node
@@ -134,9 +168,9 @@ bool STAI_TreeInstance::TakeDelegateTransition(uint32 now)
             return true;
         }
 
-        // the running node stays when the target cannot be entered now
-        if (!CanEnter(nodes[target], now, true))
-            return false;
+        // the target must be enterable now (its conditions, a failed node's retry delay), else the next one is tried
+        if (!CanEnter(nodes[target], now))
+            continue;
 
         EnterNode(target);
         return true;
@@ -220,21 +254,7 @@ bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now, bool ignoreFaile
     if (!ignoreFailedDelay && node.failed && WorldTimer::getMSTimeDiff(node.failedAtMs, now) < failedRetryDelayMs)
         return false;
 
-    // all conditions must pass; the ones after the first failure are not checked
-    for (size_t i = 0; i < node.triggers.size(); ++i)
-    {
-        const STAI_ConditionDef& condition = node.def->conditions[i];
-        bool passed;
-        if (condition.trigger.empty())
-            passed = condition.property->isSet(node.boundValues[i]) != condition.negate;
-        else
-            passed = node.triggers[i] && node.triggers[i]->IsActive() != condition.negate;
-        node.results[i] = passed ? StateNodeConditionResult::Passed : StateNodeConditionResult::Failed;
-        if (!passed)
-            return false;
-    }
-
-    return true;
+    return CheckConditions(node.conditions, &node.results);
 }
 
 void STAI_TreeInstance::EnterNode(int index)
@@ -391,10 +411,11 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
 
 void STAI_TreeInstance::FinishNode(RuntimeNode& node, EActionRunStatus status)
 {
-    // the first matching transition replaces the selection from the first node on the next tick
-    for (const STAI_TransitionDef& transition : node.def->transitions)
+    // the first matching transition whose conditions pass replaces the selection from the first node on the next tick
+    for (size_t t = 0; t < node.def->transitions.size(); ++t)
     {
-        if (transition.Matches(status))
+        const STAI_TransitionDef& transition = node.def->transitions[t];
+        if (transition.Matches(status) && CheckConditions(node.transitionConditions[t]))
         {
             pendingTransition = transition.target;
             break;
@@ -459,7 +480,7 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
             child.tasks.push_back(task.def->task->GetTaskClass());
 
         for (size_t c = 0; c < node.def->conditions.size(); ++c)
-            child.conditions.emplace_back(node.def->conditions[c].GetText(), node.results[c]);
+            child.conditions.emplace_back(node.def->conditions.list[c].GetText(), node.results[c]);
 
         tree.nodes.push_back(std::move(child));
     }
