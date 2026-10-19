@@ -6,6 +6,9 @@
 #include "playerbot/strategy/values/PositionValue.h"
 #include "playerbot/strategy/values/AoeValues.h"
 
+#include "Spells/SpellAuraWorldSubsystem.h"
+#include "World/World.h"
+
 #include <regex>
 
 using namespace ai;
@@ -481,11 +484,86 @@ bool DeflectSpellTrigger::IsActive()
     return false;
 }
 
-bool HasAuraTrigger::IsActive()
+HasAuraTrigger::HasAuraTrigger(PlayerbotAI* ai, std::string spell, int interval, int auraTypeId) : Trigger(ai, spell, interval), Qualified(), auraTypeId(auraTypeId)
 {
+    if (!name.empty())
+    {
+        watchedSpellIds = ChatHelper::SpellIds(name);
+        if (watchedSpellIds.empty() && Utf8toWStr(name, watchedSpellName))
+            wstrToLower(watchedSpellName);
+    }
+
+    // the target is always the bot ("self target")
+    if (!bot)
+        return;
+
+    if (SpellAuraWorldSubsystem* auras = sWorld.GetSubsystem<SpellAuraWorldSubsystem>())
+    {
+        subscribedGuid = bot->GetObjectGuid();
+        auras->AddOnAuraApplied(subscribedGuid, this, &HasAuraTrigger::OnAuraApplied);
+        auras->AddOnAuraRemoved(subscribedGuid, this, &HasAuraTrigger::OnAuraRemoved);
+        auras->AddOnAuraStackChanged(subscribedGuid, this, &HasAuraTrigger::OnAuraStackChanged);
+    }
+
+    bActive = Evaluate();
+}
+
+HasAuraTrigger::~HasAuraTrigger()
+{
+    if (subscribedGuid.IsEmpty())
+        return;
+
+    if (SpellAuraWorldSubsystem* auras = sWorld.GetSubsystem<SpellAuraWorldSubsystem>())
+        auras->RemoveAll(subscribedGuid, this);
+}
+
+void HasAuraTrigger::Qualify(const std::string& qualifier)
+{
+    Qualified::Qualify(qualifier);
+
+    if (name.empty())
+    {
+        static const std::regex pattern(R"(spellid::(\d+))");
+        std::smatch match;
+        watchedSpellIds.clear();
+        if (std::regex_search(qualifier, match, pattern))
+            watchedSpellIds.push_back(atoi(match[1].str().c_str()));
+    }
+
+    bActive = Evaluate();
+}
+
+bool HasAuraTrigger::IsWatchedSpell(const SpellAuraHolder* holder) const
+{
+    if (!holder)
+        return false;
+
+    const SpellEntry* spellInfo = holder->GetSpellProto();
+    if (!watchedSpellIds.empty())
+        return std::find(watchedSpellIds.begin(), watchedSpellIds.end(), spellInfo->Id) != watchedSpellIds.end();
+
+    if (watchedSpellName.empty())
+        return false;
+
+    // same name match as PlayerbotAI::HasAura
+    const std::string auraName = spellInfo->SpellName[0];
+    return !auraName.empty() && auraName.length() == watchedSpellName.length() && Utf8FitTo(auraName, watchedSpellName);
+}
+
+void HasAuraTrigger::OnAuraChanged(Unit* target, SpellAuraHolder* holder)
+{
+    if (IsWatchedSpell(holder))
+        bActive = Evaluate();
+}
+
+bool HasAuraTrigger::Evaluate()
+{
+   if (!bot)
+      return false;
+
    if (!name.empty())
 	{
-      return ai->HasAura(name, GetTarget(), false, false, -1, false, 0, auraTypeId);
+      return ai->HasAura(name, bot, false, false, -1, false, 0, auraTypeId);
    }
 
    std::string str = getQualifier();
@@ -496,7 +574,7 @@ bool HasAuraTrigger::IsActive()
    {
       uint32 spell_id = atoi(match[1].str().c_str());
 
-      if (Aura* aura = ai->GetAura(spell_id, GetTarget()))
+      if (Aura* aura = ai->GetAura(spell_id, bot))
       {
          uint32 count = atoi(match[3].str().c_str());
          uint32 stack_size = aura->GetStackAmount();
@@ -535,7 +613,7 @@ bool HasAuraTrigger::IsActive()
    {
 
       uint32 spell_id = atoi(match[1].str().c_str());
-      return ai->HasAura(spell_id, GetTarget());
+      return ai->HasAura(spell_id, bot);
    }
 
    return false;

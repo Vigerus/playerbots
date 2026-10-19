@@ -654,16 +654,37 @@ namespace ai
         AmmoCountTrigger(PlayerbotAI* ai, std::string item, uint32 count = 1, int interval = 30) : ItemCountTrigger(ai, item, count, interval) {}
     };
 
+	// Event driven: subscribes to the aura events of the bot (SpellAuraWorldSubsystem) and re-evaluates only when
+	// a watched spell appears, disappears or changes its stack amount; IsActive returns the cached result.
 	class HasAuraTrigger : public Trigger, public Qualified
     {
 	public:
-		HasAuraTrigger(PlayerbotAI* ai, std::string spell = "", int interval = 1, int auraTypeId = TOTAL_AURAS) : Trigger(ai, spell, interval), Qualified(), auraTypeId(auraTypeId) {}
+		HasAuraTrigger(PlayerbotAI* ai, std::string spell = "", int interval = 1, int auraTypeId = TOTAL_AURAS);
+		virtual ~HasAuraTrigger();
 		virtual std::string GetTargetName() override { return "self target"; }
-		virtual bool IsActive() override;
+		virtual bool IsActive() override { return bActive; }
       virtual std::string getName() override;
+
+		using Qualified::Qualify;
+		// "spellid::<id>[::<comparison>::<stacks>]": watches that spell instead of the trigger's name
+		virtual void Qualify(const std::string& qualifier) override;
 
     protected:
         int auraTypeId;
+
+    private:
+        // the full check against the bot's current auras
+        bool Evaluate();
+        bool IsWatchedSpell(const SpellAuraHolder* holder) const;
+        void OnAuraChanged(Unit* target, SpellAuraHolder* holder);
+        void OnAuraApplied(Unit* target, SpellAuraHolder* holder) { OnAuraChanged(target, holder); }
+        void OnAuraRemoved(Unit* target, SpellAuraHolder* holder, AuraRemoveMode mode) { OnAuraChanged(target, holder); }
+        void OnAuraStackChanged(Unit* target, SpellAuraHolder* holder, uint32 oldStackAmount, uint32 newStackAmount) { OnAuraChanged(target, holder); }
+
+        ObjectGuid subscribedGuid;
+        std::vector<uint32> watchedSpellIds;    // empty: spells are matched by name
+        std::wstring watchedSpellName;
+        bool bActive = false;
 	};
 
     class HasNoAuraTrigger : public Trigger 
