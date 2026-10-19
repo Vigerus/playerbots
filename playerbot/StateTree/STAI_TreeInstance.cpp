@@ -271,7 +271,7 @@ void STAI_TreeInstance::EnterNode(int index)
     for (const TaskSlot& task : node.tasks)
         logged = logged && task.def->task->LogsNodeActivity();
     if (context.activity && logged)
-        node.activityId = context.activity->Begin("node", node.def->name, node.tasks.front().def->task->GetTaskClass());
+        node.activityId = context.activity->Begin("node", node.def->name, node.tasks.front().def->task->GetName());
 
     EnterTask(node.tasks.front());
 }
@@ -461,7 +461,10 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
     tree.running = running;
 
     for (const TaskSlot& global : globals)
-        tree.globalTasks.push_back(global.def->taskClass);
+    {
+        tree.globalTasks.push_back(global.def->task->GetName());
+        tree.globalSpells.push_back(global.def->task->GetDebugSpells(*global.context));
+    }
 
     for (size_t i = 0; i < nodes.size(); ++i)
     {
@@ -471,13 +474,14 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
         StateNodeDebugChild child;
         child.name = node.def->name;
         child.active = int(i) == active;
-        child.taskClass = shown.def->task->GetTaskClass();
+        child.taskClass = shown.def->task->GetName();
+        child.spells = shown.def->task->GetDebugSpells(*shown.context);
         child.info = shown.def->task->GetDebugInfo(*shown.context);
         child.currentTask = node.current;
         for (const STAI_TransitionDef& transition : node.def->transitions)
             child.transitions.push_back(transition.GetText());
         for (const TaskSlot& task : node.tasks)
-            child.tasks.push_back(task.def->task->GetTaskClass());
+            child.tasks.push_back(task.def->task->GetName());
 
         for (size_t c = 0; c < node.def->conditions.size(); ++c)
             child.conditions.emplace_back(node.def->conditions.list[c].GetText(), node.results[c]);

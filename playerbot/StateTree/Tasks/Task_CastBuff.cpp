@@ -4,6 +4,7 @@
 
 #include "Maps/Map.h"
 
+#include <algorithm>
 #include <sstream>
 
 using namespace ai;
@@ -72,6 +73,19 @@ const std::vector<STAI_PropertyDef>& Task_CastBuff::GetProperties() const
 void Task_CastBuff::OnExit(STAI_TaskContext& baseContext) const
 {
     // a cast in progress is left alone: a transition to follow stops it by moving if it has to
+}
+
+std::vector<uint32> Task_CastBuff::GetDebugSpells(const STAI_TaskContext& baseContext) const
+{
+    const Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
+    if (context.spellId)
+        return { context.spellId };
+
+    std::vector<uint32> spells;
+    for (const BuffNeed& need : context.needs)
+        if (std::find(spells.begin(), spells.end(), need.spellId) == spells.end())
+            spells.push_back(need.spellId);
+    return spells;
 }
 
 std::string Task_CastBuff::GetDebugInfo(const STAI_TaskContext& baseContext) const

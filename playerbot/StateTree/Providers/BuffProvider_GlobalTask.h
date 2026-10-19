@@ -76,6 +76,7 @@ namespace ai
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;
 
         virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const override;
 
         // the casts the bot should do now for the reachable members (the bot included)
         std::vector<BuffNeed> FindNeeds(Player* bot, Group* group, const std::vector<Player*>& members) const;

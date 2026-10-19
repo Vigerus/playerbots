@@ -13,6 +13,7 @@
 #include "playerbot/StateTree/Tasks/Task_EatAndDrink.h"
 #include "playerbot/StateTree/Tasks/Task_Follow.h"
 #include "playerbot/StateTree/Tasks/Task_RunSubtree.h"
+#include "playerbot/StateTree/Tasks/Task_Wait.h"
 
 namespace ai
 {
@@ -33,5 +34,7 @@ namespace ai
         factory.RegisterTask("ManaProvider_GlobalTask", { &ManaProvider_GlobalTask::Validate, &ManaProvider_GlobalTask::Create });
         factory.RegisterTask("Task_EatAndDrink", { &Task_EatAndDrink::Validate, &Task_EatAndDrink::Create });
         factory.RegisterTask("InstanceProvider_GlobalTask", { &InstanceProvider_GlobalTask::Validate, &InstanceProvider_GlobalTask::Create });
+
+        factory.RegisterTask("Task_Wait", { &Task_Wait::Validate, &Task_Wait::Create });
     }
 }

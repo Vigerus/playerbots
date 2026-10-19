@@ -604,14 +604,14 @@ void STAI_TreeLibrary::LoadFromConfig()
         }
     };
 
-    // every tree of the statetree directory, so subtrees need no config entry
+    // every tree of the statetree directory and its class folders, so subtrees need no config entry
     const std::filesystem::path directory = STAI_TaskFactory::ResolvePath("statetree");
     std::error_code error;
-    for (const auto& entry : std::filesystem::directory_iterator(directory, error))
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(directory, error))
     {
         const std::filesystem::path& path = entry.path();
         if (entry.is_regular_file() && path.extension() == ".xml" && path.stem().string().rfind("STAI_", 0) == 0)
-            loadFile("statetree/" + path.filename().string());
+            loadFile("statetree/" + path.lexically_relative(directory).generic_string());
     }
     if (error)
         sLog.outError("StateTree: %s not readable: %s", directory.string().c_str(), error.message().c_str());

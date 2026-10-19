@@ -2,7 +2,8 @@
 
 Each bot state (NonCombat, Combat, Reaction, Dead) runs a state tree built when the bot is loaded:
 
-- `STAI_<State>[_<Class>].xml`: the tree. Nodes with conditions and a task.
+- `STAI_<State>.xml` (default trees) and `<Class>/STAI_<State>_<Class>.xml` (class trees and their subtrees): the
+  tree. Nodes with conditions and a task. Every class uses the default Dead tree.
 - `Legacy_<State>[_<Class>].json`: config of the `StateNode_Legacy` / `StateNode_Reaction` task, the strategy
   list of the legacy engine (replaces `AiFactory::AddDefault<State>Strategies`).
 
@@ -10,13 +11,13 @@ Configured in `aiplayerbot.conf` (paths relative to its directory):
 
 ```
 AiPlayerbot.StateTree.<State>.Default = statetree/STAI_<State>.xml
-AiPlayerbot.StateTree.<State>.<Class> = statetree/STAI_<State>_<Class>.xml
+AiPlayerbot.StateTree.<State>.<Class> = statetree/<Class>/STAI_<State>_<Class>.xml
 ```
 
 `<Class>` is Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock, Druid (DeathKnight on WotLK).
 The class entry wins over Default. An empty value, or a file that fails to load (the error is in the server log
 at startup), gives the state a single legacy node with the built-in AiFactory strategies. Files are read at
-server start.
+server start. Every `STAI_*.xml` of `statetree` and its subfolders is loaded, so subtrees need no config entry.
 
 The StateTree debug addon shows each state's tree nodes, the active one highlighted.
 
@@ -122,7 +123,7 @@ task.
 - `node="Root"` selects again from the first node, `Root|<name>` enters that node (its conditions still have to pass).
 
 Unknown paths, properties of different types and delegates that do not exist stop the server when the trees load.
-The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. `STAI_NonCombat_Mage.xml` only picks
+The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. `Mage/STAI_NonCombat_Mage.xml` only picks
 a subtree by the bot's map (`InstanceProvider_GlobalTask`): `STAI_NonCombat_Scholomance_Mage.xml` in Scholomance (map
 289), `STAI_NonCombat_Outdoors_Mage.xml` everywhere else; `onInstanceChanged` sends it back to Root to pick again. Both
 subtrees (copies for now) also decurse and buff: Legacy goes to Check Decurse when someone is cursed (Remove Lesser Curse) and to Check Missing
@@ -162,7 +163,8 @@ The shipped files reproduce the AiFactory defaults:
 - `Legacy_<State>_Common.json`: class-independent strategies (random/free bots, groups, battlegrounds, the
   `AiPlayerbot.*Strategies` config overrides), included by the files below.
 - `Legacy_<State>.json`: every class's block, each under a `class` condition (used by the Default trees).
-- `Legacy_<State>_<Class>.json`: one class's block, then the Common include.
+- `Legacy_<State>_<Class>.json`: one class's block, then the Common include (no class Dead lists: every class
+  uses `Legacy_Dead.json`).
 
 Entries run in order. Each has exactly one of:
 

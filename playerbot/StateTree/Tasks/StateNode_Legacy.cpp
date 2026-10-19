@@ -4,6 +4,8 @@
 #include "playerbot/StateTree/STAI_ActivityLog.h"
 #include "playerbot/StateTree/Tasks/LegacyBrain.h"
 
+#include <filesystem>
+
 namespace
 {
     BotState GetBotState(HLSStateType stateType)
@@ -230,9 +232,15 @@ Engine* StateNode_Legacy::GetDebugEngine(const STAI_TaskContext& context) const
     return GetEngine(context);
 }
 
+// the strategy list's file name without path and extension (Legacy_NonCombat_Mage)
+static std::string GetBrainDebugName(const std::shared_ptr<const LegacyBrain>& brain)
+{
+    return brain ? std::filesystem::path(brain->file).stem().string() : "AiFactory defaults";
+}
+
 std::string StateNode_Legacy::GetDebugInfo(const STAI_TaskContext& context) const
 {
-    return brain ? brain->file : "AiFactory defaults";
+    return GetBrainDebugName(brain);
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -430,5 +438,5 @@ Engine* StateNode_Reaction::GetDebugEngine(const STAI_TaskContext& context) cons
 
 std::string StateNode_Reaction::GetDebugInfo(const STAI_TaskContext& context) const
 {
-    return brain ? brain->file : "AiFactory defaults";
+    return GetBrainDebugName(brain);
 }

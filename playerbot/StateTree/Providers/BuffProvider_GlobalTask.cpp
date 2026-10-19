@@ -174,6 +174,15 @@ std::string BuffProvider_GlobalTask::GetDebugInfo(const STAI_TaskContext& baseCo
     return out.str();
 }
 
+std::vector<uint32> BuffProvider_GlobalTask::GetDebugSpells(const STAI_TaskContext& context) const
+{
+    std::vector<uint32> spells;
+    for (const Buff& buff : buffs)
+        for (const BuffSpell& spell : buff.spells)
+            spells.push_back(spell.firstSpellId);
+    return spells;
+}
+
 bool BuffProvider_GlobalTask::IsWatchedSpell(uint32 spellId) const
 {
     const uint32 firstSpellId = sSpellMgr.GetFirstSpellInChain(spellId);

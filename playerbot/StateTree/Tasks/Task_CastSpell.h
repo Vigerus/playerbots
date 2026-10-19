@@ -29,7 +29,8 @@ namespace ai
     class Task_CastSpell : public STAI_Task
     {
     public:
-        Task_CastSpell(uint32 spellId, const std::string& spellName) : spellId(spellId), spellName(spellName) {}
+        Task_CastSpell(uint32 spellId, const std::string& spellName, uint32 displaySpellId)
+            : spellId(spellId), spellName(spellName), displaySpellId(displaySpellId) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -45,6 +46,8 @@ namespace ai
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
         virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        // the spell being cast, else the bot's rank of it, else the configured one
+        virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const override;
 
     private:
         // the spell the bot casts: the configured id when it knows it, else its highest rank of the configured name
@@ -52,5 +55,6 @@ namespace ai
 
         uint32 spellId;             // 0: by name
         std::string spellName;      // lower case
+        uint32 displaySpellId;      // a spell of that id / name, for the debug view
     };
 }

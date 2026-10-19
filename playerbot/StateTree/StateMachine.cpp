@@ -210,9 +210,9 @@ static std::string SanitizeTransition(const std::string& text)
 //   H^<active type>^<ms in active state>^<previous type or ->
 //   N^<type>^<node name>^<active 0|1>^<last action>^<last relevance>^<last status>^<strategy,strategy,...>
 //   K^<type>^<depth>^<tree name>^<running 0|1>       tree stack of the state above, bottom (depth 0) to top
-//   G^<type>^<depth>^<task name>                       global task of the tree K^<type>^<depth>
+//   G^<type>^<depth>^<task name>^<spell id,...>        global task of the tree K^<type>^<depth>, the spells it works with
 //   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>^<running task index or -1>^<task;task;...>
-//       ^<transition;transition;...>
+//       ^<transition;transition;...>^<spell id,...>   (spells of the running task)
 //       nodes of the top tree; task class / info of the running task (the first one while inactive), every task
 //       of the node in the order they run, its transitions "<type> Root/<node>" in the order they are checked
 //       conditions: [ANY:]<result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked;
@@ -274,8 +274,13 @@ std::string StateMachine::BuildDebugSnapshot() const
         {
             out << "~K^" << GetHLSStateTypeName(type) << "^" << depth << "^" << SanitizeDebugField(stack[depth].name)
                 << "^" << (stack[depth].running ? 1 : 0);
-            for (const std::string& global : stack[depth].globalTasks)
-                out << "~G^" << GetHLSStateTypeName(type) << "^" << depth << "^" << SanitizeDebugField(global);
+            for (size_t global = 0; global < stack[depth].globalTasks.size(); ++global)
+            {
+                out << "~G^" << GetHLSStateTypeName(type) << "^" << depth << "^" << SanitizeDebugField(stack[depth].globalTasks[global]) << "^";
+                if (global < stack[depth].globalSpells.size())
+                    for (size_t spell = 0; spell < stack[depth].globalSpells[global].size(); ++spell)
+                        out << (spell ? "," : "") << stack[depth].globalSpells[global][spell];
+            }
         }
 
         static const std::vector<StateNodeDebugChild> noNodes;
@@ -298,6 +303,9 @@ std::string StateMachine::BuildDebugSnapshot() const
             out << "^";
             for (size_t transition = 0; transition < child.transitions.size(); ++transition)
                 out << (transition ? ";" : "") << SanitizeTransition(child.transitions[transition]);
+            out << "^";
+            for (size_t spell = 0; spell < child.spells.size(); ++spell)
+                out << (spell ? "," : "") << child.spells[spell];
         }
     }
 

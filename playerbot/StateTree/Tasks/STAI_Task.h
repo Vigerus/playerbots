@@ -131,6 +131,19 @@ namespace ai
         virtual ~STAI_Task() = default;
 
         virtual const char* GetTaskClass() const = 0;
+        // short name shown by the debug addon and the activity log: the class without its Task_ / StateNode_ / STAI_
+        // prefix and _GlobalTask suffix (Task_CastBuff -> CastBuff, BuffProvider_GlobalTask -> BuffProvider)
+        virtual std::string GetName() const
+        {
+            std::string name = GetTaskClass();
+            for (const char* prefix : { "Task_", "StateNode_", "STAI_" })
+                if (name.rfind(prefix, 0) == 0 && name.size() > std::char_traits<char>::length(prefix))
+                    name.erase(0, std::char_traits<char>::length(prefix));
+            const std::string suffix = "_GlobalTask";
+            if (name.size() > suffix.size() && name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0)
+                name.erase(name.size() - suffix.size());
+            return name;
+        }
 
         // the context class the tree constructs for this task, override for tasks with their own context
         virtual const STAI_TaskContextType& GetContextType() const { return STAI_TaskContextType::Of<STAI_TaskContext>(); }
@@ -187,6 +200,8 @@ namespace ai
         // debug visualization
         virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const { return nullptr; }
         virtual std::string GetDebugInfo(const STAI_TaskContext& context) const { return ""; }
+        // spells the task works with (configured or being cast), shown as icons by the debug addon
+        virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const { return {}; }
         // adds the trees this task stacked on its node's tree (a running subtree)
         virtual void AppendDebugTreeStack(const STAI_TaskContext& context, std::vector<StateNodeDebugTree>& stack) const {}
 

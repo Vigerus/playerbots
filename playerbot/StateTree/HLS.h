@@ -31,6 +31,7 @@ struct StateNodeDebugChild
     std::vector<std::pair<std::string, StateNodeConditionResult>> conditions;
     bool conditionsAny = false;                     // <Conditions match="any">: one of them has to pass
     std::string info;
+    std::vector<uint32_t> spells;                   // spells of the running task (the first one while inactive)
     bool active = false;
 };
 
@@ -40,6 +41,7 @@ struct StateNodeDebugTree
     std::string name;
     bool running = false;
     std::vector<std::string> globalTasks;           // names of the scopeless <Global> tasks
+    std::vector<std::vector<uint32_t>> globalSpells; // per global task, the spells it works with
     std::vector<StateNodeDebugChild> nodes;
 };
 

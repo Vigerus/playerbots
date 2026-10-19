@@ -28,8 +28,15 @@ namespace
         return !text.empty() && std::all_of(text.begin(), text.end(), [](unsigned char c) { return std::isdigit(c); });
     }
 
-    // spellid="..." of the <Task>: a spell id, or the name of a spell (lower case)
-    std::pair<uint32, std::string> ParseSpell(const STAI_TaskConfig& config)
+    // spellid="..." of the <Task>: a spell id, or the name of a spell (lower case); and a spell of that name
+    struct ParsedSpell
+    {
+        uint32 spellId = 0;
+        std::string spellName;
+        uint32 displaySpellId = 0;
+    };
+
+    ParsedSpell ParseSpell(const STAI_TaskConfig& config)
     {
         const std::string value = config.get<std::string>("<xmlattr>.spellid", "");
         if (value.empty())
@@ -40,14 +47,14 @@ namespace
             const uint32 spellId = uint32(std::strtoul(value.c_str(), nullptr, 10));
             if (!sSpellTemplate.LookupEntry<SpellEntry>(spellId))
                 throw std::runtime_error("spellid=\"" + value + "\": unknown spell");
-            return { spellId, "" };
+            return { spellId, "", spellId };
         }
 
         const std::string name = ToLower(value);
         for (uint32 id = 1; id < sSpellTemplate.GetMaxEntry(); ++id)
             if (const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(id))
                 if (ToLower(spellInfo->SpellName[0]) == name)
-                    return { 0, name };
+                    return { 0, name, id };
 
         throw std::runtime_error("spellid=\"" + value + "\": no spell has that name");
     }
@@ -60,8 +67,8 @@ void Task_CastSpell::Validate(const STAI_TaskConfig& config)
 
 std::unique_ptr<STAI_Task> Task_CastSpell::Create(const STAI_TaskConfig& config)
 {
-    const auto [spellId, spellName] = ParseSpell(config);
-    return std::make_unique<Task_CastSpell>(spellId, spellName);
+    const ParsedSpell spell = ParseSpell(config);
+    return std::make_unique<Task_CastSpell>(spell.spellId, spell.spellName, spell.displaySpellId);
 }
 
 uint32 Task_CastSpell::ResolveSpell(const Player* bot) const
@@ -145,6 +152,16 @@ const std::vector<STAI_PropertyDef>& Task_CastSpell::GetProperties() const
 {
     static const std::vector<STAI_PropertyDef> properties = { STAI_PropertyDef::Of("whoNeeds", &Task_CastSpellContext::whoNeeds) };
     return properties;
+}
+
+std::vector<uint32> Task_CastSpell::GetDebugSpells(const STAI_TaskContext& baseContext) const
+{
+    const Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
+    if (context.spellId)
+        return { context.spellId };
+    if (const uint32 known = context.bot ? ResolveSpell(context.bot) : 0)
+        return { known };
+    return { displaySpellId };
 }
 
 std::string Task_CastSpell::GetDebugInfo(const STAI_TaskContext& baseContext) const
