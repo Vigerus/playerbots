@@ -22,7 +22,7 @@
         }
       ]
     },
-    {"add": ["aoe", "cc", "buff", "boost"]},
+    {"add": ["aoe", "cc", "boost"]},
     {"include": "Legacy_Combat_Common.json"}
   ]
 }

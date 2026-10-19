@@ -6,7 +6,7 @@
     {"description": "Elemental talents", "add": ["elemental", "aoe", "cc"], "if": {"spec": 0}},
     {"description": "Enhancement talents", "add": ["enhancement", "aoe", "cc"], "if": {"spec": 1}},
     {"description": "Restoration talents", "add": ["restoration"], "if": {"spec": 2}},
-    {"add": ["dps assist", "cure", "totems", "buff"]},
+    {"add": ["dps assist", "cure", "totems"]},
     {"include": "Legacy_NonCombat_Common.json"}
   ]
 }

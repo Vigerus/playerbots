@@ -10,7 +10,7 @@
       "if": {"spec": 1}
     },
     {"description": "Retribution talents", "add": ["retribution", "dps assist", "close"], "if": {"spec": 2}},
-    {"add": ["cure", "aoe", "cc", "buff", "boost", "aura", "blessing"]},
+    {"add": ["cure", "aoe", "cc", "boost", "aura", "blessing"]},
     {
       "description": "solo holy paladin fights in melee",
       "if": {"autonomous": true, "inGroup": false, "spec": 0},

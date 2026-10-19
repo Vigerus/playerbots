@@ -11,15 +11,43 @@
 
 namespace ai
 {
+    // A property or delegate of a task of the tree, by path: Root|<TaskClass>::<name> for a global task,
+    // Root|<node name>|<TaskClass>::<name> for a task of a node (the first task of that class)
+    struct STAI_MemberRef
+    {
+        std::string path;
+        int node = -1;          // -1: a global task
+        int task = -1;          // index in the global tasks / the node's tasks
+        std::string member;
+    };
+
     // <Condition trigger="distance from master::greater::10" negate="false"/>: passes while the bot's trigger of
     // that name (same names and "::" qualifiers as in strategies and custom strategies) is active, or inactive
-    // with negate="true"
+    // with negate="true".
+    // <Condition binding="Root|BuffProvider_GlobalTask::needs"/>: passes while that property is set (a container
+    // not empty, otherwise its bool value), or not set with negate="true".
     struct STAI_ConditionDef
     {
         std::string trigger;
+        STAI_MemberRef binding;                         // used when trigger is empty
+        const STAI_PropertyDef* property = nullptr;     // the bound property, resolved when the tree is loaded
         bool negate = false;
 
-        std::string GetText() const { return negate ? "NOT " + trigger : trigger; }
+        std::string GetText() const
+        {
+            const std::string text = trigger.empty() ? binding.path : trigger;
+            return negate ? "NOT " + text : text;
+        }
+    };
+
+    // <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/> in a <Task>: the external property
+    // is copied into the task's local one before the task's OnEnter and every OnTick (same type)
+    struct STAI_BindingDef
+    {
+        std::string local;
+        STAI_MemberRef external;
+        const STAI_PropertyDef* localProperty = nullptr;
+        const STAI_PropertyDef* externalProperty = nullptr;
     };
 
     // error in a tree file that stops the server (other load errors only leave the file out):
@@ -34,22 +62,32 @@ namespace ai
     struct STAI_TaskDef
     {
         std::string taskClass;
-        STAI_TaskConfig taskConfig;
+        STAI_TaskConfig taskConfig;                  // without the <Binding> elements
+        std::vector<STAI_BindingDef> bindings;
         std::unique_ptr<STAI_Task> task;             // shared by every bot running the tree
     };
 
     // <Transition type="OnSuccess|OnFailure|OnFinish" node="Root|<node name>"/>: where the tree goes when the node
-    // finished (OnSuccess: its last task succeeded, OnFailure: one of its tasks failed, OnFinish: either one)
+    // finished (OnSuccess: its last task succeeded, OnFailure: one of its tasks failed, OnFinish: either one).
+    // <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Buffs"/>:
+    // the source delegate fired (a task of the tree broadcast it); the running node with this transition leaves for
+    // the target on the bot's next update, when the target's conditions pass. A delegate fired while no node with
+    // such a transition runs is remembered until one does.
+    // node="Root" selects again from the first node.
     struct STAI_TransitionDef
     {
-        enum class Type : uint8 { OnSuccess, OnFailure, OnFinish };
+        enum class Type : uint8 { OnSuccess, OnFailure, OnFinish, OnDelegate };
 
         Type type = Type::OnFinish;
-        std::string path;   // Root|<node name>
-        int target = -1;    // index of the node in the tree
+        STAI_MemberRef source;                          // OnDelegate
+        const STAI_DelegateDef* delegate = nullptr;     // OnDelegate, resolved when the tree is loaded
+        std::string path;                               // Root|<node name>, or Root
+        int target = -1;                                // index of the node in the tree, -1 = Root
 
         bool Matches(EActionRunStatus status) const
         {
+            if (type == Type::OnDelegate)
+                return false;
             return type == Type::OnFinish || (type == Type::OnSuccess) == (status == EActionRunStatus::Succeeded);
         }
         std::string GetText() const;
@@ -74,11 +112,12 @@ namespace ai
     //       ...
     //     </Global>
     //     <Node name="...">
-    //       <Conditions> <Condition trigger="..."/> ... </Conditions>
-    //       <Task class="..."> task settings </Task>
+    //       <Conditions> <Condition trigger="..."/> <Condition binding="Root|..."/> ... </Conditions>
+    //       <Task class="..."> task settings, <Binding local="..." external="Root|..."/> </Task>
     //       ...                                   more tasks, run one after another
     //       <Transitions>                         optional
     //         <Transition type="OnSuccess" node="Root|<node name>"/>
+    //         <Transition type="OnDelegate" source="Root|..." node="Root|<node name>"/>
     //         ...
     //       </Transitions>
     //     </Node>

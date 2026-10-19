@@ -6,7 +6,7 @@
     {"description": "Affliction talents", "add": ["affliction"], "if": {"spec": 0}},
     {"description": "Demonology talents", "add": ["demonology"], "if": {"spec": 1}},
     {"description": "Destruction talents", "add": ["destruction"], "if": {"spec": 2}},
-    {"add": ["dps assist", "pet", "buff"]},
+    {"add": ["dps assist", "pet"]},
     {"include": "Legacy_NonCombat_Common.json"}
   ]
 }

@@ -3,10 +3,14 @@
 #include "playerbot/BotState.h"
 #include "playerbot/StateTree/HLS.h"
 #include "playerbot/StateTree/Tasks/StateTreeTask.h"
+#include "delegates/Delegates.h"
 
+#include <functional>
 #include <new>
 #include <string>
 #include <type_traits>
+#include <typeindex>
+#include <utility>
 #include <vector>
 
 class Player;
@@ -17,6 +21,57 @@ namespace ai
     class Engine;
     class IReactionChecker;
     class STAI_ActivityLog;
+    struct STAI_TaskContext;
+
+    // delegate of a task context that a node's <Transition type="OnDelegate" source="..."> waits for (GetDelegates)
+    DECLARE_MULTICAST_DELEGATE(FSTAI_Delegate);
+
+    namespace STAI_Detail
+    {
+        template <class T, class = void>
+        struct HasEmpty : std::false_type {};
+        template <class T>
+        struct HasEmpty<T, std::void_t<decltype(std::declval<const T&>().empty())>> : std::true_type {};
+    }
+
+    // A value of a task context that other tasks of the tree can read by path (Root|<TaskClass>::<name> for a
+    // global task, Root|<node name>|<TaskClass>::<name> for a node's task):
+    //   <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>   copied into the task's own property
+    //   <Condition binding="Root|BuffProvider_GlobalTask::needs"/>                passes while the value is set
+    struct STAI_PropertyDef
+    {
+        std::string name;
+        std::type_index type;
+        std::function<void*(STAI_TaskContext& context)> get;    // the value in the bot's context
+        std::function<void(void* to, const void* from)> assign;
+        std::function<bool(const void* value)> isSet;           // containers: not empty, else bool(value); empty when untestable
+
+        template <class Context, class T>
+        static STAI_PropertyDef Of(const std::string& name, T Context::* member)
+        {
+            STAI_PropertyDef def{ name, std::type_index(typeid(T)), {}, {}, {} };
+            def.get = [member](STAI_TaskContext& context) -> void* { return &(static_cast<Context&>(context).*member); };
+            def.assign = [](void* to, const void* from) { *static_cast<T*>(to) = *static_cast<const T*>(from); };
+            if constexpr (STAI_Detail::HasEmpty<T>::value)
+                def.isSet = [](const void* value) { return !static_cast<const T*>(value)->empty(); };
+            else if constexpr (std::is_convertible_v<T, bool>)
+                def.isSet = [](const void* value) { return static_cast<bool>(*static_cast<const T*>(value)); };
+            return def;
+        }
+    };
+
+    // A delegate of a task context, by path like properties: <Transition type="OnDelegate" source="Root|<TaskClass>::<name>" .../>
+    struct STAI_DelegateDef
+    {
+        std::string name;
+        std::function<FSTAI_Delegate*(STAI_TaskContext& context)> get;
+
+        template <class Context>
+        static STAI_DelegateDef Of(const std::string& name, FSTAI_Delegate Context::* member)
+        {
+            return { name, [member](STAI_TaskContext& context) { return &(static_cast<Context&>(context).*member); } };
+        }
+    };
 
     // Runtime data of a task, one per bot and tree node; the task itself holds only its configuration.
     // Tasks with runtime state derive their own context from this one and expose it with GetContextType;
@@ -63,8 +118,9 @@ namespace ai
     // the context the tree constructs for the node (see GetContextType) and passes to every call.
     // Lifecycle when its turn in the node comes (a node's tasks run one after another): OnEnter, OnTick every bot
     // update until it returns Succeeded (the next task of the node is entered) or Failed (the node fails), OnExit
-    // (also called when an earlier node interrupts the node or the tree finishes). Tasks that are not tickable
-    // (IsTickable) never get OnTick: in a node they succeed on their first update.
+    // (also called when an OnDelegate transition leaves the node or the tree finishes). Tasks that are not tickable
+    // (IsTickable) never get OnTick: in a node they succeed on their first update. The task's <Binding>s are copied
+    // into its context before OnEnter and before every OnTick.
     class STAI_Task
     {
     public:
@@ -84,10 +140,30 @@ namespace ai
         // OnTick is called only for tickable tasks
         virtual bool IsTickable() const { return false; }
 
+        // named values and delegates of the task's context, for bindings, bound conditions and OnDelegate
+        // transitions (checked when the tree is loaded)
+        virtual const std::vector<STAI_PropertyDef>& GetProperties() const { static const std::vector<STAI_PropertyDef> none; return none; }
+        virtual const std::vector<STAI_DelegateDef>& GetDelegates() const { static const std::vector<STAI_DelegateDef> none; return none; }
+
+        const STAI_PropertyDef* FindProperty(const std::string& name) const
+        {
+            for (const STAI_PropertyDef& property : GetProperties())
+                if (property.name == name)
+                    return &property;
+            return nullptr;
+        }
+        const STAI_DelegateDef* FindDelegate(const std::string& name) const
+        {
+            for (const STAI_DelegateDef& delegate : GetDelegates())
+                if (delegate.name == name)
+                    return &delegate;
+            return nullptr;
+        }
+
         // the tree of the node finishes (OnFinish) once this task succeeded, see STAI_FinishTreeTask
         virtual bool FinishesTree() const { return false; }
         // the node runs a tree stacked on top of the node's tree (Task_RunSubtree): while it does, the node's tree
-        // only ticks the node, no other node is selected
+        // only ticks the node
         virtual bool HoldsActiveTree(const STAI_TaskContext& context) const { return false; }
 
         // tree files this task runs (relative to the config directory), checked when the trees are loaded

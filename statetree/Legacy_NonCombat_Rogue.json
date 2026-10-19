@@ -6,7 +6,7 @@
     {"description": "Assassination talents", "add": ["assassination"], "if": {"spec": 0}},
     {"description": "Combat talents", "add": ["combat"], "if": {"spec": 1}},
     {"description": "Subtlety talents", "add": ["subtlety"], "if": {"spec": 2}},
-    {"add": ["dps assist", "poisons", "stealth", "buff"]},
+    {"add": ["dps assist", "poisons", "stealth"]},
     {"include": "Legacy_NonCombat_Common.json"}
   ]
 }

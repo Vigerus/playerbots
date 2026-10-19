@@ -10,7 +10,7 @@
       "if": {"spec": 1}
     },
     {"description": "Restoration talents", "add": ["restoration", "dps assist", "flee", "ranged"], "if": {"spec": 2}},
-    {"add": ["cure", "aoe", "cc", "buff", "boost"]},
+    {"add": ["cure", "aoe", "cc", "boost"]},
     {
       "description": "solo restoration druid fights as balance",
       "if": {"autonomous": true, "inGroup": false, "spec": 2},

@@ -11,16 +11,20 @@ namespace ai
     class Trigger;
 
     // One bot running a shared STAI tree: the bot's contexts of the nodes (constructed in one buffer, one after
-    // another like a stack frame) and its resolved conditions; the tree and its tasks stay shared.
-    // Nodes are checked top to bottom: the first node whose conditions pass is entered; an earlier node interrupts
-    // the running one as soon as its conditions pass; the running node stays active until its task returns
-    // Succeeded or Failed (a failed node is skipped for a while). The tasks of a node run one after another: a
-    // succeeded task is exited and the next one entered (ticked from the next tick on), the node succeeds with its
-    // last task; a failed task fails the node. A finished node is followed by its first matching transition: the
-    // target node is entered on the next tick when its conditions pass (no other node is selected in that tick);
-    // without a matching transition (or when the target cannot be entered) the next tick starts again at the first
-    // node. An interrupted node takes no transition. Once every node was evaluated (the node finished,
-    // or none can be entered) the tree loops over: the next tick starts again at its first node.
+    // another like a stack frame) and its resolved conditions, bindings and delegates; the tree and its tasks stay
+    // shared.
+    // There is always a single active path from the tree to the running node. A node is selected only while none
+    // runs (the tree started, the node finished, a transition went to Root): the first node from the top whose
+    // conditions pass is entered; conditions are only checked then. The running node stays active until its task
+    // returns Succeeded or Failed (a failed node is not selected for a while), or until a delegate of one of its
+    // OnDelegate transitions fired (checked at the start of the next tick; the node stays when the target's
+    // conditions fail). The tasks of a node run one after another: a succeeded task is exited and the next one
+    // entered (ticked from the next tick on), the node succeeds with its last task; a failed task fails the node.
+    // A finished node is followed by its first matching transition: the target node is entered on the next tick
+    // when its conditions pass; without a matching transition (or when the target cannot be entered) the next tick
+    // selects from the first node. A delegate fired while no node with a transition on it runs is remembered until
+    // one does (cleared when the tree starts). Bindings are copied into a task's context before its OnEnter and
+    // every OnTick.
     // A tree runs until a STAI_FinishTreeTask node of it succeeds; that is the only way it finishes on its own.
     // Trees form a stack (Task_RunSubtree): only the top tree selects nodes, the trees below it just tick their
     // running node, the Task_RunSubtree leading up to the top tree.
@@ -62,11 +66,20 @@ namespace ai
         const char* GetActiveNodeName() const;
 
     private:
+        // a <Binding> of a task: the values in the bot's contexts
+        struct RuntimeBinding
+        {
+            void* local = nullptr;
+            void* external = nullptr;
+            const STAI_PropertyDef* property = nullptr;
+        };
+
         // a task of the tree with the bot's context of it (in contextStorage)
         struct TaskSlot
         {
             const STAI_TaskDef* def = nullptr;
             STAI_TaskContext* context = nullptr;
+            std::vector<RuntimeBinding> bindings;
         };
 
         struct RuntimeNode
@@ -74,11 +87,13 @@ namespace ai
             const STAI_NodeDef* def = nullptr;
             std::vector<TaskSlot> tasks;                          // per task of the node, in order
             int current = -1;                                     // task running while the node is active
-            std::vector<Trigger*> triggers;                       // per condition, nullptr = unknown trigger
+            std::vector<Trigger*> triggers;                       // per condition, nullptr = unknown trigger or bound condition
+            std::vector<const void*> boundValues;                 // per condition, the bound property (bound conditions)
             std::vector<StateNodeConditionResult> results;        // per condition, last update
             bool failed = false;
             uint32 failedAtMs = 0;
             uint64 activityId = 0;
+            std::vector<std::pair<size_t, int>> delegateTransitions;  // index in delegates, target node (-1 = Root)
         };
 
         void CreateContexts();
@@ -88,6 +103,13 @@ namespace ai
         void ExitActive();
         void EnterGlobals();
         void ExitGlobals();
+        void ResolveMembers();
+        STAI_TaskContext* GetContext(const STAI_MemberRef& ref) const;
+        static void ApplyBindings(const TaskSlot& slot);
+        static void EnterTask(const TaskSlot& slot);
+        static EActionRunStatus TickTask(const TaskSlot& slot, uint32 elapsed, bool minimal);
+        // the running node takes its transition of a fired delegate: true when the node was left
+        bool TakeDelegateTransition(uint32 now);
 
         STAI_TaskContext context;
         std::shared_ptr<const STAI_TreeAsset> asset;
@@ -97,5 +119,7 @@ namespace ai
         std::unique_ptr<std::max_align_t[]> contextStorage;      // the contexts of all nodes, one after another
         int active = -1;
         int pendingTransition = -1;                              // node to enter on the next tick
+        std::vector<FSTAI_Delegate*> delegates;                  // sources of the OnDelegate transitions
+        std::vector<uint8> firedDelegates;                       // per delegate: fired, not taken yet
     };
 }

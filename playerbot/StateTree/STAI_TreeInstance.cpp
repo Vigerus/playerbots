@@ -5,11 +5,13 @@
 #include "playerbot/strategy/Trigger.h"
 #include "playerbot/StateTree/STAI_ActivityLog.h"
 
+#include <algorithm>
+
 using namespace ai;
 
 namespace
 {
-    // a node whose task failed is not entered again for this long (avoids re-entering a failing task every update)
+    // a node whose task failed is not selected again for this long (avoids re-entering a failing task every update)
     constexpr uint32 failedRetryDelayMs = 3000;
 }
 
@@ -21,15 +23,19 @@ STAI_TreeInstance::STAI_TreeInstance(const STAI_TaskContext& context, std::share
         RuntimeNode node;
         node.def = &def;
         for (const STAI_TaskDef& task : def.tasks)
-            node.tasks.push_back({ &task, nullptr });
+            node.tasks.push_back({ &task, nullptr, {} });
 
         // conditions are the bot's triggers (class contexts included), so they can only be resolved per bot
         for (const STAI_ConditionDef& condition : def.conditions)
         {
-            Trigger* trigger = context.ai->GetAiObjectContext()->GetTrigger(condition.trigger);
-            if (!trigger)
-                sLog.outError("StateTree: %s node '%s': unknown trigger '%s' for %s, the condition never passes",
-                    this->asset->file.c_str(), def.name.c_str(), condition.trigger.c_str(), context.bot->GetName());
+            Trigger* trigger = nullptr;
+            if (!condition.trigger.empty())
+            {
+                trigger = context.ai->GetAiObjectContext()->GetTrigger(condition.trigger);
+                if (!trigger)
+                    sLog.outError("StateTree: %s node '%s': unknown trigger '%s' for %s, the condition never passes",
+                        this->asset->file.c_str(), def.name.c_str(), condition.trigger.c_str(), context.bot->GetName());
+            }
             node.triggers.push_back(trigger);
         }
         node.results.assign(def.conditions.size(), StateNodeConditionResult::NotChecked);
@@ -38,9 +44,104 @@ STAI_TreeInstance::STAI_TreeInstance(const STAI_TaskContext& context, std::share
     }
 
     for (const STAI_TaskDef& task : this->asset->globalTasks)
-        globals.push_back({ &task, nullptr });
+        globals.push_back({ &task, nullptr, {} });
 
     CreateContexts();
+    ResolveMembers();
+}
+
+STAI_TaskContext* STAI_TreeInstance::GetContext(const STAI_MemberRef& ref) const
+{
+    return ref.node < 0 ? globals[ref.task].context : nodes[ref.node].tasks[ref.task].context;
+}
+
+void STAI_TreeInstance::ResolveMembers()
+{
+    // bindings: the local and the external value in the bot's contexts
+    auto resolveBindings = [this](TaskSlot& slot)
+    {
+        for (const STAI_BindingDef& binding : slot.def->bindings)
+            slot.bindings.push_back({ binding.localProperty->get(*slot.context), binding.externalProperty->get(*GetContext(binding.external)), binding.localProperty });
+    };
+    for (TaskSlot& global : globals)
+        resolveBindings(global);
+
+    for (RuntimeNode& node : nodes)
+    {
+        for (TaskSlot& task : node.tasks)
+            resolveBindings(task);
+
+        // bound conditions read the property in its context
+        for (const STAI_ConditionDef& condition : node.def->conditions)
+            node.boundValues.push_back(condition.trigger.empty() ? condition.property->get(*GetContext(condition.binding)) : nullptr);
+
+        // OnDelegate transitions: one remembered flag per source delegate
+        for (const STAI_TransitionDef& transition : node.def->transitions)
+        {
+            if (transition.type != STAI_TransitionDef::Type::OnDelegate)
+                continue;
+
+            FSTAI_Delegate* delegate = transition.delegate->get(*GetContext(transition.source));
+            auto known = std::find(delegates.begin(), delegates.end(), delegate);
+            const size_t index = size_t(known - delegates.begin());
+            if (known == delegates.end())
+            {
+                delegates.push_back(delegate);
+                // the delegate lives in a context destroyed with the tree: no unsubscribing needed
+                delegate->AddLambda([this, index]() { firedDelegates[index] = 1; });
+            }
+            node.delegateTransitions.emplace_back(index, transition.target);
+        }
+    }
+
+    firedDelegates.assign(delegates.size(), 0);
+}
+
+void STAI_TreeInstance::ApplyBindings(const TaskSlot& slot)
+{
+    for (const RuntimeBinding& binding : slot.bindings)
+        binding.property->assign(binding.local, binding.external);
+}
+
+void STAI_TreeInstance::EnterTask(const TaskSlot& slot)
+{
+    ApplyBindings(slot);
+    slot.def->task->OnEnter(*slot.context);
+}
+
+EActionRunStatus STAI_TreeInstance::TickTask(const TaskSlot& slot, uint32 elapsed, bool minimal)
+{
+    // a task that is not tickable is done once entered
+    if (!slot.def->task->IsTickable())
+        return EActionRunStatus::Succeeded;
+
+    ApplyBindings(slot);
+    return slot.def->task->OnTick(*slot.context, elapsed, minimal);
+}
+
+bool STAI_TreeInstance::TakeDelegateTransition(uint32 now)
+{
+    for (const auto& [index, target] : nodes[active].delegateTransitions)
+    {
+        if (!firedDelegates[index])
+            continue;
+
+        firedDelegates[index] = 0;
+        if (target < 0)
+        {
+            // Root: selected again from the first node
+            ExitActive();
+            return true;
+        }
+
+        // the running node stays when the target cannot be entered now
+        if (!CanEnter(nodes[target], now, true))
+            return false;
+
+        EnterNode(target);
+        return true;
+    }
+    return false;
 }
 
 STAI_TreeInstance::~STAI_TreeInstance()
@@ -122,8 +223,12 @@ bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now, bool ignoreFaile
     // all conditions must pass; the ones after the first failure are not checked
     for (size_t i = 0; i < node.triggers.size(); ++i)
     {
-        Trigger* trigger = node.triggers[i];
-        const bool passed = trigger && trigger->IsActive() != node.def->conditions[i].negate;
+        const STAI_ConditionDef& condition = node.def->conditions[i];
+        bool passed;
+        if (condition.trigger.empty())
+            passed = condition.property->isSet(node.boundValues[i]) != condition.negate;
+        else
+            passed = node.triggers[i] && node.triggers[i]->IsActive() != condition.negate;
         node.results[i] = passed ? StateNodeConditionResult::Passed : StateNodeConditionResult::Failed;
         if (!passed)
             return false;
@@ -148,7 +253,7 @@ void STAI_TreeInstance::EnterNode(int index)
     if (context.activity && logged)
         node.activityId = context.activity->Begin("node", node.def->name, node.tasks.front().def->task->GetTaskClass());
 
-    node.tasks.front().def->task->OnEnter(*node.tasks.front().context);
+    EnterTask(node.tasks.front());
 }
 
 void STAI_TreeInstance::ExitActive()
@@ -175,7 +280,7 @@ void STAI_TreeInstance::EnterGlobals()
 
     running = true;
     for (TaskSlot& global : globals)
-        global.def->task->OnEnter(*global.context);
+        EnterTask(global);
 }
 
 void STAI_TreeInstance::ExitGlobals()
@@ -194,6 +299,8 @@ void STAI_TreeInstance::OnStart()
     pendingTransition = -1;
     ExitActive();
     ExitGlobals();
+    // delegates fired before are stale, the global tasks fire again when they are entered
+    std::fill(firedDelegates.begin(), firedDelegates.end(), 0);
     EnterGlobals();
 }
 
@@ -216,59 +323,46 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
 
     // scopeless: ticked whichever node runs, the result does not end anything
     for (TaskSlot& global : globals)
-        if (global.def->task->IsTickable())
-            global.def->task->OnTick(*global.context, elapsed, minimal);
+        TickTask(global, elapsed, minimal);
 
     // the running node keeps the results it was entered with, the others show only what this update checked
     for (int i = 0; i < int(nodes.size()); ++i)
         if (i != active)
             std::fill(nodes[i].results.begin(), nodes[i].results.end(), StateNodeConditionResult::NotChecked);
 
-    // a transition of the node that finished last tick: its target is entered when its conditions pass (an
-    // explicit jump, so the retry delay of a failed node does not apply), else the selection starts at the first node
-    bool enteredByTransition = false;
-    if (pendingTransition >= 0)
-    {
-        const int target = pendingTransition;
-        pendingTransition = -1;
-        if (active < 0 && CanEnter(nodes[target], now, true))
-        {
-            EnterNode(target);
-            enteredByTransition = true;
-        }
-    }
-
-    // earlier nodes have priority: they interrupt the running node when their conditions pass; a tree below the
-    // top of the stack (the running task of its running node runs a subtree) only ticks that node
-    bool holdsActiveTree = false;
+    // the path to the running node only changes when a delegate of one of its OnDelegate transitions fired
     if (active >= 0)
-    {
-        const TaskSlot& task = nodes[active].tasks[nodes[active].current];
-        holdsActiveTree = task.def->task->HoldsActiveTree(*task.context);
-    }
+        TakeDelegateTransition(now);
 
-    const int limit = holdsActiveTree || enteredByTransition ? 0 : active >= 0 ? active : int(nodes.size());
-    for (int i = 0; i < limit; ++i)
-    {
-        if (!CanEnter(nodes[i], now))
-            continue;
-
-        EnterNode(i);
-        break;
-    }
-
-    // every node evaluated, none can be entered: loops over to the first node next tick
+    // no node runs (the tree started, the node finished or a transition went to Root): the target of the finished
+    // node's transition when its conditions pass (an explicit jump, the retry delay of a failed node does not
+    // apply), else the first node from the top whose conditions pass; conditions are only checked here
     if (active < 0)
-        return EActionRunStatus::Running;
+    {
+        if (pendingTransition >= 0)
+        {
+            const int target = pendingTransition;
+            pendingTransition = -1;
+            if (CanEnter(nodes[target], now, true))
+                EnterNode(target);
+        }
+
+        for (int i = 0; active < 0 && i < int(nodes.size()); ++i)
+            if (CanEnter(nodes[i], now))
+                EnterNode(i);
+
+        // none can be entered: the selection is tried again next tick
+        if (active < 0)
+            return EActionRunStatus::Running;
+    }
 
     RuntimeNode& node = nodes[active];
     TaskSlot& task = node.tasks[node.current];
-    // a task that is not tickable is done once entered
-    const EActionRunStatus status = task.def->task->IsTickable() ? task.def->task->OnTick(*task.context, elapsed, minimal) : EActionRunStatus::Succeeded;
+    const EActionRunStatus status = TickTask(task, elapsed, minimal);
     if (status == EActionRunStatus::Running)
         return status;
 
-    // a failed task fails the node: its transition, or the next tick starts again at the first node
+    // a failed task fails the node: its transition, or the next tick selects from the first node
     if (status == EActionRunStatus::Failed)
     {
         node.failed = true;
@@ -283,12 +377,11 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
         return EActionRunStatus::Succeeded;
     }
 
-    // succeeded: the next task of the node, or the node is done and the tree loops over to its first node
+    // succeeded: the next task of the node, or the node is done and the next tick selects from the first node
     if (node.current + 1 < int(node.tasks.size()))
     {
         task.def->task->OnExit(*task.context);
-        TaskSlot& next = node.tasks[++node.current];
-        next.def->task->OnEnter(*next.context);
+        EnterTask(node.tasks[++node.current]);
         return EActionRunStatus::Running;
     }
 

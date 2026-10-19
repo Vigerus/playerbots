@@ -6,7 +6,7 @@
     {"description": "Elemental talents", "add": ["elemental", "aoe", "cc", "flee", "ranged"], "if": {"spec": 0}},
     {"description": "Enhancement talents", "add": ["enhancement", "aoe", "cc", "close"], "if": {"spec": 1}},
     {"description": "Restoration talents", "add": ["restoration", "flee", "ranged"], "if": {"spec": 2}},
-    {"add": ["dps assist", "cure", "totems", "buff", "boost"]},
+    {"add": ["dps assist", "cure", "totems", "boost"]},
     {
       "description": "solo restoration shaman fights as elemental",
       "add": ["elemental", "aoe", "cc"],

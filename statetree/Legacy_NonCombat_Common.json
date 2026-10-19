@@ -7,7 +7,7 @@
     {"add": ["wbuff", "avoid mobs"]},
     {"description": "AiPlayerbot.LLMEnabled = 2", "add": "ai chat", "if": {"config": "llmChat"}},
     {
-      "add": ["racials", "nc", "food", "follow", "default", "quest", "loot", "gather", "buff", "mount"],
+      "add": ["racials", "nc", "food", "follow", "default", "quest", "loot", "gather", "mount"],
       "if": {"battleground": false}
     },
     {
@@ -70,7 +70,7 @@
       "description": "battleground switch",
       "if": {"battleground": true},
       "strategies": [
-        {"add": ["racials", "nc", "default", "buff", "food", "mount", "collision", "dps assist", "attack tagged"]},
+        {"add": ["racials", "nc", "default", "food", "mount", "collision", "dps assist", "attack tagged"]},
         {"remove": ["custom::say", "travel", "tfish", "rpg", "rpg craft", "follow", "grind"]},
         {
           "description": "arena",

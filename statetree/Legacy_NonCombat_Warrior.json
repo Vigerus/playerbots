@@ -22,7 +22,6 @@
         }
       ]
     },
-    {"add": ["buff"]},
     {"include": "Legacy_NonCombat_Common.json"}
   ]
 }

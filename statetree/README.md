@@ -44,14 +44,19 @@ The StateTree debug addon shows each state's tree nodes, the active one highligh
 </Root>
 ```
 
-Nodes are checked top to bottom. The first node whose conditions all pass is entered (`OnEnter`), then its task
-is updated every bot update until it returns Succeeded or Failed (`OnExit`, then the nodes are checked again).
-An earlier node interrupts the running one as soon as its conditions pass. A node whose task failed is skipped
-for 3 seconds. Empty `<Conditions/>` always pass, so a last unconditional node is the fallback.
+There is always a single active path from the tree to the running node. A node is selected only while none runs
+(the tree started, the node finished, a transition went to `Root`): the first node from the top whose conditions all
+pass is entered (`OnEnter`); conditions are only checked then. Its task is updated every bot update until it
+returns Succeeded or Failed (`OnExit`, the next update selects again), or until an `OnDelegate` transition of the node
+fires. Nothing else leaves a running node: a node that never finishes (Legacy) needs `OnDelegate` transitions, for
+example to Follow. A node whose task failed is not selected for 3 seconds. Empty `<Conditions/>` always pass, so a
+last unconditional node is the fallback.
 
 Conditions are the bot's triggers, by the same names (and `::` qualifiers) as in strategies and custom strategies,
 for example `critical health`, `far from master` or `has aura::spellid::23341::greater or equal::5`. A condition
-passes while its trigger is active, or while it is inactive with `negate="true"`. Triggers are looked up per bot
+passes while its trigger is active, or while it is inactive with `negate="true"`. `<Condition binding="Root|..."/>`
+tests a task property instead (see below): it passes while the property is set (a container not empty, else its
+bool value). Triggers are looked up per bot
 (class triggers included); an unknown name is logged when the bot loads and never passes. The debug addon shows each
 condition green (passed), red (failed) or gray (not checked in the last update).
 
@@ -69,8 +74,47 @@ Tasks:
 | `StateNode_Legacy`   | `<Config filename="..."/>` (optional) | runs the legacy engine of the state with the Legacy_*.json strategy list (AiFactory defaults without Config); never finishes |
 | `StateNode_Reaction` | `<Config filename="..."/>` (optional) | runs the reaction engine; lets the Reaction state preempt the others |
 | `Task_Follow`        | `<Target value="player"/>`, `<AcceptableRadius value="follow"/>` (yards or a range name, default `follow`) | the only owner of follow movement: `Update` recomputes the spot next to the master and moves there again when it moved; Succeeded inside the radius once the master stands still; Failed when the master is gone, flying, on another map or transport, or after 30s outside the radius; `OnExit` stops its movement |
+| `MasterDistance_GlobalTask` | `<Range value="follow"/>` (yards or a range name, default `follow`) | global task: property `masterFar`, delegate `onMasterFar` fired every update while the master is beyond the range |
+| `BuffProvider_GlobalTask` | `<Buff spellid="..." scope="self\|single\|group"/>` per spell (any rank; scope optional, read from the spell's targets) | global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any; spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance) |
+| `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`) and are registered in `STAI_BuiltinTasks.cpp`.
+
+Global tasks (`<Global>` directly under `<Root>`) belong to no node: they are entered when the tree starts and exited
+when it stops. Tasks expose properties and delegates of their context (`STAI_Task::GetProperties` / `GetDelegates`),
+addressed by path: `Root|<TaskClass>::<name>` for a global task, `Root|<node name>|<TaskClass>::<name>` for a node's
+task.
+
+```xml
+<Node name="Check Buffs">
+  <Conditions> <Condition binding="Root|BuffProvider_GlobalTask::needs"/> </Conditions>
+  <Task class="Task_CastBuff">
+    <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
+  </Task>
+</Node>
+<Node name="Legacy">
+  <Conditions/>
+  <Task class="StateNode_Legacy"/>
+  <Transitions>
+    <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+    <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Buffs"/>
+  </Transitions>
+</Node>
+```
+
+- `<Binding local="..." external="...">` in a `<Task>`: the external property is copied into the task's own property
+  (same type) before its `OnEnter` and every `OnTick`.
+- `<Transition type="OnSuccess|OnFailure|OnFinish">` is taken when the node finished (none matching: the next update
+  selects from the first node).
+- `<Transition type="OnDelegate" source="...">` is taken when the source delegate fired: at the start of the next
+  update, if the node is running and the target's conditions pass (otherwise the node keeps running). A delegate fired
+  while no node with a transition on it runs is remembered until one does.
+- `node="Root"` selects again from the first node, `Root|<name>` enters that node (its conditions still have to pass).
+
+Unknown paths, properties of different types and delegates that do not exist stop the server when the trees load.
+The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. `STAI_NonCombat_Mage.xml` also buffs:
+Legacy goes to Check Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is missing, Check Buffs
+casts one per visit and is selected again while `needs` is not empty. The `buff` strategy is not in the Legacy lists.
 
 Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
 `STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. The tree adds an entry from `OnEnter` to

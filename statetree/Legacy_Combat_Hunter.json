@@ -6,7 +6,7 @@
     {"description": "Beast Mastery talents", "add": ["beast mastery"], "if": {"spec": 0}},
     {"description": "Marksmanship talents", "add": ["marksmanship"], "if": {"spec": 1}},
     {"description": "Survival talents", "add": ["survival"], "if": {"spec": 2}},
-    {"add": ["dps assist", "ranged", "cc", "aoe", "buff", "boost", "aspect", "sting", "pet"]},
+    {"add": ["dps assist", "ranged", "cc", "aoe", "boost", "aspect", "sting", "pet"]},
     {"include": "Legacy_Combat_Common.json"}
   ]
 }

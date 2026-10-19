@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- NonCombat state tree for Warlock bots: AiPlayerbot.StateTree.NonCombat.Warlock -->
 <Root>
+  <Global>
+    <!-- fires onMasterFar while the master is beyond follow range -->
+    <Task class="MasterDistance_GlobalTask">
+      <Range value="follow"/>
+    </Task>
+  </Global>
   <Node name="Follow player">
     <Conditions>
       <Condition trigger="has strategy::follow"/>
@@ -17,5 +23,8 @@
     <Task class="StateNode_Legacy">
       <Config filename="statetree/Legacy_NonCombat_Warlock.json"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+    </Transitions>
   </Node>
 </Root>

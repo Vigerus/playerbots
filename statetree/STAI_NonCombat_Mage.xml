@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- NonCombat state tree for Mage bots: AiPlayerbot.StateTree.NonCombat.Mage -->
 <Root>
+  <Global>
+    <!-- fires onMasterFar while the master is beyond follow range -->
+    <Task class="MasterDistance_GlobalTask">
+      <Range value="follow"/>
+    </Task>
+    <!-- watches the buffs of the bot and its group: needs, onMissingBuff -->
+    <Task class="BuffProvider_GlobalTask">
+      <Buff spellid="1459"/>   <!-- Arcane Intellect (single) -->
+      <Buff spellid="23028"/>  <!-- Arcane Brilliance (group, same buff as Arcane Intellect) -->
+      <Buff spellid="6117"/>   <!-- Mage Armor (self) -->
+    </Task>
+  </Global>
   <Node name="Follow player">
     <Conditions>
       <Condition trigger="has strategy::follow"/>
@@ -12,10 +24,22 @@
       <AcceptableRadius value="follow"/>
     </Task>
   </Node>
+  <Node name="Check Buffs">
+    <Conditions>
+      <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
+    </Conditions>
+    <Task class="Task_CastBuff">
+      <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
+    </Task>
+  </Node>
   <Node name="Legacy">
     <Conditions/>
     <Task class="StateNode_Legacy">
       <Config filename="statetree/Legacy_NonCombat_Mage.json"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Buffs"/>
+    </Transitions>
   </Node>
 </Root>

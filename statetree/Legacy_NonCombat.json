@@ -25,8 +25,7 @@
               ]
             }
           ]
-        },
-        {"add": ["buff"]}
+        }
       ]
     },
     {
@@ -36,7 +35,7 @@
         {"description": "Holy talents", "add": ["holy", "dps assist"], "if": {"spec": 0}},
         {"description": "Protection talents", "add": ["protection", "tank assist"], "if": {"spec": 1}},
         {"description": "Retribution talents", "add": ["retribution", "dps assist"], "if": {"spec": 2}},
-        {"add": ["cure", "buff", "blessing", "aura"]}
+        {"add": ["cure", "blessing", "aura"]}
       ]
     },
     {
@@ -46,7 +45,7 @@
         {"description": "Beast Mastery talents", "add": ["beast mastery"], "if": {"spec": 0}},
         {"description": "Marksmanship talents", "add": ["marksmanship"], "if": {"spec": 1}},
         {"description": "Survival talents", "add": ["survival"], "if": {"spec": 2}},
-        {"add": ["dps assist", "cc", "aoe", "buff", "aspect", "pet"]}
+        {"add": ["dps assist", "cc", "aoe", "aspect", "pet"]}
       ]
     },
     {
@@ -56,7 +55,7 @@
         {"description": "Assassination talents", "add": ["assassination"], "if": {"spec": 0}},
         {"description": "Combat talents", "add": ["combat"], "if": {"spec": 1}},
         {"description": "Subtlety talents", "add": ["subtlety"], "if": {"spec": 2}},
-        {"add": ["dps assist", "poisons", "stealth", "buff"]}
+        {"add": ["dps assist", "poisons", "stealth"]}
       ]
     },
     {
@@ -66,7 +65,7 @@
         {"description": "Discipline talents", "add": ["discipline"], "if": {"spec": 0}},
         {"description": "Holy talents", "add": ["holy"], "if": {"spec": 1}},
         {"description": "Shadow talents", "add": ["shadow"], "if": {"spec": 2}},
-        {"add": ["dps assist", "cure", "buff"]}
+        {"add": ["dps assist", "cure"]}
       ]
     },
     {
@@ -76,7 +75,7 @@
         {"description": "Elemental talents", "add": ["elemental", "aoe", "cc"], "if": {"spec": 0}},
         {"description": "Enhancement talents", "add": ["enhancement", "aoe", "cc"], "if": {"spec": 1}},
         {"description": "Restoration talents", "add": ["restoration"], "if": {"spec": 2}},
-        {"add": ["dps assist", "cure", "totems", "buff"]}
+        {"add": ["dps assist", "cure", "totems"]}
       ]
     },
     {
@@ -86,7 +85,7 @@
         {"description": "Arcane talents", "add": ["arcane"], "if": {"spec": 0}},
         {"description": "Fire talents", "add": ["fire"], "if": {"spec": 1}},
         {"description": "Frost talents", "add": ["frost"], "if": {"spec": 2}},
-        {"add": ["dps assist", "cure", "buff"]}
+        {"add": ["dps assist", "cure"]}
       ]
     },
     {
@@ -96,7 +95,7 @@
         {"description": "Affliction talents", "add": ["affliction"], "if": {"spec": 0}},
         {"description": "Demonology talents", "add": ["demonology"], "if": {"spec": 1}},
         {"description": "Destruction talents", "add": ["destruction"], "if": {"spec": 2}},
-        {"add": ["dps assist", "pet", "buff"]}
+        {"add": ["dps assist", "pet"]}
       ]
     },
     {
@@ -106,7 +105,7 @@
         {"description": "Balance talents", "add": ["balance", "dps assist"], "if": {"spec": 0}},
         {"description": "Feral talents", "add": ["tank feral", "tank assist"], "if": {"spec": 1}},
         {"description": "Restoration talents", "add": ["restoration", "dps assist"], "if": {"spec": 2}},
-        {"add": ["cure", "aoe", "cc", "buff"]}
+        {"add": ["cure", "aoe", "cc"]}
       ]
     },
     {"include": "Legacy_NonCombat_Common.json"}

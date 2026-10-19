@@ -48,8 +48,9 @@ namespace
     {
         STAI_ConditionDef def;
         def.trigger = Attribute(condition, "trigger");
-        if (def.trigger.empty())
-            throw std::runtime_error(where + ": <Condition> needs a trigger=\"...\" (a trigger name, e.g. \"critical health\" or \"has aura::spellid::23341::greater or equal::5\")");
+        def.binding.path = Attribute(condition, "binding");
+        if (def.trigger.empty() == def.binding.path.empty())
+            throw std::runtime_error(where + ": <Condition> needs either a trigger=\"...\" (a trigger name, e.g. \"critical health\" or \"has aura::spellid::23341::greater or equal::5\") or a binding=\"Root|...\" (a task property)");
 
         const std::string negate = Attribute(condition, "negate");
         if (negate == "true" || negate == "1")
@@ -62,7 +63,7 @@ namespace
 
     const char* const rootPathPrefix = "Root|";
 
-    // <Transition type="..." node="Root|..."/>, the target node is resolved once the whole tree is read
+    // <Transition type="..." node="Root|..."/>, the target node and the source delegate are resolved once the whole tree is read
     STAI_TransitionDef ParseTransition(const ptree& transition, const std::string& where)
     {
         STAI_TransitionDef def;
@@ -74,12 +75,18 @@ namespace
             def.type = STAI_TransitionDef::Type::OnFailure;
         else if (type == "OnFinish")
             def.type = STAI_TransitionDef::Type::OnFinish;
+        else if (type == "OnDelegate")
+            def.type = STAI_TransitionDef::Type::OnDelegate;
         else
-            throw STAI_TreeFatalError(where + ": <Transition> type must be OnSuccess, OnFailure or OnFinish, got '" + type + "'");
+            throw STAI_TreeFatalError(where + ": <Transition> type must be OnSuccess, OnFailure, OnFinish or OnDelegate, got '" + type + "'");
+
+        def.source.path = Attribute(transition, "source");
+        if ((def.type == STAI_TransitionDef::Type::OnDelegate) == def.source.path.empty())
+            throw STAI_TreeFatalError(where + ": <Transition> source=\"Root|<TaskClass>::<delegate>\" is needed for OnDelegate and only allowed there");
 
         def.path = Attribute(transition, "node");
-        if (def.path.rfind(rootPathPrefix, 0) != 0 || def.path.size() == strlen(rootPathPrefix))
-            throw STAI_TreeFatalError(where + ": <Transition> node must be a path starting with Root, e.g. \"Root|Legacy\", got '" + def.path + "'");
+        if (def.path != "Root" && (def.path.rfind(rootPathPrefix, 0) != 0 || def.path.size() == strlen(rootPathPrefix)))
+            throw STAI_TreeFatalError(where + ": <Transition> node must be Root or a path starting with Root, e.g. \"Root|Legacy\", got '" + def.path + "'");
 
         return def;
     }
@@ -92,7 +99,22 @@ namespace
         if (!taskClass)
             throw std::runtime_error(where + ": unknown task class '" + def.taskClass + "'");
 
+        // <Binding>s are handled by the tree, the task only sees its own settings
         def.taskConfig = task;
+        def.taskConfig.erase("Binding");
+        for (const auto& [key, binding] : task)
+        {
+            if (key != "Binding")
+                continue;
+
+            STAI_BindingDef bindingDef;
+            bindingDef.local = Attribute(binding, "local");
+            bindingDef.external.path = Attribute(binding, "external");
+            if (bindingDef.local.empty() || bindingDef.external.path.empty())
+                throw std::runtime_error(where + " (" + def.taskClass + "): <Binding> needs local=\"<property>\" and external=\"Root|...\"");
+            def.bindings.push_back(std::move(bindingDef));
+        }
+
         try
         {
             taskClass->validate(def.taskConfig);
@@ -227,11 +249,101 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
     if (asset->nodes.empty())
         throw std::runtime_error(file + ": no <Node> in <Root>");
 
+    // properties and delegates: Root|<TaskClass>::<name> (global task) or Root|<node name>|<TaskClass>::<name>
+    auto resolve = [&](STAI_MemberRef& ref, const std::string& where) -> const STAI_Task&
+    {
+        auto fail = [&](const std::string& why) { return STAI_TreeFatalError(where + ": '" + ref.path + "': " + why); };
+
+        if (ref.path.rfind(rootPathPrefix, 0) != 0)
+            throw fail("expected Root|<TaskClass>::<name> or Root|<node name>|<TaskClass>::<name>");
+        std::string rest = ref.path.substr(strlen(rootPathPrefix));
+
+        const std::vector<STAI_TaskDef>* tasks = &asset->globalTasks;
+        ref.node = -1;
+        const size_t separator = rest.find('|');
+        if (separator != std::string::npos)
+        {
+            auto node = nodeIndexByName.find(rest.substr(0, separator));
+            if (node == nodeIndexByName.end())
+                throw fail("unknown node '" + rest.substr(0, separator) + "'");
+            ref.node = node->second - 1;
+            tasks = &asset->nodes[ref.node].tasks;
+            rest = rest.substr(separator + 1);
+        }
+
+        const size_t member = rest.find("::");
+        if (member == std::string::npos || member == 0 || member + 2 == rest.size())
+            throw fail("expected <TaskClass>::<name>");
+        const std::string taskClass = rest.substr(0, member);
+        ref.member = rest.substr(member + 2);
+
+        for (size_t i = 0; i < tasks->size(); ++i)
+        {
+            if ((*tasks)[i].taskClass != taskClass)
+                continue;
+            ref.task = int(i);
+            return *(*tasks)[i].task;
+        }
+        throw fail("no task of class '" + taskClass + "' in " + (ref.node < 0 ? "<Global>" : "the node"));
+    };
+
+    auto resolveBindings = [&](STAI_TaskDef& task, const std::string& where)
+    {
+        for (STAI_BindingDef& binding : task.bindings)
+        {
+            binding.localProperty = task.task->FindProperty(binding.local);
+            if (!binding.localProperty)
+                throw STAI_TreeFatalError(where + " (" + task.taskClass + "): <Binding> local '" + binding.local + "' is not a property of the task");
+
+            binding.externalProperty = resolve(binding.external, where).FindProperty(binding.external.member);
+            if (!binding.externalProperty)
+                throw STAI_TreeFatalError(where + ": <Binding> external '" + binding.external.path + "' is not a property of that task");
+            if (binding.externalProperty->type != binding.localProperty->type)
+                throw STAI_TreeFatalError(where + ": <Binding> '" + binding.local + "' and '" + binding.external.path + "' have different types");
+        }
+    };
+
+    for (size_t i = 0; i < asset->globalTasks.size(); ++i)
+        resolveBindings(asset->globalTasks[i], file + " global task #" + std::to_string(i + 1));
+
+    for (size_t i = 0; i < asset->nodes.size(); ++i)
+    {
+        const std::string where = file + " node #" + std::to_string(i + 1);
+        for (STAI_TaskDef& task : asset->nodes[i].tasks)
+            resolveBindings(task, where);
+
+        for (STAI_ConditionDef& condition : asset->nodes[i].conditions)
+        {
+            if (!condition.trigger.empty())
+                continue;
+            condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
+            if (!condition.property)
+                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
+            if (!condition.property->isSet)
+                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
+        }
+
+        for (STAI_TransitionDef& transition : asset->nodes[i].transitions)
+        {
+            if (transition.type != STAI_TransitionDef::Type::OnDelegate)
+                continue;
+            transition.delegate = resolve(transition.source, where).FindDelegate(transition.source.member);
+            if (!transition.delegate)
+                throw STAI_TreeFatalError(where + ": <Transition> source '" + transition.source.path + "' is not a delegate of that task");
+        }
+    }
+
     // transition targets: Root|<node name>, nodes are direct children of Root
     for (size_t i = 0; i < asset->nodes.size(); ++i)
     {
         for (STAI_TransitionDef& transition : asset->nodes[i].transitions)
         {
+            if (transition.path == "Root")
+            {
+                transition.target = -1;
+                continue;
+            }
+
             const std::string name = transition.path.substr(strlen(rootPathPrefix));
             auto target = nodeIndexByName.find(name);
             if (target == nodeIndexByName.end())
@@ -245,6 +357,9 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
 
 std::string STAI_TransitionDef::GetText() const
 {
+    if (type == Type::OnDelegate)
+        return "OnDelegate " + source.path + " " + path;
+
     const char* typeName = type == Type::OnSuccess ? "OnSuccess" : type == Type::OnFailure ? "OnFailure" : "OnFinish";
     return std::string(typeName) + " " + path;
 }
