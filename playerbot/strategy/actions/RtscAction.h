@@ -12,5 +12,7 @@ namespace ai
     public:
         RTSCAction(PlayerbotAI* ai) : SeeSpellAction(ai, "rtsc"), Qualified() {}
         virtual bool Execute(Event& event);
+        // the command itself enables the rtsc strategy, so don't require it here
+        virtual bool isUseful() override { return GetMaster(); }
     };
 }

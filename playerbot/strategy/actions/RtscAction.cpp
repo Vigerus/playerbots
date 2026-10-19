@@ -20,19 +20,31 @@ bool RTSCAction::Execute(Event& event)
 	if (!requester || requester != GetMaster())
 		return false;
 
-	if (command != "reset" && !requester->HasSpell(RTSC_MOVE_SPELL))
+	if (command != "reset")
 	{
-		requester->learnSpell(RTSC_MOVE_SPELL, false);
-		ai->TellPlayerNoFacing(requester, "RTS control enabled.");
-		ai->TellPlayerNoFacing(requester, "Aedm (Awesome energetic do move) spell trained.");
+		if (!requester->HasSpell(RTSC_MOVE_SPELL))
+		{
+			requester->learnSpell(RTSC_MOVE_SPELL, false);
+			ai->TellPlayerNoFacing(requester, "Aedm (Awesome energetic do move) spell trained.");
+		}
+
+		if (!ai->HasStrategy("rtsc", BotState::BOT_STATE_NON_COMBAT) || !ai->HasStrategy("rtsc", BotState::BOT_STATE_COMBAT))
+		{
+			ai->ChangeStrategy("+rtsc", BotState::BOT_STATE_NON_COMBAT);
+			ai->ChangeStrategy("+rtsc", BotState::BOT_STATE_COMBAT);
+			ai->TellPlayerNoFacing(requester, "RTS control enabled.");
+		}
 	}
-	else if (command == "reset")
+	else
 	{
 		if (requester->HasSpell(RTSC_MOVE_SPELL))
 		{
 			requester->removeSpell(RTSC_MOVE_SPELL);
 			ai->TellPlayerNoFacing(requester, "RTS control spell removed.");
 		}
+
+		ai->ChangeStrategy("-rtsc", BotState::BOT_STATE_NON_COMBAT);
+		ai->ChangeStrategy("-rtsc", BotState::BOT_STATE_COMBAT);
 
 		RESET_AI_VALUE(bool, "RTSC selected");
 		RESET_AI_VALUE(std::string, "RTSC next spell action");
