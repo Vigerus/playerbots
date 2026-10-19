@@ -96,14 +96,27 @@ void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
 {
     Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
     context.spellId = 0;
-    context.target.Clear();
+    context.castTarget.Clear();
     context.failed = false;
 
+    // the target first, then whoNeeds: members to help, or units to act on (attack, crowd control); the dead ones
+    // need nothing any more
+    Player* bot = context.bot;
+    std::vector<Unit*> targets;
+    std::vector<ObjectGuid> guids = context.whoNeeds;
+    if (!context.target.IsEmpty())
+        guids.insert(guids.begin(), context.target);
+    for (ObjectGuid guid : guids)
+    {
+        Unit* target = guid == bot->GetObjectGuid() ? bot : bot->GetMap()->GetUnit(guid);
+        if (target && target->IsInWorld() && target->IsAlive())
+            targets.push_back(target);
+    }
+
     // nobody needs it (any more): the task succeeds right away
-    if (context.whoNeeds.empty())
+    if (targets.empty())
         return;
 
-    Player* bot = context.bot;
     const uint32 spell = ResolveSpell(bot);
     if (!spell)
     {
@@ -111,22 +124,21 @@ void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
         return;
     }
 
-    for (ObjectGuid guid : context.whoNeeds)
+    for (Unit* target : targets)
     {
-        Unit* target = guid == bot->GetObjectGuid() ? bot : bot->GetMap()->GetPlayer(guid);
-        if (!target || !context.ai->CanCastSpell(spell, target, 0, true))
+        if (!context.ai->CanCastSpell(spell, target, 0, true))
             continue;
 
         if (!context.ai->CastSpell(spell, target))
             continue;
 
         context.spellId = spell;
-        context.target = guid;
+        context.castTarget = target->GetObjectGuid();
         context.castStartMs = WorldTimer::getMSTime();
         return;
     }
 
-    // every target is out of reach right now (range, mana...)
+    // every living target is out of reach right now (range, sight, mana...)
     context.failed = true;
 }
 
@@ -150,7 +162,11 @@ EActionRunStatus Task_CastSpell::OnTick(STAI_TaskContext& baseContext, uint32 el
 
 const std::vector<STAI_PropertyDef>& Task_CastSpell::GetProperties() const
 {
-    static const std::vector<STAI_PropertyDef> properties = { STAI_PropertyDef::Of("whoNeeds", &Task_CastSpellContext::whoNeeds) };
+    static const std::vector<STAI_PropertyDef> properties =
+    {
+        STAI_PropertyDef::Of("target", &Task_CastSpellContext::target),
+        STAI_PropertyDef::Of("whoNeeds", &Task_CastSpellContext::whoNeeds),
+    };
     return properties;
 }
 
@@ -170,7 +186,7 @@ std::string Task_CastSpell::GetDebugInfo(const STAI_TaskContext& baseContext) co
     if (context.failed)
         return "cannot cast";
     if (!context.spellId)
-        return context.whoNeeds.empty() ? "nobody to help" : "";
+        return context.whoNeeds.empty() && context.target.IsEmpty() ? "no target" : "";
 
     const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(context.spellId);
     std::ostringstream out;

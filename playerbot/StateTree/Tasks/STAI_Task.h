@@ -32,6 +32,11 @@ namespace ai
         struct HasEmpty : std::false_type {};
         template <class T>
         struct HasEmpty<T, std::void_t<decltype(std::declval<const T&>().empty())>> : std::true_type {};
+        // ObjectGuid and the like
+        template <class T, class = void>
+        struct HasIsEmpty : std::false_type {};
+        template <class T>
+        struct HasIsEmpty<T, std::void_t<decltype(std::declval<const T&>().IsEmpty())>> : std::true_type {};
     }
 
     // A value of a task context that other tasks of the tree can read by path (Root|<TaskClass>::<name> for a
@@ -45,7 +50,7 @@ namespace ai
         std::type_index type;
         std::function<void*(STAI_TaskContext& context)> get;    // the value in the bot's context
         std::function<void(void* to, const void* from)> assign;
-        std::function<bool(const void* value)> isSet;           // containers: not empty, else bool(value); empty when untestable
+        std::function<bool(const void* value)> isSet;           // containers: not empty, guids: not empty, else bool(value); empty when untestable
         std::function<double(const void* value)> toNumber;      // numbers (and bool) for compared conditions; empty otherwise
 
         template <class Context, class T>
@@ -56,6 +61,8 @@ namespace ai
             def.assign = [](void* to, const void* from) { *static_cast<T*>(to) = *static_cast<const T*>(from); };
             if constexpr (STAI_Detail::HasEmpty<T>::value)
                 def.isSet = [](const void* value) { return !static_cast<const T*>(value)->empty(); };
+            else if constexpr (STAI_Detail::HasIsEmpty<T>::value)
+                def.isSet = [](const void* value) { return !static_cast<const T*>(value)->IsEmpty(); };
             else if constexpr (std::is_convertible_v<T, bool>)
                 def.isSet = [](const void* value) { return static_cast<bool>(*static_cast<const T*>(value)); };
             if constexpr (std::is_arithmetic_v<T>)

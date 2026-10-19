@@ -12,20 +12,24 @@ namespace ai
     // runtime context of Task_CastSpell: the targets (bound) and the cast in progress
     struct Task_CastSpellContext : public STAI_TaskContext
     {
-        std::vector<ObjectGuid> whoNeeds;   // property "whoNeeds", e.g. bound to CurseProvider_GlobalTask::whoNeeds
+        ObjectGuid target;                  // property "target": one unit, e.g. bound to TargetProvider_GlobalTask::target
+        std::vector<ObjectGuid> whoNeeds;   // property "whoNeeds": units on the bot's map, e.g. bound to CurseProvider_GlobalTask::whoNeeds
         uint32 spellId = 0;                 // 0: nothing was cast
-        ObjectGuid target;
+        ObjectGuid castTarget;
         uint32 castStartMs = 0;
         bool failed = false;
     };
 
-    // Casts a spell on the first of its whoNeeds targets it can reach, then waits for the cast and the global
-    // cooldown:
+    // Casts a spell on its target, else on the first of its whoNeeds it can reach, then waits for the cast and the
+    // global cooldown:
     //   <Task class="Task_CastSpell" spellid="Remove Lesser Curse">     spell id, or a name (the highest known rank)
     //     <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
     //   </Task>
-    // Succeeded once the cast and the GCD are over, or right away when whoNeeds is empty; Failed when the bot does
-    // not know the spell or can cast it on none of the targets (range, mana...).
+    //   <Task class="Task_CastSpell" spellid="Frostbolt">
+    //     <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    //   </Task>
+    // Succeeded once the cast and the GCD are over, or right away when there is no living target; Failed when the
+    // bot does not know the spell or can cast it on none of the living targets (range, sight, mana...).
     class Task_CastSpell : public STAI_Task
     {
     public:
