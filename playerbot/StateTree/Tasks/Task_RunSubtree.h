@@ -41,6 +41,7 @@ namespace ai
         virtual void OnEnter(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
         virtual void OnExit(STAI_TaskContext& context) const override;
+        virtual bool IsTickable() const override { return true; }
 
         virtual bool HoldsActiveTree(const STAI_TaskContext& context) const override;
         virtual std::vector<std::string> GetReferencedTrees() const override { return { file }; }

@@ -63,7 +63,8 @@ namespace ai
     // the context the tree constructs for the node (see GetContextType) and passes to every call.
     // Lifecycle when its turn in the node comes (a node's tasks run one after another): OnEnter, OnTick every bot
     // update until it returns Succeeded (the next task of the node is entered) or Failed (the node fails), OnExit
-    // (also called when an earlier node interrupts the node or the tree finishes).
+    // (also called when an earlier node interrupts the node or the tree finishes). Tasks that are not tickable
+    // (IsTickable) never get OnTick: in a node they succeed on their first update.
     class STAI_Task
     {
     public:
@@ -79,6 +80,9 @@ namespace ai
         virtual void OnEnter(STAI_TaskContext& context) const {}
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const = 0;
         virtual void OnExit(STAI_TaskContext& context) const {}
+
+        // OnTick is called only for tickable tasks
+        virtual bool IsTickable() const { return false; }
 
         // the tree of the node finishes (OnFinish) once this task succeeded, see STAI_FinishTreeTask
         virtual bool FinishesTree() const { return false; }

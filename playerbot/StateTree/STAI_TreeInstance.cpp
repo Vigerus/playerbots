@@ -216,7 +216,8 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
 
     // scopeless: ticked whichever node runs, the result does not end anything
     for (TaskSlot& global : globals)
-        global.def->task->OnTick(*global.context, elapsed, minimal);
+        if (global.def->task->IsTickable())
+            global.def->task->OnTick(*global.context, elapsed, minimal);
 
     // the running node keeps the results it was entered with, the others show only what this update checked
     for (int i = 0; i < int(nodes.size()); ++i)
@@ -262,7 +263,8 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
 
     RuntimeNode& node = nodes[active];
     TaskSlot& task = node.tasks[node.current];
-    const EActionRunStatus status = task.def->task->OnTick(*task.context, elapsed, minimal);
+    // a task that is not tickable is done once entered
+    const EActionRunStatus status = task.def->task->IsTickable() ? task.def->task->OnTick(*task.context, elapsed, minimal) : EActionRunStatus::Succeeded;
     if (status == EActionRunStatus::Running)
         return status;
 
