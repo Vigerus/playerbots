@@ -85,7 +85,7 @@
         {"description": "Arcane talents", "add": ["arcane"], "if": {"spec": 0}},
         {"description": "Fire talents", "add": ["fire"], "if": {"spec": 1}},
         {"description": "Frost talents", "add": ["frost"], "if": {"spec": 2}},
-        {"add": ["dps assist", "cure"]}
+        {"add": ["dps assist"]}
       ]
     },
     {

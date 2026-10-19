@@ -1,11 +1,13 @@
 #include "playerbot/StateTree/STAI_TaskFactory.h"
 
 #include "playerbot/StateTree/Tasks/BuffProvider_GlobalTask.h"
+#include "playerbot/StateTree/Tasks/CurseProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/MasterDistance_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/StateNode_Legacy.h"
 #include "playerbot/StateTree/Tasks/Task_CastBuff.h"
+#include "playerbot/StateTree/Tasks/Task_CastSpell.h"
 #include "playerbot/StateTree/Tasks/Task_Follow.h"
 #include "playerbot/StateTree/Tasks/Task_RunSubtree.h"
 
@@ -22,5 +24,7 @@ namespace ai
         factory.RegisterTask("BuffProvider_GlobalTask", { &BuffProvider_GlobalTask::Validate, &BuffProvider_GlobalTask::Create });
         factory.RegisterTask("Task_CastBuff", { &Task_CastBuff::Validate, &Task_CastBuff::Create });
         factory.RegisterTask("MasterDistance_GlobalTask", { &MasterDistance_GlobalTask::Validate, &MasterDistance_GlobalTask::Create });
+        factory.RegisterTask("CurseProvider_GlobalTask", { &CurseProvider_GlobalTask::Validate, &CurseProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_CastSpell", { &Task_CastSpell::Validate, &Task_CastSpell::Create });
     }
 }

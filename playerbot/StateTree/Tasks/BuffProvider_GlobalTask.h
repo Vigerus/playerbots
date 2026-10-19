@@ -2,26 +2,18 @@
 
 #include "playerbot/StateTree/Tasks/STAI_BuffTypes.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
-
-#include "Entities/ObjectGuid.h"
-#include "Entities/Unit.h"
+#include "playerbot/StateTree/Tasks/STAI_GroupAuraWatch.h"
 
 #include <string>
 #include <vector>
-
-class Group;
-class Player;
-class SpellAuraHolder;
 
 namespace ai
 {
     class BuffProvider_GlobalTask;
 
     // runtime context of BuffProvider_GlobalTask: the bot's subscriptions and the buffs missing right now
-    struct BuffProvider_GlobalTaskContext : public STAI_TaskContext
+    struct BuffProvider_GlobalTaskContext : public STAI_GroupAuraWatchContext
     {
-        ~BuffProvider_GlobalTaskContext() override { Unsubscribe(); }
-
         // fired whenever an evaluation finds missing buffs:
         //   <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="..."/>
         FSTAI_Delegate onMissingBuff;
@@ -30,21 +22,9 @@ namespace ai
         std::vector<BuffNeed> needs;
 
         const BuffProvider_GlobalTask* task = nullptr;
-        bool subscribed = false;
-        std::vector<ObjectGuid> auraTargets;    // members whose aura events are subscribed (self included)
 
-        void Subscribe();
-        void Unsubscribe();
-        // aura subscriptions of the current members (leftGroup: a group the bot is leaving, treated as no group)
-        void RefreshAuraTargets(Group* leftGroup = nullptr);
-        void Evaluate(Group* leftGroup = nullptr);
-
-        void OnAuraApplied(Unit* target, SpellAuraHolder* holder);
-        void OnAuraRemoved(Unit* target, SpellAuraHolder* holder, AuraRemoveMode mode);
-        void OnJoinedTeam(Group* group, ObjectGuid self);
-        void OnLeftTeam(Group* group, ObjectGuid self);
-        void OnMemberJoinedTeam(Group* group, ObjectGuid self, ObjectGuid member);
-        void OnMemberLeftTeam(Group* group, ObjectGuid self, ObjectGuid member);
+        virtual void Evaluate(Group* leftGroup = nullptr) override;
+        virtual bool IsWatchedAura(const SpellAuraHolder* holder) const override;
     };
 
     // Global task that watches the buffs of the bot and its group: property needs (the casts to do), delegate
@@ -97,8 +77,8 @@ namespace ai
 
         virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
 
-        // the casts the bot should do now for itself and the members on its map
-        std::vector<BuffNeed> FindNeeds(Player* bot, Group* group) const;
+        // the casts the bot should do now for the reachable members (the bot included)
+        std::vector<BuffNeed> FindNeeds(Player* bot, Group* group, const std::vector<Player*>& members) const;
         // the spell is a rank of one of the configured spells
         bool IsWatchedSpell(uint32 spellId) const;
 

@@ -12,6 +12,8 @@
       <Buff spellid="23028"/>  <!-- Arcane Brilliance (group, same buff as Arcane Intellect) -->
       <Buff spellid="6117"/>   <!-- Mage Armor (self) -->
     </Task>
+    <!-- watches the bot and its group for dispellable curses (no <Aura>: every curse): whoNeeds, onNeedsHelp -->
+    <Task class="CurseProvider_GlobalTask"/>
   </Global>
   <Node name="Follow player">
     <Conditions>
@@ -24,7 +26,15 @@
       <AcceptableRadius value="follow"/>
     </Task>
   </Node>
-  <Node name="Check Buffs">
+  <Node name="Check Decurse">
+    <Conditions>
+      <Condition binding="Root|CurseProvider_GlobalTask::whoNeeds"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Remove Lesser Curse">
+      <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
+    </Task>
+  </Node>
+  <Node name="Check Missing Buffs">
     <Conditions>
       <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
     </Conditions>
@@ -39,7 +49,8 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
-      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Buffs"/>
+      <Transition type="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" node="Root|Check Decurse"/>
+      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Missing Buffs"/>
     </Transitions>
   </Node>
 </Root>

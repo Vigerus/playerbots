@@ -76,6 +76,8 @@ Tasks:
 | `Task_Follow`        | `<Target value="player"/>`, `<AcceptableRadius value="follow"/>` (yards or a range name, default `follow`) | the only owner of follow movement: `Update` recomputes the spot next to the master and moves there again when it moved; Succeeded inside the radius once the master stands still; Failed when the master is gone, flying, on another map or transport, or after 30s outside the radius; `OnExit` stops its movement |
 | `MasterDistance_GlobalTask` | `<Range value="follow"/>` (yards or a range name, default `follow`) | global task: property `masterFar`, delegate `onMasterFar` fired every update while the master is beyond the range |
 | `BuffProvider_GlobalTask` | `<Buff spellid="..." scope="self\|single\|group"/>` per spell (any rank; scope optional, read from the spell's targets) | global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any; spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance) |
+| `CurseProvider_GlobalTask` | `<Aura spellid="..."/>` per aura (any rank), optional | global task, not ticked: watches the bot and its group for the listed auras, or every dispellable curse when none is listed; property `whoNeeds` (the cursed members, the bot first), delegate `onNeedsHelp` fired when an evaluation finds any |
+| `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="whoNeeds" external="..."/>` | casts the spell on the first `whoNeeds` target it can reach; waits for the cast and the GCD; Succeeded also when `whoNeeds` is empty, Failed when the bot does not know the spell or reaches no target |
 | `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`) and are registered in `STAI_BuiltinTasks.cpp`.
@@ -112,9 +114,10 @@ task.
 - `node="Root"` selects again from the first node, `Root|<name>` enters that node (its conditions still have to pass).
 
 Unknown paths, properties of different types and delegates that do not exist stop the server when the trees load.
-The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. `STAI_NonCombat_Mage.xml` also buffs:
-Legacy goes to Check Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is missing, Check Buffs
-casts one per visit and is selected again while `needs` is not empty. The `buff` strategy is not in the Legacy lists.
+The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. `STAI_NonCombat_Mage.xml` also
+decurses and buffs: Legacy goes to Check Decurse when someone is cursed (Remove Lesser Curse) and to Check Missing
+Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is missing; each casts once per visit and is
+selected again while its `whoNeeds` / `needs` is not empty. The `buff` strategy is not in the Legacy lists.
 
 Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
 `STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. The tree adds an entry from `OnEnter` to

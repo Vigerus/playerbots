@@ -4,10 +4,8 @@
 #include "playerbot/StateTree/STAI_TaskFactory.h"
 
 #include "Groups/Group.h"
-#include "Groups/TeamSubsystem.h"
-#include "Spells/SpellAuraWorldSubsystem.h"
+#include "Spells/SpellAuras.h"
 #include "Spells/SpellMgr.h"
-#include "World/World.h"
 
 #include <algorithm>
 #include <map>
@@ -57,10 +55,6 @@ namespace
         return scope == BuffScope::Self ? "self" : scope == BuffScope::Group ? "group" : "single";
     }
 
-    bool IsBuffableMember(const Player* bot, const Player* member)
-    {
-        return member && member->IsInWorld() && member->IsAlive() && member->GetMap() == bot->GetMap();
-    }
 }
 
 // ---------------------------------------------------------------- task
@@ -208,22 +202,12 @@ uint32 BuffProvider_GlobalTask::GetKnownRank(const Player* bot, uint32 firstSpel
     return known;
 }
 
-std::vector<BuffNeed> BuffProvider_GlobalTask::FindNeeds(Player* bot, Group* group) const
+std::vector<BuffNeed> BuffProvider_GlobalTask::FindNeeds(Player* bot, Group* group, const std::vector<Player*>& members) const
 {
+    // no members: the bot itself cannot cast (dead, not in world)
     std::vector<BuffNeed> needs;
-    if (!bot->IsInWorld() || !bot->IsAlive())
+    if (members.empty())
         return needs;
-
-    // the members the bot can buff, by subgroup (no group: the bot alone)
-    std::vector<Player*> members;
-    if (group)
-    {
-        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
-            if (IsBuffableMember(bot, itr->getSource()))
-                members.push_back(itr->getSource());
-    }
-    if (std::find(members.begin(), members.end(), bot) == members.end())
-        members.push_back(bot);
 
     for (const Buff& buff : buffs)
     {
@@ -270,108 +254,15 @@ std::vector<BuffNeed> BuffProvider_GlobalTask::FindNeeds(Player* bot, Group* gro
 
 // ---------------------------------------------------------------- context
 
-void BuffProvider_GlobalTaskContext::Subscribe()
-{
-    if (subscribed || !bot)
-        return;
-
-    subscribed = true;
-    if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
-    {
-        const ObjectGuid self = bot->GetObjectGuid();
-        teams->AddOnJoinedTeam(self, this, &BuffProvider_GlobalTaskContext::OnJoinedTeam);
-        teams->AddOnLeftTeam(self, this, &BuffProvider_GlobalTaskContext::OnLeftTeam);
-        teams->AddOnMemberJoinedTeam(self, this, &BuffProvider_GlobalTaskContext::OnMemberJoinedTeam);
-        teams->AddOnMemberLeftTeam(self, this, &BuffProvider_GlobalTaskContext::OnMemberLeftTeam);
-    }
-    RefreshAuraTargets();
-}
-
-void BuffProvider_GlobalTaskContext::Unsubscribe()
-{
-    if (!subscribed)
-        return;
-
-    subscribed = false;
-    if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
-        teams->RemoveAll(bot->GetObjectGuid(), this);
-    if (SpellAuraWorldSubsystem* auras = sWorld.GetSubsystem<SpellAuraWorldSubsystem>())
-        for (ObjectGuid guid : auraTargets)
-            auras->RemoveAll(guid, this);
-    auraTargets.clear();
-}
-
-void BuffProvider_GlobalTaskContext::RefreshAuraTargets(Group* leftGroup)
-{
-    SpellAuraWorldSubsystem* auras = sWorld.GetSubsystem<SpellAuraWorldSubsystem>();
-    if (!auras)
-        return;
-
-    // every member, also on other maps: their events are ignored until they are on the bot's map
-    std::vector<ObjectGuid> targets = { bot->GetObjectGuid() };
-    Group* group = bot->GetGroup();
-    if (group && group != leftGroup)
-        for (const Group::MemberSlot& slot : group->GetMemberSlots())
-            if (slot.guid != bot->GetObjectGuid())
-                targets.push_back(slot.guid);
-
-    for (ObjectGuid guid : auraTargets)
-        if (std::find(targets.begin(), targets.end(), guid) == targets.end())
-            auras->RemoveAll(guid, this);
-
-    for (ObjectGuid guid : targets)
-    {
-        if (std::find(auraTargets.begin(), auraTargets.end(), guid) != auraTargets.end())
-            continue;
-        auras->AddOnAuraApplied(guid, this, &BuffProvider_GlobalTaskContext::OnAuraApplied);
-        auras->AddOnAuraRemoved(guid, this, &BuffProvider_GlobalTaskContext::OnAuraRemoved);
-    }
-
-    auraTargets = std::move(targets);
-}
-
 void BuffProvider_GlobalTaskContext::Evaluate(Group* leftGroup)
 {
     Group* group = bot->GetGroup();
-    needs = task->FindNeeds(bot, group == leftGroup ? nullptr : group);
+    needs = task->FindNeeds(bot, group == leftGroup ? nullptr : group, GetReachableMembers(leftGroup));
     if (!needs.empty())
         onMissingBuff.Broadcast();
 }
 
-void BuffProvider_GlobalTaskContext::OnAuraApplied(Unit* target, SpellAuraHolder* holder)
+bool BuffProvider_GlobalTaskContext::IsWatchedAura(const SpellAuraHolder* holder) const
 {
-    // members on other maps change their auras on another thread, and cannot be buffed anyway
-    if (target->GetMap() == bot->GetMap() && task->IsWatchedSpell(holder->GetId()))
-        Evaluate();
-}
-
-void BuffProvider_GlobalTaskContext::OnAuraRemoved(Unit* target, SpellAuraHolder* holder, AuraRemoveMode mode)
-{
-    if (target->GetMap() == bot->GetMap() && task->IsWatchedSpell(holder->GetId()))
-        Evaluate();
-}
-
-void BuffProvider_GlobalTaskContext::OnJoinedTeam(Group* group, ObjectGuid self)
-{
-    RefreshAuraTargets();
-    Evaluate();
-}
-
-void BuffProvider_GlobalTaskContext::OnLeftTeam(Group* group, ObjectGuid self)
-{
-    // a disbanding group is still the bot's group during the event
-    RefreshAuraTargets(group);
-    Evaluate(group);
-}
-
-void BuffProvider_GlobalTaskContext::OnMemberJoinedTeam(Group* group, ObjectGuid self, ObjectGuid member)
-{
-    RefreshAuraTargets();
-    Evaluate();
-}
-
-void BuffProvider_GlobalTaskContext::OnMemberLeftTeam(Group* group, ObjectGuid self, ObjectGuid member)
-{
-    RefreshAuraTargets();
-    Evaluate();
+    return task->IsWatchedSpell(holder->GetId());
 }

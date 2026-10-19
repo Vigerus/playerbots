@@ -108,7 +108,7 @@
         {"description": "Arcane talents", "add": ["arcane"], "if": {"spec": 0}},
         {"description": "Fire talents", "add": ["fire"], "if": {"spec": 1}},
         {"description": "Frost talents", "add": ["frost"], "if": {"spec": 2}},
-        {"add": ["dps assist", "flee", "cure", "ranged", "cc", "aoe", "boost"]},
+        {"add": ["dps assist", "flee", "ranged", "cc", "aoe", "boost"]},
         {"description": "pull with Shoot", "add": "pull", "enabled": false},
         {"description": "save mana for longer fights", "add": "conserve mana", "enabled": false},
         {"description": "keep distance from melee attackers", "add": "kite", "enabled": false},
