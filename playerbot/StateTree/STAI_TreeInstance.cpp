@@ -481,6 +481,7 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
 
         for (size_t c = 0; c < node.def->conditions.size(); ++c)
             child.conditions.emplace_back(node.def->conditions.list[c].GetText(), node.results[c]);
+        child.conditionsAny = node.def->conditions.any;
 
         tree.nodes.push_back(std::move(child));
     }

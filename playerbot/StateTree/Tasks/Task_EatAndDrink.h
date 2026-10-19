@@ -6,22 +6,26 @@
 
 namespace ai
 {
-    // runtime context of Task_EatAndDrink
+    // runtime context of Task_EatAndDrink: one meal, from the first bite to the end of the food / drink
     struct Task_EatAndDrinkContext : public STAI_TaskContext
     {
-        uint32 lastActiveMs = 0;    // last time the bot ate or drank (or the task was entered)
+        uint32 enterMs = 0;
+        bool eatStarted = false;    // the food action ran (one item / cheat cast per meal)
+        bool drinkStarted = false;
+        bool consumed = false;      // the bot ate or drank during this meal
     };
 
-    // Eats and drinks until health and mana reach the given percentages:
+    // One meal: eats and drinks once, in parallel, until health and mana reach the given percentages or the food and
+    // drink run out:
     //   <Task class="Task_EatAndDrink">
     //     <Health until="100"/>     percent, default 100
     //     <Mana until="100"/>       percent, default 100; ignored for bots without mana
     //   </Task>
-    // Eating is for everyone, drinking for mana users; both run in parallel. Uses the legacy food / drink actions
-    // (food and water from the bags, or the bot's eat / drink cheat), not their thresholds: a resource below its
-    // target is eaten / drunk for, again when the food or drink ran out before it got there. Succeeded once both
-    // targets are reached; Failed when it has nothing to eat or drink, or neither eats nor drinks for 3s; OnExit stands
-    // the bot up, which ends the food and drink.
+    // Eating is for everyone, drinking for mana users. Uses the legacy food / drink actions (an item from the bags, or
+    // the bot's eat / drink cheat; both sit the bot down and apply the food / drink aura), not their thresholds.
+    // Succeeded when both targets are reached or every food / drink aura of the meal ended (weak food: the node's
+    // conditions decide on the next selection whether to eat again); Failed when nothing could be eaten or drunk
+    // within 3s (nothing in the bags, the bot kept moving). OnExit stands the bot up, which ends the food and drink.
     class Task_EatAndDrink : public STAI_Task
     {
     public:
@@ -44,8 +48,8 @@ namespace ai
     private:
         bool NeedsHealth(const Player* bot) const;
         bool NeedsMana(const Player* bot) const;
-        // starts eating / drinking for what is below its target and not being restored yet; true when the bot eats or drinks
-        bool Consume(Task_EatAndDrinkContext& context) const;
+        // runs the food / drink action for what is below its target, each at most once per meal
+        void Start(Task_EatAndDrinkContext& context) const;
 
         float healthUntil;
         float manaUntil;

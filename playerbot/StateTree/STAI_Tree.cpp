@@ -445,11 +445,16 @@ std::string STAI_ConditionDef::GetText() const
 
 std::string STAI_TransitionDef::GetText() const
 {
+    std::string text;
     if (type == Type::OnDelegate)
-        return "OnDelegate " + source.path + " " + path;
+        text = "OnDelegate " + source.path + " " + path;
+    else
+        text = std::string(type == Type::OnSuccess ? "OnSuccess" : type == Type::OnFailure ? "OnFailure" : "OnFinish") + " " + path;
 
-    const char* typeName = type == Type::OnSuccess ? "OnSuccess" : type == Type::OnFailure ? "OnFailure" : "OnFinish";
-    return std::string(typeName) + " " + path;
+    // the transition's own conditions: "... IF a AND b" / "... IF a OR b"
+    for (size_t i = 0; i < conditions.list.size(); ++i)
+        text += (i ? (conditions.any ? " OR " : " AND ") : " IF ") + conditions.list[i].GetText();
+    return text;
 }
 
 std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeSingleTask(const std::string& name, const std::string& taskClass)

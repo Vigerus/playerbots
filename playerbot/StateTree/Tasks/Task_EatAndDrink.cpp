@@ -4,7 +4,10 @@
 #include "playerbot/strategy/Action.h"
 #include "playerbot/strategy/AiObjectContext.h"
 
+#include "Spells/SpellAuras.h"
+
 #include <cstdlib>
+#include <initializer_list>
 #include <sstream>
 #include <stdexcept>
 
@@ -12,8 +15,8 @@ using namespace ai;
 
 namespace
 {
-    // the task fails when the bot neither eats nor drinks for this long
-    constexpr uint32 idleTimeoutMs = 3000;
+    // the task fails when the bot could not start eating or drinking for this long
+    constexpr uint32 startTimeoutMs = 3000;
 
     // <Health until="..."/> / <Mana until="..."/>, percent
     float ParseUntil(const STAI_TaskConfig& config, const std::string& name)
@@ -26,14 +29,19 @@ namespace
         return percent;
     }
 
-    bool IsEating(const Player* bot) { return bot->HasAuraType(SPELL_AURA_MOD_REGEN); }
-    bool IsDrinking(const Player* bot) { return bot->HasAuraType(SPELL_AURA_MOD_POWER_REGEN); }
-
-    // food / water in the bags, or the bot's cheat
-    bool HasSupplies(PlayerbotAI* ai, const std::string& name)
+    // a seated aura restoring the resource: food / drink items use MOD_REGEN / MOD_POWER_REGEN, the bots' eat / drink
+    // cheat spells (24005 / 24355) OBS_MOD_HEALTH / OBS_MOD_MANA; all of them end when the bot stands up
+    bool HasSeatedAura(const Player* bot, std::initializer_list<AuraType> types)
     {
-        return ai->HasCheat(BotCheatMask::item) || !ai->GetAiObjectContext()->GetValue<std::list<Item*>>("inventory items", name)->Get().empty();
+        for (AuraType type : types)
+            for (const Aura* aura : bot->GetAurasByType(type))
+                if (aura->GetSpellProto()->AuraInterruptFlags & AURA_INTERRUPT_FLAG_STANDING_CANCELS)
+                    return true;
+        return false;
     }
+
+    bool IsEating(const Player* bot) { return HasSeatedAura(bot, { SPELL_AURA_MOD_REGEN, SPELL_AURA_OBS_MOD_HEALTH }); }
+    bool IsDrinking(const Player* bot) { return HasSeatedAura(bot, { SPELL_AURA_MOD_POWER_REGEN, SPELL_AURA_OBS_MOD_MANA }); }
 
     // the legacy action without its own thresholds (isUseful)
     bool RunLegacyAction(PlayerbotAI* ai, const std::string& name)
@@ -68,28 +76,26 @@ bool Task_EatAndDrink::NeedsMana(const Player* bot) const
     return bot->GetPowerType() == POWER_MANA && bot->GetPowerPercent(POWER_MANA) < manaUntil;
 }
 
-bool Task_EatAndDrink::Consume(Task_EatAndDrinkContext& context) const
+void Task_EatAndDrink::Start(Task_EatAndDrinkContext& context) const
 {
     Player* bot = context.bot;
 
-    // both at once: the drink does not stop the food and the other way round
-    if (NeedsHealth(bot) && !IsEating(bot))
-        RunLegacyAction(context.ai, "food");
-    if (NeedsMana(bot) && !IsDrinking(bot))
-        RunLegacyAction(context.ai, "drink");
-
-    const bool active = (NeedsHealth(bot) && IsEating(bot)) || (NeedsMana(bot) && IsDrinking(bot));
-    if (active)
-        context.lastActiveMs = WorldTimer::getMSTime();
-    return active;
+    // a successful action used an item (or cast the cheat): it is not run again in this meal, even when its aura
+    // shows up a moment later; a refused one (the bot was still moving) is retried
+    if (!context.eatStarted && NeedsHealth(bot) && !IsEating(bot))
+        context.eatStarted = RunLegacyAction(context.ai, "food");
+    if (!context.drinkStarted && NeedsMana(bot) && !IsDrinking(bot))
+        context.drinkStarted = RunLegacyAction(context.ai, "drink");
 }
 
 void Task_EatAndDrink::OnEnter(STAI_TaskContext& baseContext) const
 {
     Task_EatAndDrinkContext& context = ContextAs<Task_EatAndDrinkContext>(baseContext);
-    context.lastActiveMs = WorldTimer::getMSTime();
-    if (NeedsHealth(context.bot) || NeedsMana(context.bot))
-        Consume(context);
+    context.enterMs = WorldTimer::getMSTime();
+    context.eatStarted = false;
+    context.drinkStarted = false;
+    context.consumed = false;
+    Start(context);
 }
 
 EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -100,15 +106,27 @@ EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 
     if (!NeedsHealth(bot) && !NeedsMana(bot))
         return EActionRunStatus::Succeeded;
 
-    // again when the food / drink ran out before the target (or the bot was still moving)
-    if (Consume(context))
+    // the meal runs while a food / drink aura restores something still below its target
+    const bool eating = NeedsHealth(bot) && IsEating(bot);
+    const bool drinking = NeedsMana(bot) && IsDrinking(bot);
+    if (eating || drinking)
+    {
+        context.consumed = true;
         return EActionRunStatus::Running;
+    }
 
-    // nothing to eat or drink: at once when the bags are empty, else after a while (the legacy action did not start)
-    const bool supplies = (NeedsHealth(bot) && HasSupplies(context.ai, "food")) || (NeedsMana(bot) && HasSupplies(context.ai, "drink"));
-    if (!supplies || WorldTimer::getMSTimeDiff(context.lastActiveMs, WorldTimer::getMSTime()) >= idleTimeoutMs)
-        return EActionRunStatus::Failed;
-    return EActionRunStatus::Running;
+    // the food / drink ran out before the targets: the meal is over, the next selection decides on another one
+    if (context.consumed)
+        return EActionRunStatus::Succeeded;
+
+    // nothing started yet (the bot was moving, the aura is not applied yet): retry for a moment
+    if (WorldTimer::getMSTimeDiff(context.enterMs, WorldTimer::getMSTime()) < startTimeoutMs)
+    {
+        Start(context);
+        return EActionRunStatus::Running;
+    }
+
+    return EActionRunStatus::Failed;
 }
 
 void Task_EatAndDrink::OnExit(STAI_TaskContext& baseContext) const

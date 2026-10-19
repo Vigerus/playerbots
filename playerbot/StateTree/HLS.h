@@ -29,6 +29,7 @@ struct StateNodeDebugChild
     int currentTask = -1;                           // index into tasks while the node is active
     std::vector<std::string> transitions;           // "<type> Root|<node>", in the order they are checked
     std::vector<std::pair<std::string, StateNodeConditionResult>> conditions;
+    bool conditionsAny = false;                     // <Conditions match="any">: one of them has to pass
     std::string info;
     bool active = false;
 };

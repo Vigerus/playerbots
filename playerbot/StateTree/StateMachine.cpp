@@ -192,7 +192,8 @@ static std::string SanitizeTransition(const std::string& text)
 //       ^<transition;transition;...>
 //       nodes of the top tree; task class / info of the running task (the first one while inactive), every task
 //       of the node in the order they run, its transitions "<type> Root/<node>" in the order they are checked
-//       conditions: <result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked
+//       conditions: [ANY:]<result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked;
+//       ANY: one of them has to pass (<Conditions match="any">), else all
 //   T^<from type or *>^<to type or <prev>>^<condition label>
 std::string StateMachine::BuildDebugSnapshot() const
 {
@@ -257,10 +258,10 @@ std::string StateMachine::BuildDebugSnapshot() const
         static const std::vector<StateNodeDebugChild> noNodes;
         for (const StateNodeDebugChild& child : stack.empty() ? noNodes : stack.back().nodes)
         {
-            std::string conditions;
+            std::string conditions = child.conditionsAny && !child.conditions.empty() ? "ANY:" : "";
             for (const auto& [text, result] : child.conditions)
             {
-                if (!conditions.empty())
+                if (!conditions.empty() && conditions != "ANY:")
                     conditions += "&&";
                 conditions += result == StateNodeConditionResult::Passed ? '+' : result == StateNodeConditionResult::Failed ? '-' : '?';
                 conditions += SanitizeDebugField(text);
