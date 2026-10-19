@@ -58,10 +58,11 @@
       <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
     </Transitions>
   </Node>
-  <Node name="Legacy">
+  <Node name="Idle">
     <Conditions/>
-    <Task class="StateNode_Legacy">
-      <Config filename="statetree/Legacy_NonCombat_Mage.json"/>
+    <!-- nothing to do: waits until a delegate sends the tree elsewhere -->
+    <Task class="Task_Wait">
+      <Delay value="0"/>
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
