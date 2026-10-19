@@ -28,6 +28,8 @@ namespace ai
             return index;
         }
 
+        // the first icon of the list (priority order) that marks a living possible target in sight; icons that are
+        // not set or whose target does not qualify are skipped
         Unit *Calculate()
         {
             Group *group = bot->GetGroup();
@@ -35,24 +37,27 @@ namespace ai
                 return NULL;
 
             std::vector<std::string> rti_list = AI_VALUE(std::vector<std::string>, type);
-            for (std::string& rti : rti_list)
+            if (rti_list.empty())
+                return NULL;
+
+            std::list<ObjectGuid> attackers = context->GetValue<std::list<ObjectGuid>>("possible targets")->Get();
+            for (const std::string& rti : rti_list)
             {
                 int index = GetRtiIndex(rti);
-
                 if (index == -1)
-                    return NULL;
+                    continue;
 
                 ObjectGuid guid = group->GetTargetIcon(index);
                 if (!guid)
-                    return NULL;
+                    continue;
 
-                std::list<ObjectGuid> attackers = context->GetValue<std::list<ObjectGuid>>("possible targets")->Get();
-                if (std::find(attackers.begin(), attackers.end(), guid) == attackers.end()) return NULL;
+                if (std::find(attackers.begin(), attackers.end(), guid) == attackers.end())
+                    continue;
 
                 Unit* unit = ai->GetUnit(ObjectGuid(guid));
                 if (!unit || sServerFacade.UnitIsDead(unit) ||
                     !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance, false))
-                    return NULL;
+                    continue;
 
                 return unit;
             }

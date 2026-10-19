@@ -4,6 +4,7 @@
 #include "RtiAction.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/strategy/values/RtiTargetValue.h"
+#include "playerbot/strategy/values/RtiValue.h"
 
 using namespace ai;
 
@@ -29,33 +30,31 @@ bool RtiAction::Execute(Event& event)
         return true;
     }
 
-    std::stringstream ss(text);
-    std::string token;
-    std::vector<std::string> rti_list;
-
-    while (std::getline(ss, token, ','))
+    // "rti skull,cross,square": up to 8 icons, the first marked target in this order is attacked; "rti none" clears it
+    std::vector<std::string> invalid;
+    std::vector<std::string> rti_list = ParseRtiList(text, &invalid);
+    if (rti_list.empty() && text != "none")
     {
-        trim(token);
-        rti_list.push_back(token);
+        std::ostringstream out;
+        out << "Usage: " << type << " <icon>[,<icon>...] (up to " << MAX_RTI_ICONS << ", in priority order) or " << type
+            << " none; icons: star, circle, diamond, triangle, moon, square, cross, skull";
+        ai->TellError(requester, out.str());
+        return false;
     }
 
     context->GetValue<std::vector<std::string>>(type)->Set(rti_list);
 
     std::ostringstream out; out << type << " set to: ";
     AppendRti(out, type);
+    if (!invalid.empty())
+        out << " (unknown: " << FormatRtiList(invalid) << ")";
     ai->TellPlayer(requester, out);
     return true;
 }
 
 void RtiAction::AppendRti(std::ostringstream & out, std::string type)
 {
-    bool first = true;
-
-    for (const std::string& el : AI_VALUE(std::vector<std::string>, type))
-    {
-        if (!first) { out << ","; } else { first = false; }
-        out << el;
-    }
+    out << FormatRtiList(AI_VALUE(std::vector<std::string>, type));
 
     std::ostringstream n; n << type << " target";
 
