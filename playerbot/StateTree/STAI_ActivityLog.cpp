@@ -6,17 +6,30 @@ using namespace ai;
 
 uint64 STAI_ActivityLog::Begin(const std::string& kind, const std::string& name, const std::string& source)
 {
-    const uint32 now = WorldTimer::getMSTime();
-    Prune(now);
+    return BeginAt(kind, name, source, WorldTimer::getMSTime());
+}
+
+uint64 STAI_ActivityLog::BeginAt(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs)
+{
+    Prune(WorldTimer::getMSTime());
 
     Entry entry;
     entry.id = nextId++;
     entry.kind = kind;
     entry.name = name;
     entry.source = source;
-    entry.startMs = now;
+    entry.startMs = startMs;
     entries.push_back(std::move(entry));
     return entries.back().id;
+}
+
+void STAI_ActivityLog::SetSpellResult(uint64 id, uint32 spellId, int8 result)
+{
+    if (Entry* entry = Find(id))
+    {
+        entry->spellId = spellId;
+        entry->result = result;
+    }
 }
 
 void STAI_ActivityLog::End(uint64 id)

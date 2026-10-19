@@ -21,11 +21,17 @@ namespace ai
             uint32 startMs = 0;    // WorldTimer::getMSTime()
             uint32 endMs = 0;
             bool open = true;      // still running, endMs not known yet
+            uint32 spellId = 0;    // the spell the entry is about (an icon in the History tab), 0 none
+            int8 result = -1;      // -1 none, 0 failed, 1 successful
         };
 
         // starts an entry that is ended with End(id); returns its id
         uint64 Begin(const std::string& kind, const std::string& name, const std::string& source);
+        // the same, started at startMs (a task logged once it is still running after its first update)
+        uint64 BeginAt(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs);
         void End(uint64 id);
+        // the spell and result of an entry (a task's cast)
+        void SetSpellResult(uint64 id, uint32 spellId, int8 result);
 
         // entry with a known (expected) end; Shorten() can end it earlier
         uint64 Add(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs, uint32 endMs);

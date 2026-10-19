@@ -446,6 +446,16 @@ public:
     bool TellDebug(Player* player, std::string text, std::string strategy = "debug", BotState state = BotState::BOT_STATE_NON_COMBAT){ if (HasStrategy(strategy, state)) return TellPlayerNoFacing(player, text, PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, true, false); return false;}
     bool TellError(Player* player, std::string text, PlayerbotSecurityLevel securityLevel = PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, bool ignoreSilent = false);
     void SpellInterrupted(uint32 spellid);
+
+    // the bot's own last SMSG_SPELL_GO (the spell went off) and SMSG_SPELL_FAILURE (it was interrupted / failed),
+    // WorldTimer ms; spellId 0 = none yet
+    struct SpellCastEvent
+    {
+        uint32 spellId = 0;
+        uint32 ms = 0;
+    };
+    const SpellCastEvent& GetLastSpellGo() const { return lastSpellGo; }
+    const SpellCastEvent& GetLastSpellFailure() const { return lastSpellFailure; }
     int32 CalculateGlobalCooldown(uint32 spellid);
     void InterruptSpell(bool withMeleeAndAuto = true);
     bool RemoveAura(const std::string& name);
@@ -740,6 +750,9 @@ protected:
 #ifdef BUILD_ELUNA
     MaNGOS::unique_weak_ptr<PlayerbotAI> m_weakRef;
 #endif
+private:
+    SpellCastEvent lastSpellGo;
+    SpellCastEvent lastSpellFailure;
 };
 
 template<typename T>

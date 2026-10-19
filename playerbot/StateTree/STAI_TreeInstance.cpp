@@ -13,6 +13,8 @@ namespace
 {
     // a node whose task failed is not selected again for this long (avoids re-entering a failing task every update)
     constexpr uint32 failedRetryDelayMs = 3000;
+    // tasks finishing at once hand over in the same update (next task, next node), at most this many per update
+    constexpr int maxStepsPerUpdate = 8;
 }
 
 STAI_TreeInstance::STAI_TreeInstance(const STAI_TaskContext& context, std::shared_ptr<const STAI_TreeAsset> asset)
@@ -264,16 +266,45 @@ void STAI_TreeInstance::EnterNode(int index)
 
     RuntimeNode& node = nodes[index];
     node.failed = false;
-    node.current = 0;
+    EnterNodeTask(node, 0);
+}
 
-    // the tree logs the node unless one of its tasks logs its own entries (legacy engines)
-    bool logged = true;
-    for (const TaskSlot& task : node.tasks)
-        logged = logged && task.def->task->LogsNodeActivity();
-    if (context.activity && logged)
-        node.activityId = context.activity->Begin("node", node.def->name, node.tasks.front().def->task->GetName());
+void STAI_TreeInstance::EnterNodeTask(RuntimeNode& node, int index)
+{
+    node.current = index;
+    node.taskEnteredMs = WorldTimer::getMSTime();
+    node.tasks[index].context->activitySpellId = 0;
+    node.tasks[index].context->activityResult = -1;
+    EnterTask(node.tasks[index]);
+}
 
-    EnterTask(node.tasks.front());
+void STAI_TreeInstance::LogRunningTask(RuntimeNode& node)
+{
+    // tasks that finish at once leave no entry; legacy engines log their own actions
+    const TaskSlot& task = node.tasks[node.current];
+    if (!context.activity || !task.def->task->LogsNodeActivity())
+        return;
+    if (!node.activityId)
+        node.activityId = context.activity->BeginAt("node", node.def->name, task.def->task->GetName(), node.taskEnteredMs);
+    context.activity->SetSpellResult(node.activityId, task.context->activitySpellId, task.context->activityResult);
+}
+
+void STAI_TreeInstance::EndTaskLog(RuntimeNode& node, bool failed)
+{
+    // a task that failed at once is still logged (as a finished entry), one that succeeded at once is not
+    if (failed && !node.activityId && node.current >= 0)
+        LogRunningTask(node);
+
+    if (node.activityId && context.activity)
+    {
+        if (node.current >= 0)
+        {
+            const STAI_TaskContext& task = *node.tasks[node.current].context;
+            context.activity->SetSpellResult(node.activityId, task.activitySpellId, task.activityResult);
+        }
+        context.activity->End(node.activityId);
+    }
+    node.activityId = 0;
 }
 
 void STAI_TreeInstance::ExitActive()
@@ -285,11 +316,8 @@ void STAI_TreeInstance::ExitActive()
     RuntimeNode& node = nodes[active];
     if (node.current >= 0)
         node.tasks[node.current].def->task->OnExit(*node.tasks[node.current].context);
+    EndTaskLog(node);
     node.current = -1;
-
-    if (node.activityId && context.activity)
-        context.activity->End(node.activityId);
-    node.activityId = 0;
     active = -1;
 }
 
@@ -354,58 +382,69 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
     if (active >= 0)
         TakeDelegateTransition(now);
 
-    // no node runs (the tree started, the node finished or a transition went to Root): the target of the finished
-    // node's transition when its conditions pass (an explicit jump, the retry delay of a failed node does not
-    // apply), else the first node from the top whose conditions pass; conditions are only checked here
-    if (active < 0)
+    // tasks that finish at once hand over in the same update: the next task of the node is entered and ticked, a
+    // finished node is followed by the selection right away (bounded, so nodes finishing at once cannot spin)
+    for (int step = 0; step < maxStepsPerUpdate; ++step)
     {
-        if (pendingTransition >= 0)
+        // no node runs (the tree started, the node finished or a transition went to Root): the target of the
+        // finished node's transition when its conditions pass (an explicit jump, the retry delay of a failed node
+        // does not apply), else the first node from the top whose conditions pass; conditions are only checked here
+        if (active < 0)
         {
-            const int target = pendingTransition;
-            pendingTransition = -1;
-            if (CanEnter(nodes[target], now, true))
-                EnterNode(target);
+            if (pendingTransition >= 0)
+            {
+                const int target = pendingTransition;
+                pendingTransition = -1;
+                if (CanEnter(nodes[target], now, true))
+                    EnterNode(target);
+            }
+
+            for (int i = 0; active < 0 && i < int(nodes.size()); ++i)
+                if (CanEnter(nodes[i], now))
+                    EnterNode(i);
+
+            // none can be entered: the selection is tried again next tick
+            if (active < 0)
+                return EActionRunStatus::Running;
         }
 
-        for (int i = 0; active < 0 && i < int(nodes.size()); ++i)
-            if (CanEnter(nodes[i], now))
-                EnterNode(i);
+        RuntimeNode& node = nodes[active];
+        TaskSlot& task = node.tasks[node.current];
+        // the update's time is passed once, the tasks handed over to in the same update get 0
+        const EActionRunStatus status = TickTask(task, step == 0 ? elapsed : 0, minimal);
+        if (status == EActionRunStatus::Running)
+        {
+            LogRunningTask(node);
+            return status;
+        }
+        EndTaskLog(node, status == EActionRunStatus::Failed);
 
-        // none can be entered: the selection is tried again next tick
-        if (active < 0)
-            return EActionRunStatus::Running;
-    }
+        // a failed task fails the node: its transition, or the selection from the first node
+        if (status == EActionRunStatus::Failed)
+        {
+            node.failed = true;
+            node.failedAtMs = now;
+            FinishNode(node, status);
+            continue;
+        }
 
-    RuntimeNode& node = nodes[active];
-    TaskSlot& task = node.tasks[node.current];
-    const EActionRunStatus status = TickTask(task, elapsed, minimal);
-    if (status == EActionRunStatus::Running)
-        return status;
+        if (task.def->task->FinishesTree())
+        {
+            OnFinish();
+            return EActionRunStatus::Succeeded;
+        }
 
-    // a failed task fails the node: its transition, or the next tick selects from the first node
-    if (status == EActionRunStatus::Failed)
-    {
-        node.failed = true;
-        node.failedAtMs = now;
+        // succeeded: the next task of the node, or the node is done and the selection starts from the first node
+        if (node.current + 1 < int(node.tasks.size()))
+        {
+            task.def->task->OnExit(*task.context);
+            EnterNodeTask(node, node.current + 1);
+            continue;
+        }
+
         FinishNode(node, status);
-        return EActionRunStatus::Running;
     }
 
-    if (task.def->task->FinishesTree())
-    {
-        OnFinish();
-        return EActionRunStatus::Succeeded;
-    }
-
-    // succeeded: the next task of the node, or the node is done and the next tick selects from the first node
-    if (node.current + 1 < int(node.tasks.size()))
-    {
-        task.def->task->OnExit(*task.context);
-        EnterTask(node.tasks[++node.current]);
-        return EActionRunStatus::Running;
-    }
-
-    FinishNode(node, status);
     return EActionRunStatus::Running;
 }
 

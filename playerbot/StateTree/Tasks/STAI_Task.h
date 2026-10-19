@@ -101,6 +101,9 @@ namespace ai
         Player* bot = nullptr;
         HLSStateType state = HLSStateType::NonCombat;
         STAI_ActivityLog* activity = nullptr;   // the bot's recent activity, tasks may add entries
+        // shown with the task's entry in the activity log (History tab): a spell icon and a result
+        uint32 activitySpellId = 0;
+        int8 activityResult = -1;               // -1 none, 0 failed, 1 successful
     };
 
     // context class of a task: the tree reserves size/alignment and constructs it in place

@@ -49,7 +49,9 @@ There is always a single active path from the tree to the running node. A node i
 (the tree started, the node finished, a transition went to `Root`): the first node from the top whose conditions all
 pass is entered (`OnEnter`); conditions are only checked then. Its task is updated every bot update until it
 returns Succeeded or Failed (`OnExit`, the next update selects again), or until an `OnDelegate` transition of the node
-fires. Nothing else leaves a running node: a node that never finishes (Legacy) needs `OnDelegate` transitions, for
+fires. A task that finishes in its update hands over in the same update: the next task of the node is entered and
+updated, a finished node is followed by the selection right away (up to 8 hand-overs per update). Nothing else leaves
+a running node: a node that never finishes (Legacy) needs `OnDelegate` transitions, for
 example to Follow. A node whose task failed is not selected for 3 seconds. Empty `<Conditions/>` always pass, so a
 last unconditional node is the fallback.
 
@@ -144,8 +146,12 @@ there when health changed below 80% or mana below 90%, the node is also selected
 `Task_EatAndDrink` restores both to 100%. The `food` strategy is not in the Legacy lists.
 
 Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
-`STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. The tree adds an entry from `OnEnter` to
-`OnExit` of each node (tasks return `false` from `LogsNodeActivity()` to opt out, like the legacy nodes). Tasks add
+`STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. The tree adds an entry per task (node name,
+task name) from its `OnEnter` to its end, only for tasks still running after their first update: tasks that finish at
+once are not logged, tasks that fail at once are (tasks return `false` from `LogsNodeActivity()` to opt out, like the
+legacy nodes). A task sets `activitySpellId` / `activityResult` of its context to show a spell icon and Successful /
+Fail with its entry (`Task_CastSpell`: instant and channeled spells succeed when they start, cast-time spells with
+their spell go). Tasks add
 their own entries with `Begin`/`End` (open-ended) or `Add`/`Shorten` (known expected end): `StateNode_Legacy` and
 `StateNode_Reaction` add every executed action with the strategy that pushed it, lasting until the bot is free again
 (cast time, reaction delay) or the next action starts.

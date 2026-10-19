@@ -98,6 +98,7 @@ void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
     context.spellId = 0;
     context.castTarget.Clear();
     context.failed = false;
+    context.resultAtStart = false;
 
     // the target first, then whoNeeds: members to help, or units to act on (attack, crowd control); the dead ones
     // need nothing any more
@@ -118,9 +119,11 @@ void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
         return;
 
     const uint32 spell = ResolveSpell(bot);
+    context.activitySpellId = spell ? spell : displaySpellId;
     if (!spell)
     {
         context.failed = true;
+        context.activityResult = 0;
         return;
     }
 
@@ -129,17 +132,25 @@ void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
         if (!context.ai->CanCastSpell(spell, target, 0, true))
             continue;
 
+        // before the cast: an instant spell's spell go arrives during CastSpell
+        context.castStartMs = WorldTimer::getMSTime();
         if (!context.ai->CastSpell(spell, target))
             continue;
 
         context.spellId = spell;
         context.castTarget = target->GetObjectGuid();
-        context.castStartMs = WorldTimer::getMSTime();
+
+        // instant and channeled spells went off when they started; a cast time is decided by the spell go
+        const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spell);
+        context.resultAtStart = spellInfo && (IsChanneledSpell(spellInfo) || GetSpellCastTime(spellInfo, bot) == 0);
+        if (context.resultAtStart)
+            context.activityResult = 1;
         return;
     }
 
     // every living target is out of reach right now (range, sight, mana...)
     context.failed = true;
+    context.activityResult = 0;
 }
 
 EActionRunStatus Task_CastSpell::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -150,13 +161,29 @@ EActionRunStatus Task_CastSpell::OnTick(STAI_TaskContext& baseContext, uint32 el
     if (!context.spellId)
         return EActionRunStatus::Succeeded;
 
-    // wait in the node for the cast and the global cooldown instead of casting again right away
+    // a cast time: the spell went off when its spell go came, failed with a failure (interrupt, ...)
     Player* bot = context.bot;
+    if (!context.resultAtStart && context.activityResult < 0)
+    {
+        auto since = [&](const PlayerbotAI::SpellCastEvent& event)
+        {
+            return event.spellId == context.spellId && WorldTimer::getMSTimeDiff(context.castStartMs, event.ms) < castTimeoutMs;
+        };
+        if (since(context.ai->GetLastSpellFailure()))
+            context.activityResult = 0;
+        else if (since(context.ai->GetLastSpellGo()))
+            context.activityResult = 1;
+    }
+
+    // wait in the node for the cast and the global cooldown instead of casting again right away
     const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(context.spellId);
     const bool busy = bot->IsNonMeleeSpellCasted(false) || (spellInfo && bot->HasGCD(spellInfo));
     if (busy && WorldTimer::getMSTimeDiff(context.castStartMs, WorldTimer::getMSTime()) < castTimeoutMs)
         return EActionRunStatus::Running;
 
+    // the cast is over without a spell go: it did not go off
+    if (context.activityResult < 0)
+        context.activityResult = 0;
     return EActionRunStatus::Succeeded;
 }
 

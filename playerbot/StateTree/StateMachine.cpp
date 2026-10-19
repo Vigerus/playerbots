@@ -342,7 +342,8 @@ std::string StateMachine::BuildDebugHistory()
         const uint32 duration = running ? age : WorldTimer::getMSTimeDiff(it->startMs, it->endMs);
 
         out << "~A^" << age << "^" << duration << "^" << (running ? 1 : 0) << "^" << it->kind
-            << "^" << SanitizeDebugField(it->name) << "^" << SanitizeDebugField(it->source);
+            << "^" << SanitizeDebugField(it->name) << "^" << SanitizeDebugField(it->source)
+            << "^" << it->spellId << "^" << (it->result < 0 ? "" : it->result ? "1" : "0");
     }
 
     return out.str();

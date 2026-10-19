@@ -18,6 +18,7 @@ namespace ai
         ObjectGuid castTarget;
         uint32 castStartMs = 0;
         bool failed = false;
+        bool resultAtStart = false;         // instant / channeled: successful once started
     };
 
     // Casts a spell on its target, else on the first of its whoNeeds it can reach, then waits for the cast and the
@@ -30,6 +31,9 @@ namespace ai
     //   </Task>
     // Succeeded once the cast and the GCD are over, or right away when there is no living target; Failed when the
     // bot does not know the spell or can cast it on none of the living targets (range, sight, mana...).
+    // The activity log (History tab) shows the spell and whether it went off: instant and channeled spells (Fire
+    // Blast, Blizzard, Arcane Missiles: no cast time / channel attributes) as soon as they started, spells with a
+    // cast time when the server sent their spell go (Successful) or failure / no spell go at the end (Fail).
     class Task_CastSpell : public STAI_Task
     {
     public:

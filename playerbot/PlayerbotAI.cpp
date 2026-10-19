@@ -1512,6 +1512,20 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
     //if (packet.empty())
     //    return;
 
+    // the bot's own spells going off: <packed item or caster guid><packed caster guid><uint32 spell id>...
+    if (packet.GetOpcode() == SMSG_SPELL_GO)
+    {
+        WorldPacket p(packet);
+        p.rpos(0);
+        ObjectGuid sourceGuid, casterGuid;
+        uint32 spellId = 0;
+        p >> sourceGuid.ReadAsPacked();
+        p >> casterGuid.ReadAsPacked();
+        p >> spellId;
+        if (casterGuid == bot->GetObjectGuid())
+            lastSpellGo = { spellId, WorldTimer::getMSTime() };
+    }
+
 	switch (packet.GetOpcode())
 	{
 	case SMSG_SPELL_FAILURE:
@@ -1525,6 +1539,7 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
 
 		uint32 spellId;
 		p >> spellId;
+		lastSpellFailure = { spellId, WorldTimer::getMSTime() };
 		SpellInterrupted(spellId);
 		return;
 	}
