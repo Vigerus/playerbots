@@ -34,7 +34,7 @@
     <Conditions/>
     <!-- nothing to attack: waits until a delegate sends the tree elsewhere -->
     <Task class="Task_Wait">
-      <Delay value="0"/>
+      <Delay value="1"/>
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>
