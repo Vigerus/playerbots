@@ -39,6 +39,8 @@ namespace ai
         void ResetStrategies();
 
         IStateNode* GetActive() const { return active; }
+        // the state the bot is in: the active one, or during a reaction preempt the one the reaction resumes to
+        bool GetStateType(HLSStateType& type) const;
 
         // serialized tree state for the client-side StateTree visualizer addon (see BotStateTree addon)
         std::string BuildDebugSnapshot() const;

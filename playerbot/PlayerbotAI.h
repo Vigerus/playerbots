@@ -644,6 +644,8 @@ public:
     void OnCombatEnded();
     void OnDeath();
     void OnResurrected();
+    // OnDeath / OnResurrected when the state machine's state does not match the bot being alive
+    void SyncLifeState();
     
     void SetActionDuration(const Action* action);
     void SetActionDuration(uint32 duration);

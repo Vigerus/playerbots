@@ -36,7 +36,24 @@ void StateMachine::TransitionTo(HLSStateType type)
         return;
     }
 
-    CCLOG_TRACE(m_logger) << "[TRANSITION] " << active->GetName() << " >> " << it->second->GetName();
+    IStateNode* next = it->second.get();
+
+    // a reaction preempted the state: the transition (death, resurrection, combat start / end) changes the state
+    // the reaction resumes to, the reaction itself finishes first
+    if (active && previous && active != next && active->GetStateType() == HLSStateType::Reaction && next->GetStateType() != HLSStateType::Reaction)
+    {
+        CCLOG_TRACE(m_logger) << "[TRANSITION] " << active->GetName() << " resumes to " << next->GetName();
+        previous = next;
+        return;
+    }
+
+    // already there: the state keeps running (its tree is not restarted)
+    if (active == next)
+    {
+        return;
+    }
+
+    CCLOG_TRACE(m_logger) << "[TRANSITION] " << (active ? active->GetName() : "-") << " >> " << next->GetName();
 
     if (active)
         active->OnExit();
@@ -54,15 +71,11 @@ IStateNode* StateMachine::FindNode(HLSStateType type) const
 
 void StateMachine::PreemptTo(HLSStateType next)
 {
-    if (active)// && active->IsInterruptible())
-    {
-        // call Exit with interrupted flag
-        active->OnExit();
-    }
-    
-    previous = active;
-
+    // TransitionTo exits the preempted state
+    IStateNode* preempted = active;
+    previous = nullptr;
     TransitionTo(next);
+    previous = preempted;
 }
 
 void StateMachine::ResumePrevious()
@@ -75,7 +88,17 @@ void StateMachine::ResumePrevious()
     }
 
     active = previous;
+    previous = nullptr;
     activeSinceMs = WorldTimer::getMSTime();
+}
+
+bool StateMachine::GetStateType(HLSStateType& type) const
+{
+    if (!active)
+        return false;
+
+    type = (previous && active->GetStateType() == HLSStateType::Reaction) ? previous->GetStateType() : active->GetStateType();
+    return true;
 }
 
 void StateMachine::Update(uint32 elapsed, bool minimal)

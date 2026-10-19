@@ -557,6 +557,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 #endif
 
 #ifdef USE_HLS
+    SyncLifeState();
     StateMachine.Update(elapsed, minimal);
     SendStateTreeDebug();
 #else
@@ -1021,6 +1022,21 @@ void PlayerbotAI::OnDeath()
         SET_AI_VALUE2(bool, "manual bool", "enemies near graveyard", false);
         ChangeEngine(BotState::BOT_STATE_DEAD);
     }
+}
+
+void PlayerbotAI::SyncLifeState()
+{
+    // death and resurrection are facts, not decisions: the state follows them even when no reaction caught them
+    // (resurrected at the corpse, at a spirit healer, by entering an instance as a ghost, by another player)
+    HLSStateType state;
+    if (!StateMachine.GetStateType(state))
+        return;
+
+    const bool alive = sServerFacade.IsAlive(bot);
+    if (alive && state == HLSStateType::Dead)
+        OnResurrected();
+    else if (!alive && state != HLSStateType::Dead)
+        OnDeath();
 }
 
 void PlayerbotAI::OnResurrected()
