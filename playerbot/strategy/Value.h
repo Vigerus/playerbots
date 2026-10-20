@@ -64,6 +64,7 @@ namespace ai
                 lastCheckTime = now;
 
                 auto pmo = sPerformanceMonitor.start(PERF_MON_VALUE, AiNamedObject::getName(), this->ai);
+                TRACE_CPU_PROFILER_STAT_SCOPE(GetProfilingStat("V: "));
                 value = Calculate();
             }
             return value;
@@ -101,6 +102,7 @@ namespace ai
                 this->lastCheckTime = now;
 
                 auto pmo = sPerformanceMonitor.start(PERF_MON_VALUE, AiNamedObject::getName(), this->ai);
+                TRACE_CPU_PROFILER_STAT_SCOPE(this->GetProfilingStat("V: "));
                 this->value = this->Calculate();
             }
             return this->value;

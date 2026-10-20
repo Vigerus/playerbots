@@ -48,6 +48,8 @@ namespace ai
         std::string BuildDebugHistory();
         // the addon's task toggle: state type name, tree name, node and task index of the snapshot's top tree
         bool SetTaskDisabled(const std::string& state, const std::string& tree, int node, int task, bool disabled);
+        // the legacy engine shown for a state (state type name), nullptr when the state has none
+        Engine* FindDebugEngine(const std::string& state) const;
 
         STAI_ActivityLog& GetActivityLog() { return activityLog; }
 

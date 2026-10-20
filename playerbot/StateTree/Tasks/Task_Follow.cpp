@@ -95,6 +95,7 @@ void Task_Follow::MoveTo(Task_FollowContext& context, float x, float y, float z)
 
 void Task_Follow::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Follow::OnEnter);
     Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
     context.elapsedMs = 0;
     context.lastDistance = -1.0f;
@@ -108,6 +109,7 @@ void Task_Follow::OnEnter(STAI_TaskContext& baseContext) const
 
 EActionRunStatus Task_Follow::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Follow::OnTick);
     Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
     PlayerbotAI* ai = context.ai;
     Player* bot = context.bot;
@@ -153,6 +155,7 @@ EActionRunStatus Task_Follow::OnTick(STAI_TaskContext& baseContext, uint32 elaps
 
 void Task_Follow::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Follow::OnExit);
     Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
     if (context.moving && context.bot->GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE)
         context.ai->StopMoving();

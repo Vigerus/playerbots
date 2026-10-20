@@ -51,6 +51,7 @@ void CurseProvider_GlobalTask::InitContext(STAI_TaskContext& baseContext) const
 
 void CurseProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(CurseProvider_GlobalTask::OnEnter);
     CurseProvider_GlobalTaskContext& context = ContextAs<CurseProvider_GlobalTaskContext>(baseContext);
     context.Subscribe();
     context.Evaluate();
@@ -58,6 +59,7 @@ void CurseProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 
 void CurseProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(CurseProvider_GlobalTask::OnExit);
     CurseProvider_GlobalTaskContext& context = ContextAs<CurseProvider_GlobalTaskContext>(baseContext);
     context.Unsubscribe();
     context.whoNeeds.clear();

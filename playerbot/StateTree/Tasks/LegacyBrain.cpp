@@ -629,6 +629,15 @@ std::shared_ptr<const LegacyBrain> LegacyBrainLibrary::Get(const std::string& fi
     return it->second;
 }
 
+std::shared_ptr<const LegacyBrain> LegacyBrainLibrary::FindByName(const std::string& name)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    for (const auto& [file, brain] : brains)
+        if (brain && brain->name == name)
+            return brain;
+    return nullptr;
+}
+
 void LegacyBrainLibrary::Clear()
 {
     std::lock_guard<std::mutex> lock(mutex);

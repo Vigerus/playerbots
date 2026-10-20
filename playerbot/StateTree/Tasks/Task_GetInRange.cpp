@@ -80,6 +80,7 @@ void Task_GetInRange::Stop(Task_GetInRangeContext& context)
 
 void Task_GetInRange::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_GetInRange::OnEnter);
     Task_GetInRangeContext& context = ContextAs<Task_GetInRangeContext>(baseContext);
     context.enterMs = WorldTimer::getMSTime();
     context.chasing = false;
@@ -87,6 +88,7 @@ void Task_GetInRange::OnEnter(STAI_TaskContext& baseContext) const
 
 EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_GetInRange::OnTick);
     Task_GetInRangeContext& context = ContextAs<Task_GetInRangeContext>(baseContext);
     Player* bot = context.bot;
 
@@ -134,6 +136,7 @@ EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 e
 
 void Task_GetInRange::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_GetInRange::OnExit);
     Stop(ContextAs<Task_GetInRangeContext>(baseContext));
 }
 

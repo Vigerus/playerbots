@@ -1,6 +1,7 @@
 #include "StateNode_Legacy.h"
 
 #include "playerbot/AiFactory.h"
+#include "playerbot/PlayerbotLegacyStrategies.h"
 #include "playerbot/StateTree/STAI_ActivityLog.h"
 #include "playerbot/StateTree/Tasks/LegacyBrain.h"
 
@@ -54,6 +55,8 @@ namespace
         if (!activity || engine->GetExecutedActionCount() == executedBefore)
             return;
 
+        TRACE_CPU_PROFILER_ENTRY_SCOPE(StateNode_Legacy::ActivityLog);
+
         const ActionRunContext* context = engine->GetLastActionContext();
         if (!context)
             return;
@@ -97,13 +100,33 @@ Engine* StateNode_Legacy::GetEngine(const STAI_TaskContext& context)
     return context.ai->engines[(uint8)botState].get();
 }
 
-void StateNode_Legacy::ApplyBrain(const STAI_TaskContext& context, Engine* engine) const
+void StateNode_Legacy::ApplyBrain(PlayerbotAI* ai, Player* bot, Engine* engine, const LegacyBrain& brain)
 {
+    const uint32 mapKey = PlayerbotLegacyStrategies::GetMapKey(bot);
+
     engine->initMode = true;
     engine->removeAllStrategies();
-    brain->Apply(context.bot, context.ai, engine);
+    brain.Apply(bot, ai, engine);
+    if (const PlayerbotLegacyStrategies::Changes* changes = ai->GetLegacyStrategies().Get(bot, brain.name, mapKey))
+    {
+        for (const std::string& strategy : changes->removed)
+            engine->removeStrategy(strategy, false);
+        for (const std::string& strategy : changes->added)
+            engine->addStrategy(strategy);
+    }
+    engine->SetBrainMap(mapKey);
     engine->initMode = false;
     engine->Init();
+}
+
+void StateNode_Legacy::ApplyBrain(const STAI_TaskContext& context, Engine* engine) const
+{
+    ApplyBrain(context.ai, context.bot, engine, *brain);
+}
+
+bool StateNode_Legacy::NeedsBrain(const STAI_TaskContext& context, const Engine* engine) const
+{
+    return engine->GetBrainName() != brain->name || engine->GetBrainMap() != PlayerbotLegacyStrategies::GetMapKey(context.bot);
 }
 
 void StateNode_Legacy::InitContext(STAI_TaskContext& context) const
@@ -115,21 +138,32 @@ void StateNode_Legacy::InitContext(STAI_TaskContext& context) const
 
 void StateNode_Legacy::OnEnter(STAI_TaskContext& context) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(StateNode_Legacy::OnEnter);
     // several legacy nodes of one state share its engine: switch the strategy list when another one was applied
+    // (or the bot's strategy changes of another map are)
     if (brain)
         if (Engine* engine = GetEngine(context))
-            if (engine->GetBrainName() != brain->name)
+            if (NeedsBrain(context, engine))
                 ApplyBrain(context, engine);
 }
 
 EActionRunStatus StateNode_Legacy::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(StateNode_Legacy::OnTick);
     StateNode_LegacyContext& context = ContextAs<StateNode_LegacyContext>(baseContext);
     PlayerbotAI* ai = context.ai;
     Player* bot = context.bot;
 
+    // the bot went outdoors / into another dungeon while the node runs: the strategy changes of the new map
+    if (brain)
+        if (Engine* engine = GetEngine(context))
+            if (NeedsBrain(context, engine))
+                ApplyBrain(context, engine);
+
     if (!ai->CanUpdateAIInternal())
         return EActionRunStatus::Running;
+    // from here on the bot's legacy AI runs this tick (OnTick also counts the ticks that only wait)
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(StateNode_Legacy::OnTick::Update);
     Spell* currentSpell = bot->GetCurrentSpell(CURRENT_GENERIC_SPELL);
     if (currentSpell && currentSpell->getState() == SPELL_STATE_CASTING && currentSpell->GetCastedTime() > 0U)
     {
@@ -146,12 +180,16 @@ EActionRunStatus StateNode_Legacy::OnTick(STAI_TaskContext& baseContext, uint32 
         min = true;
     if (bot && ai->HasRealPlayerMaster())
         min = false;
-    ai->YieldAIInternalThread(min);
+    {
+        TRACE_CPU_PROFILER_ENTRY_SCOPE(PlayerbotAI::YieldAIInternalThread);
+        ai->YieldAIInternalThread(min);
+    }
     return EActionRunStatus::Running;
 }
 
 void StateNode_Legacy::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(StateNode_Legacy::OnExit);
     StateNode_LegacyContext& context = ContextAs<StateNode_LegacyContext>(baseContext);
 
     // an interrupted action ends with the node
@@ -325,6 +363,7 @@ void StateNode_Reaction::InitContext(STAI_TaskContext& baseContext) const
 
 void StateNode_Reaction::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(StateNode_Reaction::OnExit);
     StateNode_ReactionContext& context = ContextAs<StateNode_ReactionContext>(baseContext);
 
     context.reactionEngine->Reset();
@@ -357,6 +396,7 @@ void StateNode_Reaction::ReInit(STAI_TaskContext& baseContext) const
 
 EActionRunStatus StateNode_Reaction::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(StateNode_Reaction::OnTick);
     StateNode_ReactionContext& context = ContextAs<StateNode_ReactionContext>(baseContext);
     PlayerbotAI* ai = context.ai;
     Player* bot = context.bot;

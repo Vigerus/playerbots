@@ -4,6 +4,7 @@
 #include "playerbot/StateTree/HLS.h"
 #include "playerbot/StateTree/Tasks/StateTreeTask.h"
 #include "delegates/Delegates.h"
+#include "World/ProfilingSubsystem.h"
 
 #include <functional>
 #include <new>

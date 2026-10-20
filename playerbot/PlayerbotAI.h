@@ -10,6 +10,7 @@
 #include "BotState.h"
 #include "PlayerTalentSpec.h"
 #include "PlayerbotDungeonPositions.h"
+#include "PlayerbotLegacyStrategies.h"
 
 #include <atomic>
 #include <mutex>
@@ -384,6 +385,7 @@ public:
     void SendStateTreeDebug();
     // applies the addon's task toggles (StateMachine::SetTaskDisabled)
     void ApplyStateTreeToggles();
+    void ApplyStateTreeStrategyEdits();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
@@ -641,6 +643,8 @@ public:
     PlayerbotSecurity* GetSecurity() { return &security; }
     // where the bot stands in dungeon stages (rtsc overrides, ai_playerbot_dungeon_positions)
     ai::PlayerbotDungeonPositions& GetDungeonPositions() { return dungeonPositions; }
+    // the bot's changes to the legacy brains' strategy lists (BotStateTree addon, ai_playerbot_legacy_strategies)
+    ai::PlayerbotLegacyStrategies& GetLegacyStrategies() { return legacyStrategies; }
 
     WorldPosition GetJumpDestination() { return jumpDestination; }
     void SetJumpDestination(const WorldPosition& pos) { jumpDestination = pos; }
@@ -763,8 +767,18 @@ protected:
     };
     std::mutex stateTreeToggleLock;
     std::vector<StateTreeToggle> stateTreeToggles;
+    // strategy changes of the BotStateTree addon ("BOT\tstatetree strategy <state> +name|-name|reset"): set from
+    // chat, applied in UpdateAI (same lock as the toggles)
+    struct StateTreeStrategyEdit
+    {
+        std::string state, change;
+    };
+    std::vector<StateTreeStrategyEdit> stateTreeStrategyEdits;
+    // the addon asked for the strategy names it can add ("BOT\tstatetree strategies"), answered with the next snapshot
+    std::atomic<bool> stateTreeStrategyListRequested{ false };
     uint8 stateTreeDebugSeq = 0;
     ai::PlayerbotDungeonPositions dungeonPositions;
+    ai::PlayerbotLegacyStrategies legacyStrategies;
 
 #ifdef BUILD_ELUNA
     MaNGOS::unique_weak_ptr<PlayerbotAI> m_weakRef;

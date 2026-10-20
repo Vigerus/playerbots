@@ -43,11 +43,13 @@ std::unique_ptr<STAI_Task> MasterDistance_GlobalTask::Create(const STAI_TaskConf
 
 void MasterDistance_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(MasterDistance_GlobalTask::OnEnter);
     ContextAs<MasterDistance_GlobalTaskContext>(baseContext).masterFar = false;
 }
 
 EActionRunStatus MasterDistance_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(MasterDistance_GlobalTask::OnTick);
     MasterDistance_GlobalTaskContext& context = ContextAs<MasterDistance_GlobalTaskContext>(baseContext);
     Player* bot = context.bot;
     Player* master = context.ai->GetMaster();

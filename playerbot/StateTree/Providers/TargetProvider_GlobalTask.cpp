@@ -138,6 +138,7 @@ void TargetProvider_GlobalTask::Update(TargetProvider_GlobalTaskContext& context
 
 void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnEnter);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
     context.target.Clear();
     context.marked = false;
@@ -147,6 +148,7 @@ void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 
 void TargetProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnExit);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
     context.target.Clear();
     context.marked = false;
@@ -154,6 +156,7 @@ void TargetProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
 
 EActionRunStatus TargetProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnTick);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
     context.sinceCheckMs += elapsed;
     const bool choose = context.sinceCheckMs >= chooseIntervalMs;

@@ -130,6 +130,7 @@ void Engine::Init()
 
 bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::DoNextAction);
     LogAction("--- AI Tick ---");
     if (sPlayerbotAIConfig.logValuesPerTick)
         LogValues();
@@ -140,7 +141,10 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
     time_t currentTime = time(0);
     aiObjectContext->Update();
     ProcessTriggers(minimal);
-    PushDefaultActions();
+    {
+        TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::PushDefaultActions);
+        PushDefaultActions();
+    }
 
     std::vector<Action*> modifiedActions;
 
@@ -159,13 +163,25 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                 continue;
             // NOTE: queue.Pop() deletes basket
             ActionNode* actionNode = queue.Pop();
-            Action* action = InitializeAction(actionNode);
+            Action* action;
+            {
+                TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::InitializeAction);
+                action = InitializeAction(actionNode);
+            }
 
-            std::string actionName = (action ? action->getName() : "unknown");
-            if (event.IsValid())
-                actionName += " <" + event.getSource() + ">";
-            
-            auto pmo1 = sPerformanceMonitor.start(PERF_MON_ACTION, actionName, &aiObjectContext->performanceStack);
+            // the rest of the action's turn (isUseful, multipliers, isPossible, execution, logging) per action
+            static ProfilingStat* const unknownActionStat = ProfilingSubsystem::RegisterStat("A: unknown");
+            TRACE_CPU_PROFILER_STAT_SCOPE(action ? action->GetProfilingStat("A: ") : unknownActionStat);
+
+            std::unique_ptr<PerformanceMonitorOperation> pmo1;
+            {
+                TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::PerformanceMonitor);
+                std::string actionName = (action ? action->getName() : "unknown");
+                if (event.IsValid())
+                    actionName += " <" + event.getSource() + ">";
+
+                pmo1 = sPerformanceMonitor.start(PERF_MON_ACTION, actionName, &aiObjectContext->performanceStack);
+            }
 
             if(action)
                 action->setRelevance(relevance);
@@ -202,6 +218,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                 if (!isStunned || action->isUsefulWhenStunned())
                 {
                     auto pmo2 = sPerformanceMonitor.start(PERF_MON_ACTION, "isUseful", &aiObjectContext->performanceStack);
+                    TRACE_CPU_PROFILER_ENTRY_SCOPE(Action::isUseful);
                     isUseful = action->isUseful();
                     pmo2.reset();
                 }
@@ -210,6 +227,7 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                 {
                     if (std::find(modifiedActions.begin(), modifiedActions.end(), action) == modifiedActions.end())
                     {
+                        TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::Multipliers);
                         for (std::list<Multiplier*>::iterator i = multipliers.begin(); i != multipliers.end(); i++)
                         {
                             Multiplier* multiplier = *i;
@@ -243,7 +261,11 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
                     }
 
                     auto pmo3 = sPerformanceMonitor.start(PERF_MON_ACTION, "isPossible", &aiObjectContext->performanceStack);
-                    bool isPossible = action->isPossible();
+                    bool isPossible;
+                    {
+                        TRACE_CPU_PROFILER_ENTRY_SCOPE(Action::isPossible);
+                        isPossible = action->isPossible();
+                    }
                     pmo3.reset();
 
                     if (isPossible && relevance)
@@ -360,7 +382,10 @@ bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
     if (!actionExecuted)
         LogAction("no actions executed");
 
-    queue.RemoveExpired();
+    {
+        TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::RemoveExpired);
+        queue.RemoveExpired();
+    }
     return actionExecuted;
 }
 
@@ -387,6 +412,7 @@ ActionNode* Engine::CreateActionNode(const std::string& name)
 
 bool Engine::MultiplyAndPush(NextAction** actions, float forceRelevance, bool skipPrerequisites, const Event& event, const char* pushType, const std::string& source)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::MultiplyAndPush);
     bool pushed = false;
     if (actions)
     {
@@ -605,6 +631,7 @@ Strategy* Engine::GetStrategy(const std::string& name) const
 
 void Engine::ProcessTriggers(bool minimal)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::ProcessTriggers);
     for (std::list<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
         TriggerNode* node = *i;
@@ -625,6 +652,8 @@ void Engine::ProcessTriggers(bool minimal)
             if (minimal && node->getFirstRelevance() < 100)
                 continue;
             auto pmo = sPerformanceMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
+            // per trigger: its check and the actions it pushes
+            TRACE_CPU_PROFILER_STAT_SCOPE(trigger->GetProfilingStat("T: "));
             Event event = trigger->Check();
 
 #ifdef PLAYERBOT_ELUNA
@@ -723,6 +752,7 @@ Action* Engine::InitializeAction(ActionNode* actionNode)
 
 bool Engine::ListenAndExecute(Action* action, Event& event)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::ListenAndExecute);
     Action* prevExecutedAction = lastExecutedAction;
     EActionRunStatus prevActionStatus = lastExecutedActionStatus;
 
@@ -802,6 +832,7 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
 
 void Engine::LogAction(const char* format, ...)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::LogAction);
     char buf[1024];
 
     va_list ap;

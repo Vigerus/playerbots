@@ -93,6 +93,7 @@ uint32 Task_CastSpell::ResolveSpell(const Player* bot) const
 
 void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastSpell::OnEnter);
     Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
     context.spellId = 0;
     context.castTarget.Clear();
@@ -165,6 +166,7 @@ int8 Task_CastSpell::CastResult(const Task_CastSpellContext& context)
 
 EActionRunStatus Task_CastSpell::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastSpell::OnTick);
     Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
     if (context.failed)
         return EActionRunStatus::Failed;

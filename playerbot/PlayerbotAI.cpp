@@ -56,6 +56,8 @@
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
 
 #include "StateTree/StateNode_Tree.h"
+#include "StateTree/Tasks/LegacyBrain.h"
+#include "StateTree/Tasks/StateNode_Legacy.h"
 
 using namespace ai;
 
@@ -560,6 +562,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 #ifdef USE_HLS
     SyncLifeState();
     ApplyStateTreeToggles();
+    ApplyStateTreeStrategyEdits();
     StateMachine.Update(elapsed, minimal);
     SendStateTreeDebug();
 #else
@@ -1092,6 +1095,7 @@ void PlayerbotAI::HandleCommands()
 
 bool PlayerbotAI::UpdateAIInternal(uint32 elapsed, bool minimal)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(PlayerbotAI::UpdateAIInternal);
     if (bot->IsBeingTeleported() || !bot->IsInWorld())
         return false;
 
@@ -1158,6 +1162,7 @@ bool PlayerbotAI::UpdateAIInternal(uint32 elapsed, bool minimal)
         return false;
     }
 
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(PlayerbotAI::PacketHandlers);
     botOutgoingPacketHandlers.Handle(helper);
     masterIncomingPacketHandlers.Handle(helper);
     masterOutgoingPacketHandlers.Handle(helper);
@@ -1359,6 +1364,35 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
                     toggle.disabled = disabled != 0;
                     std::lock_guard<std::mutex> lock(stateTreeToggleLock);
                     stateTreeToggles.push_back(toggle);
+                }
+            }
+            return;
+        }
+
+        // BotStateTree addon strategy names to add: "statetree strategies" (+ " <bot name>" on party / raid),
+        // sent with the next snapshot
+        if (filtered.rfind("statetree strategies", 0) == 0)
+        {
+            const std::string name = filtered.size() > 21 ? filtered.substr(21) : "";
+            if (name.empty() ? type == CHAT_MSG_WHISPER : name == bot->GetName())
+                stateTreeStrategyListRequested = true;
+            return;
+        }
+
+        // BotStateTree addon strategy change of a legacy node's engine: "statetree strategy <state> +name|-name|reset"
+        // (+ " <bot name>" on party / raid), stored per brain and map (PlayerbotLegacyStrategies)
+        if (filtered.rfind("statetree strategy ", 0) == 0)
+        {
+            std::istringstream request(filtered.substr(19));
+            StateTreeStrategyEdit edit;
+            std::string name;
+            if (request >> edit.state >> edit.change)
+            {
+                request >> name;
+                if (name.empty() ? type == CHAT_MSG_WHISPER : name == bot->GetName())
+                {
+                    std::lock_guard<std::mutex> lock(stateTreeToggleLock);
+                    stateTreeStrategyEdits.push_back(edit);
                 }
             }
             return;
@@ -1995,6 +2029,7 @@ void PlayerbotAI::ChangeEngine(BotState type)
 
 void PlayerbotAI::DoNextAction(bool min, Engine* CustomEngine)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(PlayerbotAI::DoNextAction);
     if (!bot->IsInWorld() || bot->IsBeingTeleported() || (GetMaster() && GetMaster()->IsBeingTeleported()))
     {
         SetAIInternalUpdateDelay(sPlayerbotAIConfig.globalCoolDown);
@@ -2012,7 +2047,11 @@ void PlayerbotAI::DoNextAction(bool min, Engine* CustomEngine)
         }
     }
 
-    bool minimal = !AllowActivity();
+    bool minimal;
+    {
+        TRACE_CPU_PROFILER_ENTRY_SCOPE(PlayerbotAI::AllowActivity);
+        minimal = !AllowActivity();
+    }
 
     if (CustomEngine)
     {
@@ -2026,6 +2065,9 @@ void PlayerbotAI::DoNextAction(bool min, Engine* CustomEngine)
 
     if (!bot->IsInWorld()) //Teleport out of bg
         return;
+
+    // after the engine: afk, master / group upkeep, stand state
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(PlayerbotAI::DoNextAction::Upkeep);
 
     if (minimal)
     {
@@ -6344,6 +6386,51 @@ void PlayerbotAI::ApplyStateTreeToggles()
                 toggle.state.c_str(), toggle.tree.c_str());
 }
 
+void PlayerbotAI::ApplyStateTreeStrategyEdits()
+{
+    std::vector<StateTreeStrategyEdit> edits;
+    {
+        std::lock_guard<std::mutex> lock(stateTreeToggleLock);
+        edits.swap(stateTreeStrategyEdits);
+    }
+
+    for (const StateTreeStrategyEdit& edit : edits)
+    {
+        // the legacy nodes' engines only (the reaction node runs two engines of its own)
+        Engine* engine = edit.state != "Reaction" ? StateMachine.FindDebugEngine(edit.state) : nullptr;
+        if (!engine || engine->GetBrainName().empty())
+        {
+            sLog.outDetail("StateTree: %s has no legacy brain in state %s to change", bot->GetName(), edit.state.c_str());
+            continue;
+        }
+
+        const std::string brainName = engine->GetBrainName();
+        const uint32 mapKey = ai::PlayerbotLegacyStrategies::GetMapKey(bot);
+
+        if (edit.change == "reset")
+        {
+            legacyStrategies.Reset(bot, brainName, mapKey);
+            if (std::shared_ptr<const ai::LegacyBrain> brain = sLegacyBrainLibrary.FindByName(brainName))
+                ai::StateNode_Legacy::ApplyBrain(this, bot, engine, *brain);
+            continue;
+        }
+
+        // +name / -name of a strategy the bot knows
+        const char op = edit.change[0];
+        const std::string strategy = edit.change.substr(1);
+        std::set<std::string> supported;
+        aiObjectContext->GetSupportedStrategies(supported);
+        if ((op != '+' && op != '-') || !supported.count(strategy))
+        {
+            sLog.outDetail("StateTree: %s ignores strategy change %s", bot->GetName(), edit.change.c_str());
+            continue;
+        }
+
+        legacyStrategies.Change(bot, brainName, mapKey, op, strategy);
+        engine->ChangeStrategy(edit.change);
+    }
+}
+
 void PlayerbotAI::SendStateTreeDebug()
 {
     const uint64 requesterGuid = stateTreeDebugRequester.exchange(0);
@@ -6357,7 +6444,40 @@ void PlayerbotAI::SendStateTreeDebug()
     // addon messages are limited to 255 chars, so the snapshot goes out in chunks:
     // "BOTST\tS<seq>:<index>/<count>:<payload part>" (index is 1-based)
     static constexpr size_t chunkSize = 220;
-    const std::string snapshot = stateTreeDebugHistory ? StateMachine.BuildDebugHistory() : StateMachine.BuildDebugSnapshot();
+    std::string snapshot = stateTreeDebugHistory ? StateMachine.BuildDebugHistory() : StateMachine.BuildDebugSnapshot();
+    if (!stateTreeDebugHistory)
+    {
+        // the bot's strategy changes of the legacy brains on its map (editable states only):
+        //   O^<state>^<map key: 0 outdoors, else the map id>^<-removed,...,+added,...>
+        // and, once asked for, the strategy names the addon offers to add: L^<name,name,...>
+        std::ostringstream extra;
+        const uint32 mapKey = ai::PlayerbotLegacyStrategies::GetMapKey(bot);
+        for (const char* state : { "NonCombat", "Combat", "Dead" })
+        {
+            Engine* engine = StateMachine.FindDebugEngine(state);
+            if (!engine || engine->GetBrainName().empty())
+                continue;
+
+            const ai::PlayerbotLegacyStrategies::Changes* changes = legacyStrategies.Get(bot, engine->GetBrainName(), mapKey);
+            extra << "~O^" << state << "^" << mapKey << "^" << (changes ? changes->Format() : "");
+        }
+
+        if (stateTreeStrategyListRequested.exchange(false))
+        {
+            std::set<std::string> supported;
+            aiObjectContext->GetSupportedStrategies(supported);
+            extra << "~L^";
+            bool first = true;
+            for (const std::string& name : supported)
+            {
+                if (name.empty() || name.find_first_of("^~,|") != std::string::npos)
+                    continue;
+                extra << (first ? "" : ",") << name;
+                first = false;
+            }
+        }
+        snapshot += extra.str();
+    }
     const size_t count = std::max<size_t>(1, (snapshot.size() + chunkSize - 1) / chunkSize);
     const uint32 seq = ++stateTreeDebugSeq;
 

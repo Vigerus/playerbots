@@ -71,6 +71,8 @@ namespace ai
 
         // brain of a config file name (relative to aiplayerbot.conf), loaded on first use; throws on errors
         std::shared_ptr<const LegacyBrain> Get(const std::string& file);
+        // a loaded brain by its name (LegacyBrain::name, Engine::GetBrainName), nullptr when none is loaded
+        std::shared_ptr<const LegacyBrain> FindByName(const std::string& name);
 
         // forget loaded files (config reload)
         void Clear();

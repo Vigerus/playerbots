@@ -57,6 +57,7 @@ void Task_RunSubtree::InitContext(STAI_TaskContext& baseContext) const
 
 void Task_RunSubtree::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnEnter);
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
     if (context.subtree)
         context.subtree->OnStart();
@@ -64,6 +65,7 @@ void Task_RunSubtree::OnEnter(STAI_TaskContext& baseContext) const
 
 EActionRunStatus Task_RunSubtree::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnTick);
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
     if (!context.subtree)
         return EActionRunStatus::Failed;
@@ -74,6 +76,7 @@ EActionRunStatus Task_RunSubtree::OnTick(STAI_TaskContext& baseContext, uint32 e
 
 void Task_RunSubtree::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnExit);
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
     if (context.subtree && context.subtree->IsRunning())
         context.subtree->OnFinish();

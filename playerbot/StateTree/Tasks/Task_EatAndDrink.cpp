@@ -90,6 +90,7 @@ void Task_EatAndDrink::Start(Task_EatAndDrinkContext& context) const
 
 void Task_EatAndDrink::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnEnter);
     Task_EatAndDrinkContext& context = ContextAs<Task_EatAndDrinkContext>(baseContext);
     context.enterMs = WorldTimer::getMSTime();
     context.eatStarted = false;
@@ -100,6 +101,7 @@ void Task_EatAndDrink::OnEnter(STAI_TaskContext& baseContext) const
 
 EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnTick);
     Task_EatAndDrinkContext& context = ContextAs<Task_EatAndDrinkContext>(baseContext);
     Player* bot = context.bot;
 
@@ -131,6 +133,7 @@ EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 
 
 void Task_EatAndDrink::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnExit);
     // standing up ends the food and drink auras, the next node starts from a standing bot
     Player* bot = baseContext.bot;
     if (bot->IsSitState())

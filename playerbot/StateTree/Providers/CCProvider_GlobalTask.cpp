@@ -140,6 +140,7 @@ void CCProvider_GlobalTask::Update(CCProvider_GlobalTaskContext& context) const
 
 void CCProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(CCProvider_GlobalTask::OnEnter);
     CCProvider_GlobalTaskContext& context = ContextAs<CCProvider_GlobalTaskContext>(baseContext);
     context.whoNeeds.clear();
     context.sinceCheckMs = 0;
@@ -149,6 +150,7 @@ void CCProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 
 EActionRunStatus CCProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(CCProvider_GlobalTask::OnTick);
     CCProvider_GlobalTaskContext& context = ContextAs<CCProvider_GlobalTaskContext>(baseContext);
     context.sinceCheckMs += elapsed;
     context.sinceFireMs += elapsed;

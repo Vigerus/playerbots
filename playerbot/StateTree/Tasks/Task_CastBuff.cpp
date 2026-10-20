@@ -17,6 +17,7 @@ namespace
 
 void Task_CastBuff::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnEnter);
     Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
     context.spellId = 0;
     context.target.Clear();
@@ -48,6 +49,7 @@ void Task_CastBuff::OnEnter(STAI_TaskContext& baseContext) const
 
 EActionRunStatus Task_CastBuff::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnTick);
     Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
     if (context.failed)
         return EActionRunStatus::Failed;
@@ -72,6 +74,7 @@ const std::vector<STAI_PropertyDef>& Task_CastBuff::GetProperties() const
 
 void Task_CastBuff::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnExit);
     // a cast in progress is left alone: a transition to follow stops it by moving if it has to
 }
 

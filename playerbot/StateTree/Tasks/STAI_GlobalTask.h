@@ -21,9 +21,9 @@ namespace ai
 
         virtual const char* GetTaskClass() const override { return "STAI_GlobalTask"; }
 
-        virtual void OnEnter(STAI_TaskContext& context) const override {}
-        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override { return EActionRunStatus::Running; }
-        virtual void OnExit(STAI_TaskContext& context) const override {}
+        virtual void OnEnter(STAI_TaskContext& context) const override { TRACE_CPU_PROFILER_ENTRY_SCOPE(STAI_GlobalTask::OnEnter); }
+        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override { TRACE_CPU_PROFILER_ENTRY_SCOPE(STAI_GlobalTask::OnTick); return EActionRunStatus::Running; }
+        virtual void OnExit(STAI_TaskContext& context) const override { TRACE_CPU_PROFILER_ENTRY_SCOPE(STAI_GlobalTask::OnExit); }
 
         // global tasks run the whole time the tree runs: no History entries
         virtual bool LogsActivity() const override { return false; }

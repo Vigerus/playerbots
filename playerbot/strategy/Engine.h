@@ -102,6 +102,9 @@ namespace ai
         // source of the default strategies: STAI brain name or "AiFactory" (shown by the StateTree debug view)
         const std::string& GetBrainName() const { return brainName; }
         void SetBrainName(const std::string& name) { brainName = name; }
+        // map key (PlayerbotLegacyStrategies::GetMapKey) whose strategy overrides the brain was applied with
+        uint32 GetBrainMap() const { return brainMap; }
+        void SetBrainMap(uint32 map) { brainMap = map; }
 
     public:
 	    virtual bool DoNextAction(Unit*, int depth, bool minimal, bool isStunned);
@@ -147,6 +150,7 @@ namespace ai
         Action* lastExecutedAction = nullptr;
         EActionRunStatus lastExecutedActionStatus = EActionRunStatus::Succeeded;
         std::string brainName;
+        uint32 brainMap = 0xFFFFFFFF;       // none yet
         std::string executingSource;     // strategy of the action being executed
         std::set<std::string> passiveStrategies;
         uint32 executedActionCount = 0;

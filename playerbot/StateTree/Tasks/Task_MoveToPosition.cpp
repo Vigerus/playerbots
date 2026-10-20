@@ -38,6 +38,7 @@ std::unique_ptr<STAI_Task> Task_MoveToPosition::Create(const STAI_TaskConfig& co
 
 void Task_MoveToPosition::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MoveToPosition::OnEnter);
     Task_MoveToPositionContext& context = ContextAs<Task_MoveToPositionContext>(baseContext);
     context.moving = false;
     context.destination = STAI_Position();
@@ -47,6 +48,7 @@ void Task_MoveToPosition::OnEnter(STAI_TaskContext& baseContext) const
 
 EActionRunStatus Task_MoveToPosition::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MoveToPosition::OnTick);
     Task_MoveToPositionContext& context = ContextAs<Task_MoveToPositionContext>(baseContext);
     PlayerbotAI* ai = context.ai;
     Player* bot = context.bot;
@@ -82,6 +84,7 @@ EActionRunStatus Task_MoveToPosition::OnTick(STAI_TaskContext& baseContext, uint
 
 void Task_MoveToPosition::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MoveToPosition::OnExit);
     Task_MoveToPositionContext& context = ContextAs<Task_MoveToPositionContext>(baseContext);
     if (context.moving && context.bot->GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE)
         context.ai->StopMoving();

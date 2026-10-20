@@ -19,7 +19,7 @@ namespace ai
 
         virtual const char* GetTaskClass() const override { return "STAI_FinishTreeTask"; }
 
-        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override { return EActionRunStatus::Succeeded; }
+        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override { TRACE_CPU_PROFILER_ENTRY_SCOPE(STAI_FinishTreeTask::OnTick); return EActionRunStatus::Succeeded; }
         virtual bool FinishesTree() const override { return true; }
     };
 }

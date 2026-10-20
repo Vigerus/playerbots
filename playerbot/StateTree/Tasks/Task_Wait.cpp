@@ -34,11 +34,13 @@ std::unique_ptr<STAI_Task> Task_Wait::Create(const STAI_TaskConfig& config)
 
 void Task_Wait::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Wait::OnEnter);
     ContextAs<Task_WaitContext>(baseContext).waited = 0;
 }
 
 EActionRunStatus Task_Wait::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Wait::OnTick);
     if (!delay)
         return EActionRunStatus::Running;
 

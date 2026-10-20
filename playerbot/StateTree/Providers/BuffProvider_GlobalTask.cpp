@@ -134,6 +134,7 @@ void BuffProvider_GlobalTask::InitContext(STAI_TaskContext& baseContext) const
 
 void BuffProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnEnter);
     BuffProvider_GlobalTaskContext& context = ContextAs<BuffProvider_GlobalTaskContext>(baseContext);
     context.Subscribe();
     context.Evaluate();
@@ -141,6 +142,7 @@ void BuffProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 
 void BuffProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnExit);
     BuffProvider_GlobalTaskContext& context = ContextAs<BuffProvider_GlobalTaskContext>(baseContext);
     context.Unsubscribe();
     context.needs.clear();

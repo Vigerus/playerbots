@@ -1,5 +1,7 @@
 #include "StateMachine.h"
 
+#include "World/ProfilingSubsystem.h"
+
 #include <algorithm>
 
 StateMachine::StateMachine() :
@@ -103,6 +105,8 @@ bool StateMachine::GetStateType(HLSStateType& type) const
 
 void StateMachine::Update(uint32 elapsed, bool minimal)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(StateMachine::Update);
+
     if (!active)
     {
         return;
@@ -342,6 +346,14 @@ bool StateMachine::SetTaskDisabled(const std::string& state, const std::string& 
         if (state == GetHLSStateTypeName(type))
             return stateNode->SetTaskDisabled(tree, node, task, disabled);
     return false;
+}
+
+Engine* StateMachine::FindDebugEngine(const std::string& state) const
+{
+    for (const auto& [type, stateNode] : nodes)
+        if (state == GetHLSStateTypeName(type))
+            return stateNode->GetDebugEngine();
+    return nullptr;
 }
 
 // History format (records separated by '~', fields by '^'), newest first:

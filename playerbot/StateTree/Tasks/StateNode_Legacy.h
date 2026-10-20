@@ -48,9 +48,15 @@ namespace ai
         virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const override;
         virtual std::string GetDebugInfo() const override;
 
+        // replaces the engine's strategies by the brain's list, changed by the bot's strategy changes for the brain
+        // on the bot's map (PlayerbotLegacyStrategies: BotStateTree addon). Applied again when the bot changes map.
+        static void ApplyBrain(PlayerbotAI* ai, Player* bot, Engine* engine, const LegacyBrain& brain);
+
     private:
         static Engine* GetEngine(const STAI_TaskContext& context);
         void ApplyBrain(const STAI_TaskContext& context, Engine* engine) const;
+        // the engine runs another brain, or this one with the changes of another map
+        bool NeedsBrain(const STAI_TaskContext& context, const Engine* engine) const;
 
         std::shared_ptr<const LegacyBrain> brain;
     };

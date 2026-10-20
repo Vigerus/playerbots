@@ -1,5 +1,6 @@
 #pragma once
 #include "playerbot/PlayerbotAIAware.h"
+#include "World/ProfilingSubsystem.h"
 
 class Player;
 class PlayerbotAI;
@@ -29,8 +30,19 @@ namespace ai
     public:
         virtual std::string getName() override { return name; }
 
+        // the object's profiler stat "<kind><name>" (TRACE_CPU_PROFILER_STAT_SCOPE), registered on first use
+        ProfilingStat* GetProfilingStat(const char* kind)
+        {
+            if (!profilingStat)
+                profilingStat = ProfilingSubsystem::RegisterStat(kind + name);
+            return profilingStat;
+        }
+
     protected:
         std::string name;
+
+    private:
+        ProfilingStat* profilingStat = nullptr;
     };
 }
 
