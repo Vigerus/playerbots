@@ -80,7 +80,7 @@ bool SaveAiAction::Execute(Event& event)
 
    if (Player* requester = event.getOwner() ? event.getOwner() : GetMaster())
    {
-      ai->TellError(requester, "Strategies saved");
+      ai->TellError(requester, "AI values saved");
    }
 
    return true;
@@ -101,7 +101,7 @@ bool LoadAiAction::Execute(Event& event)
 
    if (Player* requester = event.getOwner() ? event.getOwner() : GetMaster())
    {
-      ai->TellError(requester, "Strategies loaded");
+      ai->TellError(requester, "AI values loaded");
    }
 
    return true;

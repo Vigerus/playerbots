@@ -13,9 +13,9 @@ namespace ai
 {
     // One bot's changes to the strategy lists of the StateNode_Legacy brains (Legacy_*.json): strategies added to
     // and removed from what the brain applies, per brain and map key (0 outdoors, else the map id of the dungeon /
-    // raid / battleground), so the bot can be set up differently outdoors and per dungeon. Table
-    // ai_playerbot_legacy_strategies (characters database), edited from the BotStateTree addon. Applied on top of
-    // the brain whenever the brain is applied (StateNode_Legacy). Loaded on first use, written on every change.
+    // raid / battleground), so the bot can be set up differently outdoors and per dungeon. Edited from the
+    // BotStateTree addon. Applied on top of the brain whenever the brain is applied (StateNode_Legacy).
+    // Runtime only: not stored, the brains (json) are the only lasting source of the bot's strategies.
     // Used from the bot's update (map thread).
     class PlayerbotLegacyStrategies
     {
@@ -41,10 +41,6 @@ namespace ai
         void Reset(Player* bot, const std::string& brain, uint32 mapKey);
 
     private:
-        void Load(Player* bot);
-        void Save(Player* bot, const std::string& brain, uint32 mapKey);
-
-        bool loaded = false;
         std::map<std::pair<std::string, uint32>, Changes> changes;     // (brain, map key) -> changes
     };
 }

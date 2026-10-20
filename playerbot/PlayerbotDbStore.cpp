@@ -30,11 +30,8 @@ void PlayerbotDbStore::Load(PlayerbotAI *ai, std::string preset)
     auto results = CharacterDatabase.PQuery("SELECT `key`,`value` FROM `ai_playerbot_db_store` WHERE `guid` = '%lu' AND `preset` = '%s'", guid, preset.c_str());
     if (results)
     {
-        ai->ClearStrategies(BotState::BOT_STATE_COMBAT);
-        ai->ClearStrategies(BotState::BOT_STATE_NON_COMBAT);
-        ai->ChangeStrategy("+chat", BotState::BOT_STATE_COMBAT);
-        ai->ChangeStrategy("+chat", BotState::BOT_STATE_NON_COMBAT);
-
+        // strategies are not stored: they come from the state tree / legacy brains (json) only, "co"/"nc"/"dead"
+        // rows of older versions are ignored
         std::list<std::string> values;
         do
         {
@@ -42,10 +39,6 @@ void PlayerbotDbStore::Load(PlayerbotAI *ai, std::string preset)
             std::string key = fields[0].GetString();
             std::string value = fields[1].GetString();
             if (key == "value") values.push_back(value);
-            else if (key == "co") ai->ChangeStrategy(value, BotState::BOT_STATE_COMBAT);
-            else if (key == "nc") ai->ChangeStrategy(value, BotState::BOT_STATE_NON_COMBAT);
-            else if (key == "dead") ai->ChangeStrategy(value, BotState::BOT_STATE_DEAD);
-           // else if (key == "react") ai->ChangeStrategy(value, BotState::BOT_STATE_REACTION);
         } while (results->NextRow());
 
         ai->GetAiObjectContext()->Load(values);
@@ -65,21 +58,6 @@ void PlayerbotDbStore::Save(PlayerbotAI *ai, std::string preset)
     {
         SaveValue(guid, preset, "value", *i);
     }
-
-    SaveValue(guid, preset, "co", FormatStrategies("co", ai->GetStrategies(BotState::BOT_STATE_COMBAT)));
-    SaveValue(guid, preset, "nc", FormatStrategies("nc", ai->GetStrategies(BotState::BOT_STATE_NON_COMBAT)));
-    SaveValue(guid, preset, "dead", FormatStrategies("dead", ai->GetStrategies(BotState::BOT_STATE_DEAD)));
-    //SaveValue(guid, preset, "react", FormatStrategies("react", ai->GetStrategies(BotState::BOT_STATE_REACTION)));
-}
-
-std::string PlayerbotDbStore::FormatStrategies(std::string type, std::list<std::string_view> strategies)
-{
-    std::ostringstream out;
-    for(const auto& strategy : strategies)
-        out << "+" << strategy << ",";
-
-    std::string res = out.str();
-    return res.substr(0, res.size() - 1);
 }
 
 void PlayerbotDbStore::Reset(PlayerbotAI *ai, std::string preset)

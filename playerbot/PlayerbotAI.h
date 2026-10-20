@@ -643,7 +643,7 @@ public:
     PlayerbotSecurity* GetSecurity() { return &security; }
     // where the bot stands in dungeon stages (rtsc overrides, ai_playerbot_dungeon_positions)
     ai::PlayerbotDungeonPositions& GetDungeonPositions() { return dungeonPositions; }
-    // the bot's changes to the legacy brains' strategy lists (BotStateTree addon, ai_playerbot_legacy_strategies)
+    // the bot's runtime changes to the legacy brains' strategy lists (BotStateTree addon, not stored)
     ai::PlayerbotLegacyStrategies& GetLegacyStrategies() { return legacyStrategies; }
 
     WorldPosition GetJumpDestination() { return jumpDestination; }

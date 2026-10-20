@@ -1380,7 +1380,7 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
         }
 
         // BotStateTree addon strategy change of a legacy node's engine: "statetree strategy <state> +name|-name|reset"
-        // (+ " <bot name>" on party / raid), stored per brain and map (PlayerbotLegacyStrategies)
+        // (+ " <bot name>" on party / raid), kept per brain and map for this session (PlayerbotLegacyStrategies)
         if (filtered.rfind("statetree strategy ", 0) == 0)
         {
             std::istringstream request(filtered.substr(19));
