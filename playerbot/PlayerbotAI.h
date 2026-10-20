@@ -381,8 +381,6 @@ public:
     static std::string BotStateToString(BotState state);
 	std::string HandleRemoteCommand(std::string command);
     void SendStateTreeDebug();
-    // answers a DungeonStage addon request ("BOT\tstages"): the stages of the bot's instance
-    void SendDungeonStages();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
@@ -754,10 +752,6 @@ protected:
     std::atomic<uint64> stateTreeDebugRequester{ 0 };
     std::atomic<bool> stateTreeDebugHistory{ false };
     uint8 stateTreeDebugSeq = 0;
-
-    // player waiting for the stages of the instance ("BOT\tstages" addon request); set from chat, consumed in UpdateAI
-    std::atomic<uint64> dungeonStagesRequester{ 0 };
-    uint8 dungeonStagesSeq = 0;
     ai::PlayerbotDungeonPositions dungeonPositions;
 
 #ifdef BUILD_ELUNA

@@ -153,7 +153,7 @@ players) is alive, and stays cleared for that instance. GM commands: `.instance 
 with cleared / alive counts and the one you stand in, `.instance stages <n>` the creatures of stage n still alive,
 `.instance stages show [n]` marks the edges of stage n's boxes (yours without n) with waypoint markers and its positions
 with spotlights for a minute. The DungeonStage addon shows the stages of your instance (`BOT\tstages` addon request,
-answered by a bot of the group).
+answered by the core `InstanceSubsystem` on the player's map thread, also without a group).
 
 Bots do not go into a stage that is not cleared (other than the one they are in): out of combat never, in combat only
 into its boxes with `bCanBeEnteredInCombatIfNotCleared` (default false, so the master pulls the creatures out). The
