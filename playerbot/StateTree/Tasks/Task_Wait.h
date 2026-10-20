@@ -31,7 +31,7 @@ namespace ai
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
         virtual bool IsTickable() const override { return true; }
 
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        virtual std::string GetDebugInfo() const override;
 
     private:
         uint32 delay;               // ms, 0 = forever

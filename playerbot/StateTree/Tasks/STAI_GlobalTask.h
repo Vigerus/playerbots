@@ -24,5 +24,8 @@ namespace ai
         virtual void OnEnter(STAI_TaskContext& context) const override {}
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override { return EActionRunStatus::Running; }
         virtual void OnExit(STAI_TaskContext& context) const override {}
+
+        // global tasks run the whole time the tree runs: no History entries
+        virtual bool LogsActivity() const override { return false; }
     };
 }

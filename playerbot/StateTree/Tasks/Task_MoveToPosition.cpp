@@ -33,7 +33,7 @@ void Task_MoveToPosition::Validate(const STAI_TaskConfig& config)
 
 std::unique_ptr<STAI_Task> Task_MoveToPosition::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<Task_MoveToPosition>(ParseRadius(config));
+    return std::make_unique<Task_MoveToPosition>(ParseRadius(config), STAI_TaskFactory::GetBindingSource(config, "position"));
 }
 
 void Task_MoveToPosition::OnEnter(STAI_TaskContext& baseContext) const
@@ -96,16 +96,9 @@ const std::vector<STAI_PropertyDef>& Task_MoveToPosition::GetProperties() const
     return properties;
 }
 
-std::string Task_MoveToPosition::GetDebugInfo(const STAI_TaskContext& baseContext) const
+std::string Task_MoveToPosition::GetDebugInfo() const
 {
-    const Task_MoveToPositionContext& context = ContextAs<Task_MoveToPositionContext>(baseContext);
-    if (!context.position.valid)
-        return "no position";
-
     std::ostringstream out;
-    out << std::fixed << std::setprecision(1) << context.position.x << " " << context.position.y << " " << context.position.z
-        << ", radius " << acceptableRadius;
-    if (context.lastDistance >= 0.0f)
-        out << ", distance " << context.lastDistance;
+    out << "Move to " << positionSource << ", radius " << acceptableRadius;
     return out.str();
 }

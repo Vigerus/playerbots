@@ -41,13 +41,6 @@ EActionRunStatus ResourceProvider_GlobalTask::OnTick(STAI_TaskContext& baseConte
     return EActionRunStatus::Running;
 }
 
-std::string ResourceProvider_GlobalTask::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    std::ostringstream out;
-    out << int(ContextAs<ResourceProvider_GlobalTaskContext>(baseContext).percent) << "%";
-    return out.str();
-}
-
 float HealthProvider_GlobalTask::ReadPercent(const Player* bot) const
 {
     return bot->GetMaxHealth() ? bot->GetHealthPercent() : 100.0f;

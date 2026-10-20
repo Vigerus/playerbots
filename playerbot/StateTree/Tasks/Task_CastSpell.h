@@ -19,6 +19,7 @@ namespace ai
         uint32 castStartMs = 0;
         bool failed = false;
         bool resultAtStart = false;         // instant / channeled: successful once started
+        int8 result = -1;                   // the spell went off: -1 not known yet, 0 no, 1 yes
     };
 
     // Casts a spell on its target, else on the first of its whoNeeds it can reach, then waits for the cast and the
@@ -31,14 +32,14 @@ namespace ai
     //   </Task>
     // Succeeded once the cast and the GCD are over, or right away when there is no living target; Failed when the
     // bot does not know the spell or can cast it on none of the living targets (range, sight, mana...).
-    // The activity log (History tab) shows the spell and whether it went off: instant and channeled spells (Fire
+    // Its History entries ("Cast <spell>") are successful when the spell went off: instant and channeled spells (Fire
     // Blast, Blizzard, Arcane Missiles: no cast time / channel attributes) as soon as they started, spells with a
-    // cast time when the server sent their spell go (Successful) or failure / no spell go at the end (Fail).
+    // cast time when the server sent their spell go; a failure, no spell go, or a cast left unfinished (the node
+    // left, the tree finished) is a failed run.
     class Task_CastSpell : public STAI_Task
     {
     public:
-        Task_CastSpell(uint32 spellId, const std::string& spellName, uint32 displaySpellId)
-            : spellId(spellId), spellName(spellName), displaySpellId(displaySpellId) {}
+        Task_CastSpell(uint32 spellId, const std::string& spellName) : spellId(spellId), spellName(spellName) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -53,16 +54,17 @@ namespace ai
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
-        // the spell being cast, else the bot's rank of it, else the configured one
-        virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const override;
+        // whether the spell went off (also when the run is left while the cast is still going: it did not)
+        virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const override;
+        virtual std::string GetDebugInfo() const override { return "Cast " + STAI_SpellMarkup(spellId); }
 
     private:
         // the spell the bot casts: the configured id when it knows it, else its highest rank of the configured name
         uint32 ResolveSpell(const Player* bot) const;
+        // the cast's spell go / failure since it started: 1 went off, 0 failed, -1 neither yet
+        static int8 CastResult(const Task_CastSpellContext& context);
 
-        uint32 spellId;             // 0: by name
-        std::string spellName;      // lower case
-        uint32 displaySpellId;      // a spell of that id / name, for the debug view
+        uint32 spellId;             // the configured spell id, or the first spell of the configured name
+        std::string spellName;      // lower case, empty when configured by id: by name the bot's highest rank is cast
     };
 }

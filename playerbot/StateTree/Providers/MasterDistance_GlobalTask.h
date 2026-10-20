@@ -43,7 +43,6 @@ namespace ai
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;
 
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
 
     private:
         std::string range;      // yards or a range name

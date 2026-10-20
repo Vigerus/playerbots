@@ -172,16 +172,3 @@ const std::vector<STAI_DelegateDef>& CCProvider_GlobalTask::GetDelegates() const
     return delegates;
 }
 
-std::string CCProvider_GlobalTask::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    const CCProvider_GlobalTaskContext& context = ContextAs<CCProvider_GlobalTaskContext>(baseContext);
-    if (context.whoNeeds.empty())
-        return "nothing to crowd-control";
-
-    std::ostringstream out;
-    if (Unit* unit = context.bot->IsInWorld() ? context.bot->GetMap()->GetUnit(context.whoNeeds.front()) : nullptr)
-        out << "crowd-control " << unit->GetName();
-    else
-        out << "crowd-control target";
-    return out.str();
-}

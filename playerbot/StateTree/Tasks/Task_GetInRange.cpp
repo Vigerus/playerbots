@@ -58,7 +58,7 @@ void Task_GetInRange::Validate(const STAI_TaskConfig& config)
 
 std::unique_ptr<STAI_Task> Task_GetInRange::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<Task_GetInRange>(ParseRange(config));
+    return std::make_unique<Task_GetInRange>(ParseRange(config), STAI_TaskFactory::GetBindingSource(config, "target"));
 }
 
 float Task_GetInRange::GetRange(const STAI_TaskContext& context) const
@@ -143,16 +143,7 @@ const std::vector<STAI_PropertyDef>& Task_GetInRange::GetProperties() const
     return properties;
 }
 
-std::string Task_GetInRange::GetDebugInfo(const STAI_TaskContext& baseContext) const
+std::string Task_GetInRange::GetDebugInfo() const
 {
-    const Task_GetInRangeContext& context = ContextAs<Task_GetInRangeContext>(baseContext);
-    Unit* target = GetTarget(context);
-    if (!target)
-        return "no target";
-
-    std::ostringstream out;
-    out.setf(std::ios::fixed);
-    out.precision(1);
-    out << sServerFacade.GetDistance2d(context.bot, target) << " / " << GetRange(context) << " yd" << (context.chasing ? ", moving" : "");
-    return out.str();
+    return "Get in " + range + " range of " + targetSource;
 }

@@ -137,10 +137,9 @@ void Task_EatAndDrink::OnExit(STAI_TaskContext& baseContext) const
         bot->SetStandState(UNIT_STAND_STATE_STAND);
 }
 
-std::string Task_EatAndDrink::GetDebugInfo(const STAI_TaskContext& baseContext) const
+std::string Task_EatAndDrink::GetDebugInfo() const
 {
-    const Player* bot = baseContext.bot;
     std::ostringstream out;
-    out << (IsEating(bot) ? "eating" : "not eating") << ", " << (IsDrinking(bot) ? "drinking" : "not drinking");
+    out << "Eat to " << healthUntil << "% health, drink to " << manaUntil << "% mana";
     return out.str();
 }

@@ -28,12 +28,11 @@ namespace
         return !text.empty() && std::all_of(text.begin(), text.end(), [](unsigned char c) { return std::isdigit(c); });
     }
 
-    // spellid="..." of the <Task>: a spell id, or the name of a spell (lower case); and a spell of that name
+    // spellid="..." of the <Task>: a spell id, or the name of a spell (lower case) with the first spell of that name
     struct ParsedSpell
     {
         uint32 spellId = 0;
         std::string spellName;
-        uint32 displaySpellId = 0;
     };
 
     ParsedSpell ParseSpell(const STAI_TaskConfig& config)
@@ -47,14 +46,14 @@ namespace
             const uint32 spellId = uint32(std::strtoul(value.c_str(), nullptr, 10));
             if (!sSpellTemplate.LookupEntry<SpellEntry>(spellId))
                 throw std::runtime_error("spellid=\"" + value + "\": unknown spell");
-            return { spellId, "", spellId };
+            return { spellId, "" };
         }
 
         const std::string name = ToLower(value);
         for (uint32 id = 1; id < sSpellTemplate.GetMaxEntry(); ++id)
             if (const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(id))
                 if (ToLower(spellInfo->SpellName[0]) == name)
-                    return { 0, name, id };
+                    return { id, name };
 
         throw std::runtime_error("spellid=\"" + value + "\": no spell has that name");
     }
@@ -68,12 +67,12 @@ void Task_CastSpell::Validate(const STAI_TaskConfig& config)
 std::unique_ptr<STAI_Task> Task_CastSpell::Create(const STAI_TaskConfig& config)
 {
     const ParsedSpell spell = ParseSpell(config);
-    return std::make_unique<Task_CastSpell>(spell.spellId, spell.spellName, spell.displaySpellId);
+    return std::make_unique<Task_CastSpell>(spell.spellId, spell.spellName);
 }
 
 uint32 Task_CastSpell::ResolveSpell(const Player* bot) const
 {
-    if (spellId)
+    if (spellName.empty())
         return bot->HasSpell(spellId) ? spellId : 0;
 
     uint32 best = 0;
@@ -99,6 +98,7 @@ void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
     context.castTarget.Clear();
     context.failed = false;
     context.resultAtStart = false;
+    context.result = -1;
 
     // the target first, then whoNeeds: members to help, or units to act on (attack, crowd control); the dead ones
     // need nothing any more
@@ -119,11 +119,9 @@ void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
         return;
 
     const uint32 spell = ResolveSpell(bot);
-    context.activitySpellId = spell ? spell : displaySpellId;
     if (!spell)
     {
         context.failed = true;
-        context.activityResult = 0;
         return;
     }
 
@@ -144,13 +142,25 @@ void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
         const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spell);
         context.resultAtStart = spellInfo && (IsChanneledSpell(spellInfo) || GetSpellCastTime(spellInfo, bot) == 0);
         if (context.resultAtStart)
-            context.activityResult = 1;
+            context.result = 1;
         return;
     }
 
     // every living target is out of reach right now (range, sight, mana...)
     context.failed = true;
-    context.activityResult = 0;
+}
+
+int8 Task_CastSpell::CastResult(const Task_CastSpellContext& context)
+{
+    auto since = [&](const PlayerbotAI::SpellCastEvent& event)
+    {
+        return event.spellId == context.spellId && WorldTimer::getMSTimeDiff(context.castStartMs, event.ms) < castTimeoutMs;
+    };
+    if (since(context.ai->GetLastSpellFailure()))
+        return 0;
+    if (since(context.ai->GetLastSpellGo()))
+        return 1;
+    return -1;
 }
 
 EActionRunStatus Task_CastSpell::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -163,17 +173,8 @@ EActionRunStatus Task_CastSpell::OnTick(STAI_TaskContext& baseContext, uint32 el
 
     // a cast time: the spell went off when its spell go came, failed with a failure (interrupt, ...)
     Player* bot = context.bot;
-    if (!context.resultAtStart && context.activityResult < 0)
-    {
-        auto since = [&](const PlayerbotAI::SpellCastEvent& event)
-        {
-            return event.spellId == context.spellId && WorldTimer::getMSTimeDiff(context.castStartMs, event.ms) < castTimeoutMs;
-        };
-        if (since(context.ai->GetLastSpellFailure()))
-            context.activityResult = 0;
-        else if (since(context.ai->GetLastSpellGo()))
-            context.activityResult = 1;
-    }
+    if (context.result < 0)
+        context.result = CastResult(context);
 
     // wait in the node for the cast and the global cooldown instead of casting again right away
     const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(context.spellId);
@@ -182,8 +183,8 @@ EActionRunStatus Task_CastSpell::OnTick(STAI_TaskContext& baseContext, uint32 el
         return EActionRunStatus::Running;
 
     // the cast is over without a spell go: it did not go off
-    if (context.activityResult < 0)
-        context.activityResult = 0;
+    if (context.result < 0)
+        context.result = 0;
     return EActionRunStatus::Succeeded;
 }
 
@@ -197,26 +198,14 @@ const std::vector<STAI_PropertyDef>& Task_CastSpell::GetProperties() const
     return properties;
 }
 
-std::vector<uint32> Task_CastSpell::GetDebugSpells(const STAI_TaskContext& baseContext) const
-{
-    const Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
-    if (context.spellId)
-        return { context.spellId };
-    if (const uint32 known = context.bot ? ResolveSpell(context.bot) : 0)
-        return { known };
-    return { displaySpellId };
-}
-
-std::string Task_CastSpell::GetDebugInfo(const STAI_TaskContext& baseContext) const
+bool Task_CastSpell::IsSuccessful(const STAI_TaskContext& baseContext, EActionRunStatus status) const
 {
     const Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
     if (context.failed)
-        return "cannot cast";
+        return false;
     if (!context.spellId)
-        return context.whoNeeds.empty() && context.target.IsEmpty() ? "no target" : "";
+        return status == EActionRunStatus::Succeeded;     // nobody to cast on: nothing went wrong
 
-    const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(context.spellId);
-    std::ostringstream out;
-    out << "cast " << (spellInfo ? spellInfo->SpellName[0] : "?");
-    return out.str();
+    // left during the cast: it went off only if its spell go came already (an instant / channeled one did)
+    return (context.result < 0 ? CastResult(context) : context.result) == 1;
 }

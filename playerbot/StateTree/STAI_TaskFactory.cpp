@@ -29,6 +29,21 @@ std::filesystem::path STAI_TaskFactory::ResolvePath(const std::string& file)
     return path.lexically_normal();
 }
 
+std::string STAI_TaskFactory::GetBindingSource(const STAI_TaskConfig& config, const std::string& local)
+{
+    for (const auto& child : config)
+    {
+        if (child.first != "Binding" || child.second.get<std::string>("<xmlattr>.local", "") != local)
+            continue;
+
+        std::string external = child.second.get<std::string>("<xmlattr>.external", "");
+        if (external.rfind("Root|", 0) == 0)
+            external = external.substr(5);
+        return external.empty() ? local : external;
+    }
+    return local;
+}
+
 std::optional<std::string> STAI_TaskFactory::GetSetting(const STAI_TaskConfig& config, const std::string& name, const std::string& attribute)
 {
     auto setting = config.get_child_optional(boost::property_tree::ptree::path_type(name, '\0'));

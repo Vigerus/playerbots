@@ -118,14 +118,10 @@ Engine* Task_RunSubtree::GetDebugEngine(const STAI_TaskContext& baseContext) con
     return context.subtree ? context.subtree->GetDebugEngine() : nullptr;
 }
 
-std::string Task_RunSubtree::GetDebugInfo(const STAI_TaskContext& baseContext) const
+STAI_TreeInstance* Task_RunSubtree::GetRunningSubtree(STAI_TaskContext& baseContext) const
 {
-    const Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    if (!context.subtree)
-        return file + " (not loaded)";
-
-    const char* activeNode = context.subtree->GetActiveNodeName();
-    return context.subtree->GetAsset().name + (activeNode ? std::string(" > ") + activeNode : "");
+    Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
+    return context.subtree && context.subtree->IsRunning() ? context.subtree.get() : nullptr;
 }
 
 void Task_RunSubtree::AppendDebugTreeStack(const STAI_TaskContext& baseContext, std::vector<StateNodeDebugTree>& stack) const

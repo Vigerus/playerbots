@@ -60,7 +60,6 @@ namespace ai
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;
 
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
         virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const override { return auras; }
 
     private:

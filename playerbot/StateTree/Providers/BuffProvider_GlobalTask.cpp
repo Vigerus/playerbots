@@ -158,22 +158,6 @@ const std::vector<STAI_DelegateDef>& BuffProvider_GlobalTask::GetDelegates() con
     return delegates;
 }
 
-std::string BuffProvider_GlobalTask::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    const BuffProvider_GlobalTaskContext& context = ContextAs<BuffProvider_GlobalTaskContext>(baseContext);
-    if (context.needs.empty())
-        return "no buff missing";
-
-    std::ostringstream out;
-    out << context.needs.size() << " missing:";
-    for (const BuffNeed& need : context.needs)
-    {
-        const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(need.spellId);
-        out << " " << (spellInfo ? spellInfo->SpellName[0] : "?") << " (" << GetScopeName(need.scope) << ")";
-    }
-    return out.str();
-}
-
 std::vector<uint32> BuffProvider_GlobalTask::GetDebugSpells(const STAI_TaskContext& context) const
 {
     std::vector<uint32> spells;

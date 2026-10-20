@@ -23,19 +23,12 @@ uint64 STAI_ActivityLog::BeginAt(const std::string& kind, const std::string& nam
     return entries.back().id;
 }
 
-void STAI_ActivityLog::SetSpellResult(uint64 id, uint32 spellId, int8 result)
+void STAI_ActivityLog::End(uint64 id, int8 result)
 {
     if (Entry* entry = Find(id))
     {
-        entry->spellId = spellId;
-        entry->result = result;
-    }
-}
-
-void STAI_ActivityLog::End(uint64 id)
-{
-    if (Entry* entry = Find(id))
-    {
+        if (result >= 0)
+            entry->result = result;
         if (entry->open)
         {
             entry->endMs = WorldTimer::getMSTime();

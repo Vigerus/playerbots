@@ -75,17 +75,6 @@ const std::vector<STAI_DelegateDef>& CurseProvider_GlobalTask::GetDelegates() co
     return delegates;
 }
 
-std::string CurseProvider_GlobalTask::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    const CurseProvider_GlobalTaskContext& context = ContextAs<CurseProvider_GlobalTaskContext>(baseContext);
-    if (context.whoNeeds.empty())
-        return "nobody cursed";
-
-    std::ostringstream out;
-    out << context.whoNeeds.size() << " cursed";
-    return out.str();
-}
-
 bool CurseProvider_GlobalTask::IsWatchedSpell(const SpellEntry* spellInfo) const
 {
     if (auras.empty())

@@ -43,7 +43,7 @@ namespace ai
         virtual void OnExit(STAI_TaskContext& context) const override;
         virtual bool IsTickable() const override { return true; }
 
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        virtual std::string GetDebugInfo() const override;
 
     private:
         bool NeedsHealth(const Player* bot) const;

@@ -112,26 +112,6 @@ const std::vector<STAI_DelegateDef>& InstanceProvider_GlobalTask::GetDelegates()
     return delegates;
 }
 
-std::string InstanceProvider_GlobalTask::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    const InstanceProvider_GlobalTaskContext& context = ContextAs<InstanceProvider_GlobalTaskContext>(baseContext);
-    if (!context.known)
-        return "no map";
-
-    std::ostringstream out;
-    out << "map " << context.mapId << " instance " << context.instanceId << (context.inDungeon ? " (dungeon)" : "");
-    if (context.hasStages)
-    {
-        out << ", stage " << context.stage << ", master stage " << context.masterStage << (context.masterStageCleared ? " (cleared)" : " (not cleared)");
-        if (context.pathBlocked)
-            out << ", path blocked";
-        if (context.stagePosition.valid)
-            out << std::fixed << std::setprecision(1) << ", position " << context.stagePosition.x << " " << context.stagePosition.y << " " << context.stagePosition.z
-                << (context.stagePositionFar ? " (far)" : "");
-    }
-    return out.str();
-}
-
 // ---------------------------------------------------------------- context
 
 void InstanceProvider_GlobalTaskContext::Subscribe()

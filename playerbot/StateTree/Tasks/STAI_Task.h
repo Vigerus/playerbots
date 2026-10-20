@@ -101,10 +101,19 @@ namespace ai
         Player* bot = nullptr;
         HLSStateType state = HLSStateType::NonCombat;
         STAI_ActivityLog* activity = nullptr;   // the bot's recent activity, tasks may add entries
-        // shown with the task's entry in the activity log (History tab): a spell icon and a result
-        uint32 activitySpellId = 0;
-        int8 activityResult = -1;               // -1 none, 0 failed, 1 successful
+        // the node the task belongs to (nullptr for global tasks): the source of its History entries
+        const std::string* nodeName = nullptr;
+        // the task's History entry of the current run (STAI_Task::Enter / Tick / Exit)
+        uint64 activityId = 0;
+        uint32 activityStartMs = 0;
+        bool activityOpen = false;
+        // switched off in the BotStateTree addon (runtime only, the bot's contexts live as long as the bot): the
+        // tree skips the task, a node whose tasks are all disabled is not selected
+        bool bDisabled = false;
     };
+
+    // {spell:<id>} in a task's debug info: the addon shows the spell's icon and name
+    inline std::string STAI_SpellMarkup(uint32 spellId) { return "{spell:" + std::to_string(spellId) + "}"; }
 
     // context class of a task: the tree reserves size/alignment and constructs it in place
     struct STAI_TaskContextType
@@ -204,16 +213,32 @@ namespace ai
         // reaction tasks let the Reaction state preempt other states
         virtual IReactionChecker* GetReactionChecker(STAI_TaskContext& context) const { return nullptr; }
 
-        // the tree logs OnEnter..OnExit of the node; tasks that never finish (legacy engines) log their own entries
-        virtual bool LogsNodeActivity() const { return true; }
+        // What the tree calls: OnEnter / OnTick / OnExit, and the task's History entry (activity log): one per run,
+        // its GetDebugInfo and whether it succeeded, made once the task keeps running after its first update or
+        // fails (a task that succeeds at once leaves none). A task left while it runs (a transition, the tree
+        // finishing, the bot leaving the state) ends its entry in Exit with what IsSuccessful says.
+        void Enter(STAI_TaskContext& context) const;
+        EActionRunStatus Tick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const;
+        void Exit(STAI_TaskContext& context) const;
+
+        // whether the run counts as successful in the History: when it finished (status Succeeded / Failed), or
+        // when it is left while running (status Running: interrupted, unsuccessful unless the task knows better,
+        // e.g. a spell that already went off)
+        virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const { return status == EActionRunStatus::Succeeded; }
+        // tasks that log their own entries (legacy engines) or none (subtrees, global tasks) return false
+        virtual bool LogsActivity() const { return true; }
 
         // debug visualization
         virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const { return nullptr; }
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const { return ""; }
+        // what the task does, from its configuration only (it never changes while the bot runs): shown in the debug
+        // view and as its History entries; {spell:<id>} is shown as the spell's icon and name (STAI_SpellMarkup)
+        virtual std::string GetDebugInfo() const { return ""; }
         // spells the task works with (configured or being cast), shown as icons by the debug addon
         virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const { return {}; }
         // adds the trees this task stacked on its node's tree (a running subtree)
         virtual void AppendDebugTreeStack(const STAI_TaskContext& context, std::vector<StateNodeDebugTree>& stack) const {}
+        // the tree the task runs on top of this one (Task_RunSubtree), nullptr when none
+        virtual class STAI_TreeInstance* GetRunningSubtree(STAI_TaskContext& context) const { return nullptr; }
 
     protected:
         // view of the context as the task's own context class (the one GetContextType names)

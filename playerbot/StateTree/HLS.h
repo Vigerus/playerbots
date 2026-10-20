@@ -26,6 +26,8 @@ struct StateNodeDebugChild
     std::string name;
     std::string taskClass;                          // the running task (the first one while the node is inactive)
     std::vector<std::string> tasks;                 // task classes of the node, run one after another
+    std::vector<bool> tasksDisabled;                // per task: switched off (STAI_TaskContext::bDisabled)
+    std::vector<std::string> taskInfos;             // per task: its static debug info (STAI_Task::GetDebugInfo)
     int currentTask = -1;                           // index into tasks while the node is active
     std::vector<std::string> transitions;           // "<type> Root|<node>", in the order they are checked
     std::vector<std::pair<std::string, StateNodeConditionResult>> conditions;
@@ -73,6 +75,9 @@ public:
     virtual Engine* GetDebugEngine() const { return nullptr; }
     // trees the state runs, bottom (its initial tree) to top (the tree selecting nodes)
     virtual std::vector<StateNodeDebugTree> GetDebugTreeStack() const { return {}; }
+    // switches a node task of the tree named tree on its tree stack on / off (BotStateTree addon); false when
+    // there is no such tree, node or task
+    virtual bool SetTaskDisabled(const std::string& tree, int node, int task, bool disabled) { return false; }
 };
 
 

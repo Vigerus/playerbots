@@ -12,6 +12,7 @@
 #include "PlayerbotDungeonPositions.h"
 
 #include <atomic>
+#include <mutex>
 #include <stack>
 #include "strategy/IterateItemsMask.h"
 #include "RandomPlayerbotMgr.h"
@@ -381,6 +382,8 @@ public:
     static std::string BotStateToString(BotState state);
 	std::string HandleRemoteCommand(std::string command);
     void SendStateTreeDebug();
+    // applies the addon's task toggles (StateMachine::SetTaskDisabled)
+    void ApplyStateTreeToggles();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
@@ -751,6 +754,15 @@ protected:
     // player waiting for a StateTree snapshot ("BOT\tstatetree" addon request); set from chat, consumed in UpdateAI
     std::atomic<uint64> stateTreeDebugRequester{ 0 };
     std::atomic<bool> stateTreeDebugHistory{ false };
+    // task toggles of the BotStateTree addon ("BOT\tstatetree toggle ..."): set from chat, applied in UpdateAI
+    struct StateTreeToggle
+    {
+        std::string state, tree;
+        int node = -1, task = -1;
+        bool disabled = false;
+    };
+    std::mutex stateTreeToggleLock;
+    std::vector<StateTreeToggle> stateTreeToggles;
     uint8 stateTreeDebugSeq = 0;
     ai::PlayerbotDungeonPositions dungeonPositions;
 

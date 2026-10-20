@@ -30,7 +30,7 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
 
         virtual const char* GetTaskClass() const override { return "StateNode_Legacy"; }
-        virtual bool LogsNodeActivity() const override { return false; }
+        virtual bool LogsActivity() const override { return false; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<StateNode_LegacyContext>(); }
         virtual void InitContext(STAI_TaskContext& context) const override;
@@ -46,7 +46,7 @@ namespace ai
         virtual void ReInit(STAI_TaskContext& context) const override;
 
         virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const override;
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        virtual std::string GetDebugInfo() const override;
 
     private:
         static Engine* GetEngine(const STAI_TaskContext& context);
@@ -77,7 +77,7 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
 
         virtual const char* GetTaskClass() const override { return "StateNode_Reaction"; }
-        virtual bool LogsNodeActivity() const override { return false; }
+        virtual bool LogsActivity() const override { return false; }
 
         virtual const STAI_TaskContextType& GetContextType() const override;
         virtual void InitContext(STAI_TaskContext& context) const override;
@@ -94,7 +94,7 @@ namespace ai
         virtual IReactionChecker* GetReactionChecker(STAI_TaskContext& context) const override;
 
         virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const override;
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        virtual std::string GetDebugInfo() const override;
 
     private:
         static bool UpdateAIReaction(StateNode_ReactionContext& context, uint32 elapsed, bool minimal, bool isStunned);

@@ -75,29 +75,10 @@ void Task_CastBuff::OnExit(STAI_TaskContext& baseContext) const
     // a cast in progress is left alone: a transition to follow stops it by moving if it has to
 }
 
-std::vector<uint32> Task_CastBuff::GetDebugSpells(const STAI_TaskContext& baseContext) const
+bool Task_CastBuff::IsSuccessful(const STAI_TaskContext& baseContext, EActionRunStatus status) const
 {
     const Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
-    if (context.spellId)
-        return { context.spellId };
-
-    std::vector<uint32> spells;
-    for (const BuffNeed& need : context.needs)
-        if (std::find(spells.begin(), spells.end(), need.spellId) == spells.end())
-            spells.push_back(need.spellId);
-    return spells;
-}
-
-std::string Task_CastBuff::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    const Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
-    if (context.failed)
-        return "no buff castable";
-    if (!context.spellId)
-        return "nothing to buff";
-
-    const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(context.spellId);
-    std::ostringstream out;
-    out << "cast " << (spellInfo ? spellInfo->SpellName[0] : "?");
-    return out.str();
+    if (status != EActionRunStatus::Running)
+        return status == EActionRunStatus::Succeeded;
+    return context.spellId && !context.bot->IsNonMeleeSpellCasted(false);
 }

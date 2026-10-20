@@ -238,7 +238,7 @@ static std::string GetBrainDebugName(const std::shared_ptr<const LegacyBrain>& b
     return brain ? std::filesystem::path(brain->file).stem().string() : "AiFactory defaults";
 }
 
-std::string StateNode_Legacy::GetDebugInfo(const STAI_TaskContext& context) const
+std::string StateNode_Legacy::GetDebugInfo() const
 {
     return GetBrainDebugName(brain);
 }
@@ -436,7 +436,7 @@ Engine* StateNode_Reaction::GetDebugEngine(const STAI_TaskContext& context) cons
     return ContextAs<StateNode_ReactionContext>(context).reactionEngine.get();
 }
 
-std::string StateNode_Reaction::GetDebugInfo(const STAI_TaskContext& context) const
+std::string StateNode_Reaction::GetDebugInfo() const
 {
     return GetBrainDebugName(brain);
 }

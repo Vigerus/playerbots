@@ -27,7 +27,7 @@ namespace ai
     class Task_GetInRange : public STAI_Task
     {
     public:
-        explicit Task_GetInRange(const std::string& range) : range(range) {}
+        Task_GetInRange(const std::string& range, const std::string& targetSource) : range(range), targetSource(targetSource) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -43,12 +43,13 @@ namespace ai
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        virtual std::string GetDebugInfo() const override;
 
     private:
         float GetRange(const STAI_TaskContext& context) const;
         static void Stop(Task_GetInRangeContext& context);
 
         std::string range;          // yards or a range name
+        std::string targetSource;   // what the target is bound to, for the debug info
     };
 }

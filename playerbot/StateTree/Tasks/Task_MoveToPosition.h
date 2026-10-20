@@ -35,7 +35,8 @@ namespace ai
     class Task_MoveToPosition : public STAI_Task
     {
     public:
-        explicit Task_MoveToPosition(float acceptableRadius) : acceptableRadius(acceptableRadius) {}
+        Task_MoveToPosition(float acceptableRadius, const std::string& positionSource)
+            : acceptableRadius(acceptableRadius), positionSource(positionSource) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -51,9 +52,10 @@ namespace ai
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        virtual std::string GetDebugInfo() const override;
 
     private:
         float acceptableRadius;     // yards
+        std::string positionSource; // what the position is bound to, for the debug info
     };
 }

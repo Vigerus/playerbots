@@ -54,8 +54,11 @@ namespace ai
         virtual IReactionChecker* GetReactionChecker(STAI_TaskContext& context) const override;
 
         virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const override;
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
+        virtual std::string GetDebugInfo() const override { return "Run " + file; }
+        // the subtree's tasks log their runs
+        virtual bool LogsActivity() const override { return false; }
         virtual void AppendDebugTreeStack(const STAI_TaskContext& context, std::vector<StateNodeDebugTree>& stack) const override;
+        virtual STAI_TreeInstance* GetRunningSubtree(STAI_TaskContext& context) const override;
 
     private:
         std::string file;   // relative to the config directory

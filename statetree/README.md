@@ -55,6 +55,11 @@ a running node: a node that never finishes (UtilityAI, the legacy engine) needs 
 example to Follow. A node whose task failed is not selected for 3 seconds. Empty `<Conditions/>` always pass, so a
 last unconditional node is the fallback.
 
+Tasks can be switched off at runtime in the debug addon (the v / x button right of a node's task,
+`STAI_TaskContext::bDisabled`, reset when the bot despawns): the tree skips a switched-off task (the next one of the
+node runs, a running one is left on the next update) and does not select a node whose tasks are all switched off.
+Global tasks (providers) cannot be switched off.
+
 Conditions are the bot's triggers, by the same names (and `::` qualifiers) as in strategies and custom strategies,
 for example `critical health`, `far from master` or `has aura::spellid::23341::greater or equal::5`. A condition
 passes while its trigger is active, or while it is inactive with `negate="true"`. `<Condition binding="Root|..."/>`
@@ -179,15 +184,18 @@ there when health changed below 80% or mana below 90%, the node is also selected
 `Task_EatAndDrink` restores both to 100%. The `food` strategy is not in the Legacy lists.
 
 Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
-`STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. The tree adds an entry per task (node name,
-task name) from its `OnEnter` to its end, only for tasks still running after their first update: tasks that finish at
-once are not logged, tasks that fail at once are (tasks return `false` from `LogsNodeActivity()` to opt out, like the
-legacy nodes). A task sets `activitySpellId` / `activityResult` of its context to show a spell icon and Successful /
-Fail with its entry (`Task_CastSpell`: instant and channeled spells succeed when they start, cast-time spells with
-their spell go). Tasks add
-their own entries with `Begin`/`End` (open-ended) or `Add`/`Shorten` (known expected end): `StateNode_Legacy` and
-`StateNode_Reaction` add every executed action with the strategy that pushed it, lasting until the bot is free again
-(cast time, reaction delay) or the next action starts.
+`STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. Tasks log their own runs: the tree calls
+`STAI_Task::Enter` / `Tick` / `Exit`, which wrap `OnEnter` / `OnTick` / `OnExit` and make one entry per run, named by the
+task's `GetDebugInfo()` (static: what the task does, e.g. `Cast {spell:116}`, the addon shows the spell's icon and name)
+under its node, once the task is still running after its first update or fails (a task that succeeds at once is not
+logged). The entry ends Successful / Fail with the task's `IsSuccessful(context, status)`: by default the status it
+finished with; a task left while running (a transition, the tree finishing, the bot leaving the state: the tree exits
+the node, the node its running task) is a failed run unless the task knows better (`Task_CastSpell`: the spell went
+off, instant and channeled ones when they start, cast-time spells with their spell go; `Task_CastBuff`: the buff is not
+being cast any more). Tasks return `false` from `LogsActivity()` to log nothing (global tasks, subtrees) or their own
+entries: `StateNode_Legacy` and `StateNode_Reaction` add every executed action with `Add`/`Shorten` (known expected
+end) and the strategy that pushed it, lasting until the bot is free again (cast time, reaction delay) or the next
+action starts.
 
 ## Legacy strategy list (`Legacy_*.json`)
 

@@ -47,12 +47,7 @@ EActionRunStatus Task_Wait::OnTick(STAI_TaskContext& baseContext, uint32 elapsed
     return context.waited >= delay ? EActionRunStatus::Succeeded : EActionRunStatus::Running;
 }
 
-std::string Task_Wait::GetDebugInfo(const STAI_TaskContext& baseContext) const
+std::string Task_Wait::GetDebugInfo() const
 {
-    if (!delay)
-        return "wait forever";
-
-    std::ostringstream out;
-    out << "wait " << ContextAs<Task_WaitContext>(baseContext).waited << " / " << delay << " ms";
-    return out.str();
+    return delay ? "Wait " + std::to_string(delay) + " ms" : "Wait";
 }

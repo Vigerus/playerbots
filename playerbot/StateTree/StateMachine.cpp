@@ -213,11 +213,21 @@ static std::string SanitizeTransition(const std::string& text)
 //   G^<type>^<depth>^<task name>^<spell id,...>        global task of the tree K^<type>^<depth>, the spells it works with
 //   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>^<running task index or -1>^<task;task;...>
 //       ^<transition;transition;...>^<spell id,...>   (spells of the running task)
+//       ^<disabled 0|1,...>   (per task: switched off in the addon, STAI_TaskContext::bDisabled)
+//       ^<info;info;...>      (per task: its static debug info, {spell:<id>} shown as the spell)
 //       nodes of the top tree; task class / info of the running task (the first one while inactive), every task
 //       of the node in the order they run, its transitions "<type> Root/<node>" in the order they are checked
 //       conditions: [ANY:]<result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked;
 //       ANY: one of them has to pass (<Conditions match="any">), else all
 //   T^<from type or *>^<to type or <prev>>^<condition label>
+// a task's debug info inside the ';' separated list of a node's tasks
+static std::string SanitizeTaskInfo(const std::string& info)
+{
+    std::string text = SanitizeDebugField(info);
+    std::replace(text.begin(), text.end(), ';', ',');
+    return text;
+}
+
 std::string StateMachine::BuildDebugSnapshot() const
 {
     std::ostringstream out;
@@ -306,6 +316,12 @@ std::string StateMachine::BuildDebugSnapshot() const
             out << "^";
             for (size_t spell = 0; spell < child.spells.size(); ++spell)
                 out << (spell ? "," : "") << child.spells[spell];
+            out << "^";
+            for (size_t task = 0; task < child.tasksDisabled.size(); ++task)
+                out << (task ? "," : "") << (child.tasksDisabled[task] ? 1 : 0);
+            out << "^";
+            for (size_t task = 0; task < child.taskInfos.size(); ++task)
+                out << (task ? ";" : "") << SanitizeTaskInfo(child.taskInfos[task]);
         }
     }
 
@@ -320,9 +336,18 @@ std::string StateMachine::BuildDebugSnapshot() const
     return out.str();
 }
 
+bool StateMachine::SetTaskDisabled(const std::string& state, const std::string& tree, int node, int task, bool disabled)
+{
+    for (const auto& [type, stateNode] : nodes)
+        if (state == GetHLSStateTypeName(type))
+            return stateNode->SetTaskDisabled(tree, node, task, disabled);
+    return false;
+}
+
 // History format (records separated by '~', fields by '^'), newest first:
 //   Y^<entries in the log>
-//   A^<ms since start>^<duration ms>^<running 0|1>^<kind: node|action>^<name>^<source: task class|strategy>
+//   A^<ms since start>^<duration ms>^<running 0|1>^<kind: task|action>^<name: the task's debug info|action>
+//     ^<source: node name|strategy>^<result: 1 successful, 0 failed, empty none>
 // running entries report the time so far as duration
 std::string StateMachine::BuildDebugHistory()
 {
@@ -343,7 +368,7 @@ std::string StateMachine::BuildDebugHistory()
 
         out << "~A^" << age << "^" << duration << "^" << (running ? 1 : 0) << "^" << it->kind
             << "^" << SanitizeDebugField(it->name) << "^" << SanitizeDebugField(it->source)
-            << "^" << it->spellId << "^" << (it->result < 0 ? "" : it->result ? "1" : "0");
+            << "^" << (it->result < 0 ? "" : it->result ? "1" : "0");
     }
 
     return out.str();

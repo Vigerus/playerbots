@@ -175,14 +175,3 @@ const std::vector<STAI_DelegateDef>& TargetProvider_GlobalTask::GetDelegates() c
     return delegates;
 }
 
-std::string TargetProvider_GlobalTask::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    const TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
-    if (context.target.IsEmpty())
-        return "no target";
-
-    std::ostringstream out;
-    Unit* unit = context.bot->IsInWorld() ? context.bot->GetMap()->GetUnit(context.target) : nullptr;
-    out << (unit ? unit->GetName() : "target") << (context.marked ? " (mark)" : " (assist)");
-    return out.str();
-}

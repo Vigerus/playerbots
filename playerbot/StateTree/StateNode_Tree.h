@@ -38,6 +38,10 @@ namespace ai
             tree.AppendDebugTreeStack(stack);
             return stack;
         }
+        virtual bool SetTaskDisabled(const std::string& name, int node, int task, bool disabled) override
+        {
+            return tree.SetTaskDisabled(name, node, task, disabled);
+        }
 
     private:
         HLSStateType state;

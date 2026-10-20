@@ -65,6 +65,9 @@ namespace ai
         void AppendDebugTreeStack(std::vector<StateNodeDebugTree>& stack) const;
         const char* GetActiveNodeName() const;
 
+        // switches a node task of the tree named tree (this one or a subtree running on it, the top one first)
+        bool SetTaskDisabled(const std::string& tree, int node, int task, bool disabled);
+
     private:
         // a <Binding> of a task: the values in the bot's contexts
         struct RuntimeBinding
@@ -99,8 +102,6 @@ namespace ai
             std::vector<StateNodeConditionResult> results;        // per condition, last update
             bool failed = false;
             uint32 failedAtMs = 0;
-            uint64 activityId = 0;                                // log entry of the running task, once it kept running
-            uint32 taskEnteredMs = 0;
             std::vector<RuntimeConditions> transitionConditions;      // per transition
             std::vector<std::pair<size_t, size_t>> delegateTransitions;  // index in delegates, index of the transition
         };
@@ -109,10 +110,9 @@ namespace ai
         bool CanEnter(RuntimeNode& node, uint32 now, bool ignoreFailedDelay = false);
         void EnterNode(int index);
         void FinishNode(RuntimeNode& node, EActionRunStatus status);
-        // the running task of the node keeps running: its log entry from the time it was entered
-        void LogRunningTask(RuntimeNode& node);
-        void EndTaskLog(RuntimeNode& node, bool failed = false);
         void EnterNodeTask(RuntimeNode& node, int index);
+        // the first task from index on that is not disabled, -1 when none
+        static int NextEnabledTask(const RuntimeNode& node, int index);
         void ExitActive();
         void EnterGlobals();
         void ExitGlobals();

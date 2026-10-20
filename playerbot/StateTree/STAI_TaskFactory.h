@@ -37,6 +37,9 @@ namespace ai
 
         // string value of a task setting: <Name value="..."/> (or <Name>...</Name>), nullopt when missing
         static std::optional<std::string> GetSetting(const STAI_TaskConfig& config, const std::string& name, const std::string& attribute = "value");
+        // the external path of the task's <Binding local="..."> without "Root|" (what a property is bound to, for
+        // the debug info), the local name when it is not bound
+        static std::string GetBindingSource(const STAI_TaskConfig& config, const std::string& local);
 
     private:
         STAI_TaskFactory();

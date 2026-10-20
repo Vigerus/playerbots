@@ -35,7 +35,12 @@ namespace ai
     {
     public:
         static void Validate(const STAI_TaskConfig& config) {}
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<Task_CastBuff>(); }
+        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config)
+        {
+            return std::make_unique<Task_CastBuff>(STAI_TaskFactory::GetBindingSource(config, "needs"));
+        }
+
+        explicit Task_CastBuff(const std::string& needsSource) : needsSource(needsSource) {}
 
         virtual const char* GetTaskClass() const override { return "Task_CastBuff"; }
 
@@ -48,8 +53,11 @@ namespace ai
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
-        virtual std::string GetDebugInfo(const STAI_TaskContext& context) const override;
-        // the buff being cast, else the ones still needed
-        virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const override;
+        // a buff was cast and is not being cast any more (a run left during the GCD)
+        virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const override;
+        virtual std::string GetDebugInfo() const override { return "Cast " + needsSource; }
+
+    private:
+        std::string needsSource;    // what needs is bound to, for the debug info
     };
 }

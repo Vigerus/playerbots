@@ -161,17 +161,3 @@ void Task_Follow::OnExit(STAI_TaskContext& baseContext) const
     context.hasDestination = false;
 }
 
-std::string Task_Follow::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    const Task_FollowContext& context = ContextAs<Task_FollowContext>(baseContext);
-
-    std::ostringstream out;
-    out << std::fixed << std::setprecision(1) << "player, radius ";
-    if (std::regex_match(acceptableRadius, numberPattern))
-        out << GetRadius(context);
-    else
-        out << acceptableRadius << " (" << GetRadius(context) << ")";
-    if (context.lastDistance >= 0.0f)
-        out << ", distance " << context.lastDistance;
-    return out.str();
-}

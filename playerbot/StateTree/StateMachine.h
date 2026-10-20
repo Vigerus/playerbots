@@ -46,6 +46,8 @@ namespace ai
         std::string BuildDebugSnapshot() const;
         // serialized recent activity (history tab of the addon)
         std::string BuildDebugHistory();
+        // the addon's task toggle: state type name, tree name, node and task index of the snapshot's top tree
+        bool SetTaskDisabled(const std::string& state, const std::string& tree, int node, int task, bool disabled);
 
         STAI_ActivityLog& GetActivityLog() { return activityLog; }
 

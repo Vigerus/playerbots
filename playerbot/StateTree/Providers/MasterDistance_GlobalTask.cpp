@@ -77,7 +77,3 @@ const std::vector<STAI_DelegateDef>& MasterDistance_GlobalTask::GetDelegates() c
     return delegates;
 }
 
-std::string MasterDistance_GlobalTask::GetDebugInfo(const STAI_TaskContext& baseContext) const
-{
-    return ContextAs<MasterDistance_GlobalTaskContext>(baseContext).masterFar ? "master far" : "master near";
-}

@@ -559,6 +559,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 
 #ifdef USE_HLS
     SyncLifeState();
+    ApplyStateTreeToggles();
     StateMachine.Update(elapsed, minimal);
     SendStateTreeDebug();
 #else
@@ -1342,6 +1343,27 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
         // BotStateTree addon poll: "statetree [history]" (whisper) or "statetree [history] <bot name>" (party/raid,
         // every bot sees it); "history" asks for the recent activity instead of the tree.
         // Answered from UpdateAI so the snapshot is taken on the bot's own update.
+        // BotStateTree addon task switch: "statetree toggle <state> <tree> <node> <task> <disabled 0|1>" (whisper)
+        // or with " <bot name>" at the end (party/raid, only that bot); node and task index the top tree's nodes
+        if (filtered.rfind("statetree toggle ", 0) == 0)
+        {
+            std::istringstream request(filtered.substr(17));
+            StateTreeToggle toggle;
+            int disabled = 0;
+            std::string name;
+            if (request >> toggle.state >> toggle.tree >> toggle.node >> toggle.task >> disabled)
+            {
+                request >> name;
+                if (name.empty() ? type == CHAT_MSG_WHISPER : name == bot->GetName())
+                {
+                    toggle.disabled = disabled != 0;
+                    std::lock_guard<std::mutex> lock(stateTreeToggleLock);
+                    stateTreeToggles.push_back(toggle);
+                }
+            }
+            return;
+        }
+
         if (filtered.rfind("statetree", 0) == 0)
         {
             std::string request = filtered.substr(9);
@@ -6306,6 +6328,20 @@ std::string PlayerbotAI::BotStateToString(BotState state)
         case BotState::BOT_STATE_REACTION: return "Reaction";
         default: return "";
     }
+}
+
+void PlayerbotAI::ApplyStateTreeToggles()
+{
+    std::vector<StateTreeToggle> toggles;
+    {
+        std::lock_guard<std::mutex> lock(stateTreeToggleLock);
+        toggles.swap(stateTreeToggles);
+    }
+
+    for (const StateTreeToggle& toggle : toggles)
+        if (!StateMachine.SetTaskDisabled(toggle.state, toggle.tree, toggle.node, toggle.task, toggle.disabled))
+            sLog.outDetail("StateTree: %s has no task %d of node %d in %s tree %s", bot->GetName(), toggle.task, toggle.node,
+                toggle.state.c_str(), toggle.tree.c_str());
 }
 
 void PlayerbotAI::SendStateTreeDebug()
