@@ -900,6 +900,10 @@ void RandomItemMgr::BuildItemInfoCache()
         return;
     }
 
+    // stat weights are stored on first calculation, empty ai_playerbot_item_info_cache to recalculate
+    if (LoadItemInfoCache())
+        return;
+
     // vendor items
     sLog.outString("Loading vendor item list...");
     std::vector<uint32> vendorItems;
@@ -1463,6 +1467,63 @@ void RandomItemMgr::BuildItemInfoCache()
 
     CharacterDatabase.CommitTransaction();
     delete dropMap;
+}
+
+bool RandomItemMgr::LoadItemInfoCache()
+{
+    auto result = CharacterDatabase.Query("SELECT id, quality, slot, source, sourceId, team, faction, factionRepRank, minLevel, "
+        "scale_1, scale_2, scale_3, scale_4, scale_5, scale_6, scale_7, scale_8, scale_9, scale_10, scale_11, scale_12, scale_13, scale_14, scale_15, "
+        "scale_16, scale_17, scale_18, scale_19, scale_20, scale_21, scale_22, scale_23, scale_24, scale_25, scale_26, scale_27, scale_28, scale_29, scale_30, scale_31, scale_32 "
+        "FROM ai_playerbot_item_info_cache");
+    if (!result)
+        return false;
+
+    sLog.outString("Loading stat weights for %u items from ai_playerbot_item_info_cache...", (uint32)result->GetRowCount());
+
+    do
+    {
+        Field* fields = result->Fetch();
+        ItemPrototype const* proto = sObjectMgr.GetItemPrototype(fields[0].GetUInt32());
+        if (!proto)
+            continue;
+
+        ItemInfoEntry* cacheInfo = new ItemInfoEntry;
+        cacheInfo->itemId = proto->ItemId;
+        cacheInfo->quality = fields[1].GetUInt32();
+        cacheInfo->slot = fields[2].GetUInt32();
+        cacheInfo->source = fields[3].GetUInt32();
+        cacheInfo->team = fields[5].GetUInt32();
+        cacheInfo->repFaction = fields[6].GetUInt32();
+        cacheInfo->repRank = fields[7].GetUInt32();
+        cacheInfo->minLevel = fields[8].GetUInt32();
+
+        for (int i = 1; i <= MAX_STAT_SCALES; ++i)
+            cacheInfo->weights[i] = fields[8 + i].GetUInt32();
+
+        // not stored, same values as in BuildItemInfoCache
+        cacheInfo->itemLevel = proto->ItemLevel;
+        if (proto->RequiredHonorRank > 0)
+            cacheInfo->pvpRank = proto->RequiredHonorRank;
+        if (proto->RequiredSkill > 0)
+        {
+            cacheInfo->reqSkill = proto->RequiredSkill;
+            cacheInfo->reqSkillRank = proto->RequiredSkillRank;
+        }
+
+        // only the first source is stored, quest items need all reward quests
+        if (cacheInfo->source == ITEM_SOURCE_QUEST)
+        {
+            for (uint32 questId : GetQuestIdsForItem(proto->ItemId))
+                cacheInfo->sourceIds.push_back(questId);
+        }
+        else if (uint32 sourceId = fields[4].GetUInt32())
+            cacheInfo->sourceIds.push_back(sourceId);
+
+        itemInfoCache[cacheInfo->itemId] = cacheInfo;
+    } while (result->NextRow());
+
+    sLog.outString("Loaded stat weights for %u items", (uint32)itemInfoCache.size());
+    return true;
 }
 
 uint32 RandomItemMgr::CalculateStatWeight(uint8 playerclass, uint8 spec, ItemPrototype const* proto, ItemSpecType& itSpec)

@@ -193,6 +193,7 @@ class RandomItemMgr
         void BuildRandomItemCache();
         void BuildEquipCache();
         void BuildItemInfoCache();
+        bool LoadItemInfoCache();
         void BuildAmmoCache();
         void BuildFoodCache();
         void BuildPotionCache();
