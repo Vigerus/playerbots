@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NonCombat subtree for Hunter bots in dungeon and raid instances (run by STAI_NonCombat_Hunter.xml) -->
+<Root>
+  <Global>
+    <!-- the rooms (InstanceSubsystem stages) of the bot and its master: stage, masterStage, masterStageCleared,
+         pathBlocked, stagePosition, stagePositionFar, onStageBlocked, onStageCleared, onStagePositionFar -->
+    <Task class="InstanceProvider_GlobalTask"/>
+    <!-- fires onMasterFar while the master is beyond follow range -->
+    <Task class="MasterDistance_GlobalTask">
+      <Range value="follow"/>
+    </Task>
+    <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
+    <Task class="HealthProvider_GlobalTask"/>
+    <Task class="ManaProvider_GlobalTask"/>
+  </Global>
+  <Node name="Follow player">
+    <Conditions>
+      <Condition trigger="has strategy::follow"/>
+      <Condition trigger="has strategy::stay" negate="true"/>
+      <Condition trigger="distance from master::greater::follow"/>
+      <!-- the master is in no room or in a cleared one: the bot waits outside rooms that are not cleared -->
+      <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
+      <!-- the way to the master does not cross a room that is not cleared -->
+      <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+      <!-- in a cleared room with a spot for the bot it goes there instead (Position Yourself) -->
+      <Condition binding="Root|InstanceProvider_GlobalTask::stagePosition" negate="true"/>
+    </Conditions>
+    <Task class="Task_Follow">
+      <Target value="player"/>
+      <AcceptableRadius value="follow"/>
+    </Task>
+    <Transitions>
+      <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|UtilityAI">
+        <Conditions match="any">
+          <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared" negate="true"/>
+          <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked"/>
+        </Conditions>
+      </Transition>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
+    </Transitions>
+  </Node>
+  <Node name="Position Yourself">
+    <Conditions>
+      <!-- the master is in a cleared room with a spot for the bot (its rtsc override, else the room's position for its
+           class / spec) and the bot is away from it -->
+      <Condition binding="Root|InstanceProvider_GlobalTask::stagePositionFar"/>
+      <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+    </Conditions>
+    <Task class="Task_MoveToPosition">
+      <AcceptableRadius value="2"/>
+      <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
+    </Task>
+    <Transitions>
+      <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|UtilityAI">
+        <Conditions match="any">
+          <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared" negate="true"/>
+          <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked"/>
+        </Conditions>
+      </Transition>
+      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+    </Transitions>
+  </Node>
+  <Node name="Eat and Drink">
+    <Conditions match="any">
+      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+    </Conditions>
+    <Task class="Task_EatAndDrink">
+      <Health until="100"/>
+      <Mana until="100"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
+    </Transitions>
+  </Node>
+  <Node name="UtilityAI">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_NonCombat_Hunter.json"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Eat and Drink">
+        <Conditions>
+          <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+        </Conditions>
+      </Transition>
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Eat and Drink">
+        <Conditions>
+          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+        </Conditions>
+      </Transition>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
+    </Transitions>
+  </Node>
+</Root>

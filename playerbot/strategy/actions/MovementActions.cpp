@@ -281,6 +281,10 @@ bool MovementAction::MoveTo(uint32 mapId, float x, float y, float z, bool idle, 
     if (!IsMovingAllowed())
         return false;
 
+    // not into a dungeon stage that is not cleared
+    if (mapId == bot->GetMapId() && ai->IsStageEntryBlocked(x, y, z))
+        return false;
+
     bool isVehicle = false;
     Unit* mover = bot;
 #ifdef MANGOSBOT_TWO
@@ -1508,6 +1512,10 @@ bool MovementAction::ChaseTo(WorldObject* obj, float distance, float angle)
     }
 
     if (!ai->IsSafe(obj))
+        return false;
+
+    // not after a target in a dungeon stage that is not cleared
+    if (ai->IsStageEntryBlocked(obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ()))
         return false;
 
 #ifdef MANGOSBOT_TWO

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Paladin bots: AiPlayerbot.StateTree.Combat.Paladin -->
 <Root>
-  <Node name="Legacy">
+  <Node name="UtilityAI">
     <Conditions/>
     <Task class="StateNode_Legacy">
       <Config filename="statetree/Legacy_Combat_Paladin.json"/>

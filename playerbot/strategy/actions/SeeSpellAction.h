@@ -20,6 +20,8 @@ namespace ai
 
         virtual bool MoveToSpell(Player* requester, WorldPosition& spellPosition, bool inFormation = true);
         void SetFormationOffset(Player* requester, WorldPosition& spellPosition);
+        // in a dungeon with stages: the spot becomes the bot's position for the stage it is in (else the master's)
+        void SaveDungeonPosition(Player* requester, const WorldPosition& spellPosition);
     private:
         Creature* CreateWps(Player* wpOwner, float x, float y, float z, float o, uint32 entry, Creature* lastWp, bool important = false);
     };

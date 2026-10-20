@@ -14,6 +14,7 @@
 #include "playerbot/StateTree/Tasks/Task_CastSpell.h"
 #include "playerbot/StateTree/Tasks/Task_EatAndDrink.h"
 #include "playerbot/StateTree/Tasks/Task_Follow.h"
+#include "playerbot/StateTree/Tasks/Task_MoveToPosition.h"
 #include "playerbot/StateTree/Tasks/Task_GetInRange.h"
 #include "playerbot/StateTree/Tasks/Task_RunSubtree.h"
 #include "playerbot/StateTree/Tasks/Task_Wait.h"
@@ -25,6 +26,7 @@ namespace ai
         factory.RegisterTask("StateNode_Legacy", { &StateNode_Legacy::Validate, &StateNode_Legacy::Create });
         factory.RegisterTask("StateNode_Reaction", { &StateNode_Legacy::Validate, &StateNode_Reaction::Create });
         factory.RegisterTask("Task_Follow", { &Task_Follow::Validate, &Task_Follow::Create });
+        factory.RegisterTask("Task_MoveToPosition", { &Task_MoveToPosition::Validate, &Task_MoveToPosition::Create });
         factory.RegisterTask("STAI_FinishTreeTask", { &STAI_FinishTreeTask::Validate, &STAI_FinishTreeTask::Create });
         factory.RegisterTask("STAI_GlobalTask", { &STAI_GlobalTask::Validate, &STAI_GlobalTask::Create });
         factory.RegisterTask("Task_RunSubtree", { &Task_RunSubtree::Validate, &Task_RunSubtree::Create });

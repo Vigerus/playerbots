@@ -134,7 +134,7 @@ namespace
 
         def.path = Attribute(transition, "node");
         if (def.path != "Root" && (def.path.rfind(rootPathPrefix, 0) != 0 || def.path.size() == strlen(rootPathPrefix)))
-            throw STAI_TreeFatalError(where + ": <Transition> node must be Root or a path starting with Root, e.g. \"Root|Legacy\", got '" + def.path + "'");
+            throw STAI_TreeFatalError(where + ": <Transition> node must be Root or a path starting with Root, e.g. \"Root|UtilityAI\", got '" + def.path + "'");
 
         for (const auto& [key, child] : transition)
         {

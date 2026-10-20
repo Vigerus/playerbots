@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Reaction state tree for Warlock bots: AiPlayerbot.StateTree.Reaction.Warlock -->
 <Root>
-  <Node name="Legacy">
+  <Node name="UtilityAI">
     <Conditions/>
     <Task class="StateNode_Reaction">
       <Config filename="statetree/Legacy_Reaction_Warlock.json"/>

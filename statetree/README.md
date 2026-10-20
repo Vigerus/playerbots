@@ -36,7 +36,7 @@ The StateTree debug addon shows each state's tree nodes, the active one highligh
       <AcceptableRadius value="follow"/>
     </Task>
   </Node>
-  <Node name="Legacy">
+  <Node name="UtilityAI">
     <Conditions/>
     <Task class="StateNode_Legacy">
       <Config filename="statetree/Legacy_NonCombat_Mage.json"/>
@@ -51,7 +51,7 @@ pass is entered (`OnEnter`); conditions are only checked then. Its task is updat
 returns Succeeded or Failed (`OnExit`, the next update selects again), or until an `OnDelegate` transition of the node
 fires. A task that finishes in its update hands over in the same update: the next task of the node is entered and
 updated, a finished node is followed by the selection right away (up to 8 hand-overs per update). Nothing else leaves
-a running node: a node that never finishes (Legacy) needs `OnDelegate` transitions, for
+a running node: a node that never finishes (UtilityAI, the legacy engine) needs `OnDelegate` transitions, for
 example to Follow. A node whose task failed is not selected for 3 seconds. Empty `<Conditions/>` always pass, so a
 last unconditional node is the fallback.
 
@@ -83,7 +83,8 @@ Tasks:
 | `CurseProvider_GlobalTask` | `<Aura spellid="..."/>` per aura (any rank), optional | global task, not ticked: watches the bot and its group for the listed auras, or every dispellable curse when none is listed; property `whoNeeds` (the cursed members, the bot first), delegate `onNeedsHelp` fired when an evaluation finds any |
 | `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="target" .../>` and / or `<Binding local="whoNeeds" .../>` | casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot does not know the spell or reaches no living target |
 | `HealthProvider_GlobalTask` / `ManaProvider_GlobalTask` | none | global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second |
-| `InstanceProvider_GlobalTask` | none | global task, not ticked: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again |
+| `InstanceProvider_GlobalTask` | none | global task: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again. On maps with stages (see below) ticked every 500ms: properties `stage` / `masterStage` (the stage the bot / master stands in, -1 none), `masterStageCleared` (the master is in no stage or a cleared one), `pathBlocked` (the way to `stagePosition`, else to the master out of follow range, crosses a stage that is not cleared other than the bot's), `stagePosition` (the bot's spot in the master's cleared stage, unset without one), `stagePositionFar`; delegates `onStageBlocked` (`masterStageCleared` turned false or `pathBlocked` true), `onStageCleared` (the master's stage got cleared), `onStagePositionFar` (every check while away from `stagePosition` and not blocked) |
+| `Task_MoveToPosition` | `<AcceptableRadius value="2"/>` (yards, default 2), `<Binding local="position" .../>` | moves to the bound position (again when it changes); Succeeded inside the radius or without a position, Failed after 30s; `OnExit` stops its movement |
 | `CCProvider_GlobalTask` | `<Aura spellid="..."/>` per aura, optional | global task, ticked (every 250ms): the first unit marked with one of the bot's `rti cc` icons (default moon) that is alive, hostile, in sight, not crowd-controlled yet (polymorph, frost, sap, ... or a listed aura) and not the group's kill target (the first living `rti` mark, default skull); property `whoNeeds` (that unit), delegate `onCCNeeded` (a new target, and every second while it still needs crowd control) |
 | `TargetProvider_GlobalTask` | none | global task, ticked: the unit to attack, the first living, hostile, in-sight mark of the bot's `rti` icons, else the least-health non-player of its `possible attack targets` (kept while it stays valid); crowd-controlled units and the bot's `rti cc` marks are skipped; property `target` (a guid), delegate `onTargetChanged`; also sets the legacy `current target` value |
 | `Task_GetInRange`    | `<Range value="spell"/>` (yards or a range name), `<Binding local="target" .../>` | chases the target into range and line of sight, then stops the bot; Succeeded there (or without a living target), Failed after 10s |
@@ -106,7 +107,7 @@ task.
     <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
   </Task>
 </Node>
-<Node name="Legacy">
+<Node name="UtilityAI">
   <Conditions/>
   <Task class="StateNode_Legacy"/>
   <Transitions>
@@ -129,19 +130,51 @@ task.
 - `node="Root"` selects again from the first node, `Root|<name>` enters that node (its conditions still have to pass).
 
 Unknown paths, properties of different types and delegates that do not exist stop the server when the trees load.
-The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. `Mage/STAI_NonCombat_Mage.xml` only picks
-a subtree by the bot's map (`InstanceProvider_GlobalTask`): `STAI_NonCombat_Scholomance_Mage.xml` in Scholomance (map
-289), `STAI_NonCombat_Outdoors_Mage.xml` everywhere else; `onInstanceChanged` sends it back to Root to pick again. Both
-subtrees (copies for now) run no legacy engine: their last node is Idle (`Task_Wait`, delay 0), whose OnDelegate
-transitions go to Follow, Check Decurse, Check Missing Buffs or Eat and Drink. They decurse and buff: Idle goes to
-Check Decurse when someone is cursed (Remove Lesser Curse) and to Check Missing Buffs when a buff (Arcane Intellect /
-Arcane Brilliance, Mage Armor) is missing; each casts once per visit and is selected again while its `whoNeeds` /
-`needs` is not empty. `Mage/STAI_Combat_Mage.xml` (one tree for every map, no legacy engine) runs CC Target
-(`Task_CastSpell` Polymorph on `CCProvider_GlobalTask::whoNeeds`), Attack Target (`Task_GetInRange`, then
-`Task_CastSpell` Frostbolt on `TargetProvider_GlobalTask::target`, one cast per visit) and Idle (`Task_Wait` 0,
-left on `onCCNeeded` / `onTargetChanged`). The `buff` strategy is not in the Legacy lists.
+The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. Each `<Class>/STAI_NonCombat_<Class>.xml`
+only picks a subtree by the bot's map (`InstanceProvider_GlobalTask`): `STAI_NonCombat_Dungeon_<Class>.xml` in dungeon
+and raid instances (`inDungeon`), `STAI_NonCombat_Outdoors_<Class>.xml` everywhere else; Mage also has
+`STAI_NonCombat_Scholomance_Mage.xml` (map 289, above Dungeon, for now the same as the Mage Dungeon tree).
+`onInstanceChanged` sends the class tree back to Root to pick again. The legacy engine node of the trees is named
+UtilityAI (task `StateNode_Legacy`). The Mage Outdoors subtree runs no legacy engine: its last node is Idle
+(`Task_Wait`, delay 0); the Mage Dungeon / Scholomance subtrees end with UtilityAI (`Legacy_NonCombat_Mage.json`)
+instead, with Idle's transitions. Mage decurses and buffs: Idle / UtilityAI go to Check Decurse when someone is cursed
+(Remove Lesser Curse) and to Check Missing Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is
+missing; each casts once per visit and is selected again while its `whoNeeds` / `needs` is not empty.
+`Mage/STAI_Combat_Mage.xml` (one tree for every map, no legacy engine) runs CC Target (`Task_CastSpell` Polymorph on
+`CCProvider_GlobalTask::whoNeeds`), Attack Target (`Task_GetInRange`, then `Task_CastSpell` Frostbolt on
+`TargetProvider_GlobalTask::target`, one cast per visit) and Idle (`Task_Wait` 0, left on `onCCNeeded` /
+`onTargetChanged`). The `buff` strategy is not in the Legacy lists.
 
-Every NonCombat tree eats and drinks through Eat and Drink (above Legacy, below the buff / decurse nodes): Legacy goes
+Stages: the rooms of a dungeon, registered once per map in the core `InstanceSubsystem` by the instance script
+(Scholomance: `instance_scholomance.cpp`): boxes around the creature spawns of each room, its boss entries and the
+positions bots stand at (per class mask / spec, best match wins). Stage 0 is the entrance and always cleared; another
+stage is cleared once none of the creature spawns inside its boxes (no critters, triggers or creatures friendly to
+players) is alive, and stays cleared for that instance. GM commands: `.instance stages` lists the stages of your map
+with cleared / alive counts and the one you stand in, `.instance stages <n>` the creatures of stage n still alive,
+`.instance stages show [n]` marks the edges of stage n's boxes (yours without n) with waypoint markers and its positions
+with spotlights for a minute. The DungeonStage addon shows the stages of your instance (`BOT\tstages` addon request,
+answered by a bot of the group).
+
+Bots do not go into a stage that is not cleared (other than the one they are in): out of combat never, in combat only
+into its boxes with `bCanBeEnteredInCombatIfNotCleared` (default false, so the master pulls the creatures out). The
+legacy engine checks it in `MovementAction::MoveTo` / `ChaseTo`, the reach actions (reach melee, reach spell, ...)
+and `PlayerbotAI::CanCastSpell` for charge spells (charge, intercept, feral charge); `Task_GetInRange` fails on such a
+target (`PlayerbotAI::IsStageEntryBlocked`).
+
+The Dungeon (and Scholomance) subtrees use them:
+
+- Follow player also needs `masterStageCleared` (the master is in no stage or a cleared one), `pathBlocked` false (the
+  bot's way to the master crosses no stage that is not cleared, tested along the path every 500ms) and no
+  `stagePosition`; it leaves for UtilityAI on `onStageBlocked`: the bots wait outside rooms the master pulls into (combat
+  still takes them in) and follow again once the room is cleared.
+- Position Yourself (`Task_MoveToPosition` to `stagePosition`) while the master is in a cleared stage with a position
+  for the bot and the bot is away from it (`stagePositionFar`); the other nodes go there on `onStagePositionFar`.
+  The position is the bot's own override for the stage (table `ai_playerbot_dungeon_positions` of the characters
+  database, `sql/characters/ai_playerbot_dungeon_positions.sql`), else the stage's position for its class / spec.
+  Moving a bot with rtsc in a dungeon saves the spot as its override for the stage containing it (else the master's
+  stage).
+
+Every NonCombat tree eats and drinks through Eat and Drink (above UtilityAI, below the buff / decurse nodes): UtilityAI goes
 there when health changed below 80% or mana below 90%, the node is also selected while one of them is that low, and
 `Task_EatAndDrink` restores both to 100%. The `food` strategy is not in the Legacy lists.
 

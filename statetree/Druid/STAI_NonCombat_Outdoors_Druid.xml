@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NonCombat subtree for Druid bots outside dungeons (run by STAI_NonCombat_Druid.xml) -->
+<Root>
+  <Global>
+    <!-- fires onMasterFar while the master is beyond follow range -->
+    <Task class="MasterDistance_GlobalTask">
+      <Range value="follow"/>
+    </Task>
+    <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
+    <Task class="HealthProvider_GlobalTask"/>
+    <Task class="ManaProvider_GlobalTask"/>
+  </Global>
+  <Node name="Follow player">
+    <Conditions>
+      <Condition trigger="has strategy::follow"/>
+      <Condition trigger="has strategy::stay" negate="true"/>
+      <Condition trigger="distance from master::greater::follow"/>
+    </Conditions>
+    <Task class="Task_Follow">
+      <Target value="player"/>
+      <AcceptableRadius value="follow"/>
+    </Task>
+  </Node>
+  <Node name="Eat and Drink">
+    <Conditions match="any">
+      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+    </Conditions>
+    <Task class="Task_EatAndDrink">
+      <Health until="100"/>
+      <Mana until="100"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+    </Transitions>
+  </Node>
+  <Node name="UtilityAI">
+    <Conditions/>
+    <Task class="StateNode_Legacy">
+      <Config filename="statetree/Legacy_NonCombat_Druid.json"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Eat and Drink">
+        <Conditions>
+          <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+        </Conditions>
+      </Transition>
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Eat and Drink">
+        <Conditions>
+          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+        </Conditions>
+      </Transition>
+    </Transitions>
+  </Node>
+</Root>

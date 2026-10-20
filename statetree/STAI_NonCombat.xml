@@ -16,7 +16,7 @@
       <Mana until="100"/>
     </Task>
   </Node>
-  <Node name="Legacy">
+  <Node name="UtilityAI">
     <Conditions/>
     <Task class="StateNode_Legacy">
       <Config filename="statetree/Legacy_NonCombat.json"/>

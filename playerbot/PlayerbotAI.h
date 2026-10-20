@@ -9,6 +9,7 @@
 #include "PlayerbotTextMgr.h"
 #include "BotState.h"
 #include "PlayerTalentSpec.h"
+#include "PlayerbotDungeonPositions.h"
 
 #include <atomic>
 #include <stack>
@@ -380,6 +381,8 @@ public:
     static std::string BotStateToString(BotState state);
 	std::string HandleRemoteCommand(std::string command);
     void SendStateTreeDebug();
+    // answers a DungeonStage addon request ("BOT\tstages"): the stages of the bot's instance
+    void SendDungeonStages();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
@@ -601,6 +604,9 @@ public:
 
     //Check if player is safe to use.
     bool IsSafe(Player* player) { return player && player->GetMapId() == bot->GetMapId() && player->GetInstanceId() == bot->GetInstanceId() && !player->IsBeingTeleported(); }
+    // in a dungeon with stages: the bot must not go to the point, a stage there is not cleared
+    // (InstanceSubsystem::IsEntryBlocked: out of combat, or in combat for boxes that can not be entered)
+    bool IsStageEntryBlocked(float x, float y, float z) const;
     bool IsSafe(WorldObject* obj) { return obj && obj->GetMapId() == bot->GetMapId() && obj->GetInstanceId() == bot->GetInstanceId() && (!obj->IsPlayer() || !((Player*)obj)->IsBeingTeleported()); }
 
     //Returns a semi-random (cycling) number that is fixed for each bot.
@@ -632,6 +638,8 @@ public:
     bool IsOpposing(Player* player);
     static bool IsOpposing(uint8 race1, uint8 race2);
     PlayerbotSecurity* GetSecurity() { return &security; }
+    // where the bot stands in dungeon stages (rtsc overrides, ai_playerbot_dungeon_positions)
+    ai::PlayerbotDungeonPositions& GetDungeonPositions() { return dungeonPositions; }
 
     WorldPosition GetJumpDestination() { return jumpDestination; }
     void SetJumpDestination(const WorldPosition& pos) { jumpDestination = pos; }
@@ -746,6 +754,11 @@ protected:
     std::atomic<uint64> stateTreeDebugRequester{ 0 };
     std::atomic<bool> stateTreeDebugHistory{ false };
     uint8 stateTreeDebugSeq = 0;
+
+    // player waiting for the stages of the instance ("BOT\tstages" addon request); set from chat, consumed in UpdateAI
+    std::atomic<uint64> dungeonStagesRequester{ 0 };
+    uint8 dungeonStagesSeq = 0;
+    ai::PlayerbotDungeonPositions dungeonPositions;
 
 #ifdef BUILD_ELUNA
     MaNGOS::unique_weak_ptr<PlayerbotAI> m_weakRef;

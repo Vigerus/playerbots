@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Reaction state tree for Druid bots: AiPlayerbot.StateTree.Reaction.Druid -->
 <Root>
-  <Node name="Legacy">
+  <Node name="UtilityAI">
     <Conditions/>
     <Task class="StateNode_Reaction">
       <Config filename="statetree/Legacy_Reaction_Druid.json"/>

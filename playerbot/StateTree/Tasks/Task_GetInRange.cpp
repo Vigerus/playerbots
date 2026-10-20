@@ -111,6 +111,13 @@ EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 e
         return EActionRunStatus::Failed;
     }
 
+    // not after a target in a dungeon stage that is not cleared (the master pulls it out)
+    if (context.ai->IsStageEntryBlocked(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ()))
+    {
+        Stop(context);
+        return EActionRunStatus::Failed;
+    }
+
     // chase into range; in range without sight the bot closes in until it sees the target
     const bool inRange = sServerFacade.GetDistance2d(bot, target) <= yards;
     const float chaseDistance = inRange ? closeDistance : yards * chaseFactor;

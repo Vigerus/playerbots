@@ -88,6 +88,12 @@ namespace ai
                 Unit* target = GetTarget();
                 if (target)
                 {
+                    // Do not go after a target in a dungeon stage that is not cleared
+                    if (ai->IsStageEntryBlocked(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ()))
+                    {
+                        return false;
+                    }
+
                     // Do not move while casting
                     if (!bot->IsNonMeleeSpellCasted(true, false, true))
                     {

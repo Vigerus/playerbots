@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Hunter bots: AiPlayerbot.StateTree.Combat.Hunter -->
 <Root>
-  <Node name="Legacy">
+  <Node name="UtilityAI">
     <Conditions/>
     <Task class="StateNode_Legacy">
       <Config filename="statetree/Legacy_Combat_Hunter.json"/>

@@ -12,6 +12,7 @@
 #include <MotionGenerators/PathFinder.h>
 #include "RtscAction.h"
 #include "playerbot/TravelMgr.h"
+#include "Maps/InstanceSubsystem.h"
 
 #pragma optimize("", off)
 
@@ -129,12 +130,16 @@ bool SeeSpellAction::Execute(Event& event)
         SET_AI_VALUE(bool, "RTSC selected", inRange);
 
         if (selected)
+        {
+            SaveDungeonPosition(requester, spellPosition);
             return MoveToSpell(requester, spellPosition);
+        }
 
         return inRange;
     }
     else if (nextAction == "move")
     {
+        SaveDungeonPosition(requester, spellPosition);
         return MoveToSpell(requester, spellPosition);
     }
     else if (nextAction == "jump")
@@ -210,6 +215,28 @@ bool SeeSpellAction::SelectSpell(Player* requester, WorldPosition& spellPosition
         requester->GetSession()->SendPlaySpellVisual(bot->GetObjectGuid(), 5036);
     }
     return true;
+}
+
+void SeeSpellAction::SaveDungeonPosition(Player* requester, const WorldPosition& spellPosition)
+{
+    InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>();
+    if (!instances || !bot->IsInWorld() || spellPosition.getMapId() != bot->GetMapId() || !instances->HasStages(bot->GetMapId()))
+        return;
+
+    int32 stage = instances->FindStage(bot->GetMapId(), spellPosition.getX(), spellPosition.getY(), spellPosition.getZ());
+    if (stage < 0 && requester && requester->GetMapId() == bot->GetMapId())
+        stage = instances->FindStage(bot->GetMapId(), requester->GetPositionX(), requester->GetPositionY(), requester->GetPositionZ());
+    if (stage < 0)
+        return;
+
+    ai->GetDungeonPositions().Set(bot, bot->GetMapId(), uint32(stage), { spellPosition.getX(), spellPosition.getY(), spellPosition.getZ() });
+
+    std::ostringstream out;
+    out << "Dungeon position saved for stage " << stage;
+    std::vector<InstanceStageDef> const stages = instances->GetStages(bot->GetMapId());
+    if (uint32(stage) < stages.size())
+        out << " (" << stages[stage].name << ")";
+    ai->TellPlayer(requester, out);
 }
 
 bool SeeSpellAction::MoveToSpell(Player* requester, WorldPosition& spellPosition, bool inFormation)

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Dead state tree for every class: AiPlayerbot.StateTree.Dead.Default -->
 <Root>
-  <Node name="Legacy">
+  <Node name="UtilityAI">
     <Conditions/>
     <Task class="StateNode_Legacy">
       <Config filename="statetree/Legacy_Dead.json"/>

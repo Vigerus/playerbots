@@ -1,6 +1,7 @@
 #pragma once
 
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
+#include "playerbot/StateTree/Tasks/Task_MoveToPosition.h"
 
 #include <string>
 #include <vector>
@@ -10,7 +11,8 @@ class Player;
 
 namespace ai
 {
-    // runtime context of InstanceProvider_GlobalTask: the bot's subscription and its current map / instance
+    // runtime context of InstanceProvider_GlobalTask: the bot's subscription, its current map / instance and the
+    // stages (rooms, InstanceSubsystem) the bot and its master stand in
     struct InstanceProvider_GlobalTaskContext : public STAI_TaskContext
     {
         ~InstanceProvider_GlobalTaskContext() override { Unsubscribe(); }
@@ -24,6 +26,35 @@ namespace ai
         bool inDungeon = false;
         bool known = false;         // mapId / instanceId were set once
 
+        // fired when the stage the master stands in got cleared (its last creature died):
+        //   <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageCleared" node="Root|Follow player"/>
+        FSTAI_Delegate onStageCleared;
+        // fired when following / going to the stage position got blocked: the master went into a stage that is not
+        // cleared, or the bot's way crosses one (masterStageCleared turned false or pathBlocked true)
+        //   <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|UtilityAI"/>
+        FSTAI_Delegate onStageBlocked;
+        // fired on every check while the bot is away from its stagePosition (and its way there is not blocked)
+        //   <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
+        FSTAI_Delegate onStagePositionFar;
+
+        // properties:
+        //   stage / masterStage: index of the stage the bot / master stands in, -1 none or no stages on the map
+        //   masterStageCleared: the master stands in no stage or in a cleared one (the bot may go there)
+        //   pathBlocked: the bot's way to its destination (stagePosition, else the master) crosses a stage that is
+        //     not cleared (other than the one the bot is in); only checked while the bot is away from it
+        //   stagePosition: where the bot stands in the master's stage while it is cleared (the bot's rtsc override,
+        //     else the stage's position for its class / spec); unset without one
+        //   stagePositionFar: stagePosition is set and the bot is more than 2 yards away
+        int32 stage = -1;
+        int32 masterStage = -1;
+        bool masterStageCleared = true;
+        bool pathBlocked = false;
+        STAI_Position stagePosition;
+        bool stagePositionFar = false;
+
+        bool hasStages = false;     // the map has stages
+        uint32 stageTimer = 0;      // ms since the stages were checked
+
         bool subscribed = false;
 
         void Subscribe();
@@ -32,12 +63,19 @@ namespace ai
         void SetMap(Map* map);
 
         void OnPlayerEnterMap(Player* player, Map* map);
+        // finds the stages of the bot and its master, the stage position and whether the way is blocked; fires
+        // onStageCleared / onStageBlocked / onStagePositionFar
+        void UpdateStages();
     };
 
     // Global task that tells the tree when the bot changed map or instance:
     //   <Global> <Task class="InstanceProvider_GlobalTask"/> </Global>
-    // Not tickable: it reacts to the InstanceSubsystem (Map::Add of the bot). The last map is kept while the tree is
+    // Map changes come from the InstanceSubsystem (Map::Add of the bot). The last map is kept while the tree is
     // not running (combat, death), so a change in between fires when the tree starts again.
+    // Ticked for the stages (every 500ms, only on maps with stages), e.g. a follow node that does not walk into or
+    // through rooms with living creatures:
+    //   <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
+    //   <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
     class InstanceProvider_GlobalTask : public STAI_GlobalTask
     {
     public:
@@ -50,6 +88,8 @@ namespace ai
 
         virtual void OnEnter(STAI_TaskContext& context) const override;
         virtual void OnExit(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
+        virtual bool IsTickable() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

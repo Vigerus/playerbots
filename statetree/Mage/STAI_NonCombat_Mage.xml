@@ -17,6 +17,17 @@
       <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
     </Transitions>
   </Node>
+  <Node name="Dungeon">
+    <Conditions>
+      <Condition binding="Root|InstanceProvider_GlobalTask::inDungeon"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Mage/STAI_NonCombat_Dungeon_Mage.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+    </Transitions>
+  </Node>
   <Node name="Outdoors">
     <Conditions/>
     <Task class="Task_RunSubtree">

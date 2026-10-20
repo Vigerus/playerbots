@@ -30,6 +30,7 @@
 #include "playerbot/TravelMgr.h"
 #include "Movement/MoveSplineInitArgs.h"
 #include "Maps/InstanceData.h"
+#include "Maps/InstanceSubsystem.h"
 #include "ChatHelper.h"
 #include "strategy/values/BudgetValues.h"
 #include "Social/SocialMgr.h"
@@ -555,6 +556,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     if (Eluna* e = bot->GetEluna())
         e->OnUpdateAI(this, bot->GetName());
 #endif
+
+    SendDungeonStages();
 
 #ifdef USE_HLS
     SyncLifeState();
@@ -1353,6 +1356,16 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
                 stateTreeDebugHistory = history;
                 stateTreeDebugRequester = fromPlayer.GetObjectGuid().GetRawValue();
             }
+            return;
+        }
+
+        // DungeonStage addon poll: "stages" (whisper, or party/raid: every bot of the requester's instance answers)
+        // or "stages <bot name>" (party/raid, only that bot). Answered from UpdateAI, on the bot's map thread.
+        if (filtered.rfind("stages", 0) == 0)
+        {
+            const std::string request = filtered.substr(6);
+            if (request.empty() || request == " " + std::string(bot->GetName()))
+                dungeonStagesRequester = fromPlayer.GetObjectGuid().GetRawValue();
             return;
         }
     }
@@ -4009,6 +4022,26 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, uint8 effectMask, b
     if (!target)
         target = bot;
 
+    // charges (charge, intercept, feral charge) would take the bot into a dungeon stage that is not cleared
+    if (target != bot && target->IsInWorld())
+    {
+        if (SpellEntry const* spellInfo = sServerFacade.LookupSpellInfo(spellid))
+        {
+            for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+            {
+                if (spellInfo->Effect[i] == SPELL_EFFECT_CHARGE && IsStageEntryBlocked(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ()))
+                {
+                    if (checkResult)
+                    {
+                        *checkResult = SPELL_FAILED_NOPATH;
+                    }
+
+                    return false;
+                }
+            }
+        }
+    }
+
     if (checkHasSpell && !HasSpell(spellid))
     {
         if (checkResult)
@@ -6311,6 +6344,79 @@ void PlayerbotAI::SendStateTreeDebug()
 
         WorldPacket data;
         ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, text.str().c_str(), LANG_ADDON, CHAT_TAG_NONE, bot->GetObjectGuid(), bot->GetName());
+        sServerFacade.SendPacket(requester, data);
+    }
+}
+
+bool PlayerbotAI::IsStageEntryBlocked(float x, float y, float z) const
+{
+    if (!bot->IsInWorld())
+        return false;
+
+    Map* map = bot->GetMap();
+    InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>();
+    if (!instances || !map->IsDungeon() || !instances->HasStages(map->GetId()))
+        return false;
+
+    // the stage the bot is in never blocks: it can always move inside it and leave it
+    const int32 stage = instances->FindStage(map->GetId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
+    return instances->IsEntryBlocked(map, x, y, z, bot->IsInCombat(), stage);
+}
+
+void PlayerbotAI::SendDungeonStages()
+{
+    const uint64 requesterGuid = dungeonStagesRequester.exchange(0);
+    if (!requesterGuid)
+        return;
+
+    Player* requester = sObjectMgr.GetPlayer(ObjectGuid(requesterGuid));
+    if (!requester || !requester->IsInWorld() || !bot->IsInWorld() || requester->GetMap() != bot->GetMap())
+        return;
+
+    // payload (records joined by '~', fields by '^'):
+    //   M^<map id>^<instance id>^<stage of the requester or -1>
+    //   G^<stage>^<name>^<cleared 0|1>^<alive>^<total>^<alive boss name,...>
+    Map* map = bot->GetMap();
+    std::ostringstream payload;
+    int32 current = -1;
+    std::vector<InstanceStageDef> stages;
+    InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>();
+    if (instances)
+    {
+        stages = instances->GetStages(map->GetId());
+        current = instances->FindStage(map->GetId(), requester->GetPositionX(), requester->GetPositionY(), requester->GetPositionZ());
+    }
+
+    payload << "M^" << map->GetId() << "^" << map->GetInstanceId() << "^" << current;
+    for (uint32 i = 0; i < stages.size(); ++i)
+    {
+        const InstanceStageState state = instances->GetStageState(map, i);
+        payload << "~G^" << i << "^" << stages[i].name << "^" << (state.cleared ? 1 : 0) << "^" << state.alive << "^" << state.total << "^";
+
+        bool first = true;
+        for (uint32 entry : instances->GetStageAliveBosses(map, i))
+        {
+            if (CreatureInfo const* info = ObjectMgr::GetCreatureTemplate(entry))
+            {
+                payload << (first ? "" : ",") << info->Name;
+                first = false;
+            }
+        }
+    }
+
+    // "BOTDS\tS<seq>:<index>/<count>:<payload part>" like the StateTree snapshot
+    static constexpr size_t chunkSize = 220;
+    const std::string text = payload.str();
+    const size_t count = std::max<size_t>(1, (text.size() + chunkSize - 1) / chunkSize);
+    const uint32 seq = ++dungeonStagesSeq;
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        std::ostringstream chunk;
+        chunk << "BOTDS\tS" << seq << ":" << (i + 1) << "/" << count << ":" << text.substr(i * chunkSize, chunkSize);
+
+        WorldPacket data;
+        ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, chunk.str().c_str(), LANG_ADDON, CHAT_TAG_NONE, bot->GetObjectGuid(), bot->GetName());
         sServerFacade.SendPacket(requester, data);
     }
 }
