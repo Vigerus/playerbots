@@ -201,3 +201,21 @@ set_target_properties(${LIBRARY_NAME} PROPERTIES PROJECT_LABEL "PlayerBots")
 if(PCH)
   target_precompile_headers(${LIBRARY_NAME} PRIVATE ${bots_PCH})
 endif()
+
+# Automation tests (Tests/*.spec.cpp, AutomationTest.h of the core): an object library linked into the
+# AutomationTest executable, so the tests' static registrations are kept by the linker
+file(GLOB Playerbot_Tests ${CMAKE_CURRENT_SOURCE_DIR}/Tests/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/Tests/*.h)
+if(Playerbot_Tests)
+  source_group("Tests" FILES ${Playerbot_Tests})
+  add_library(playerbots-tests OBJECT ${Playerbot_Tests})
+  target_include_directories(playerbots-tests
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${CMAKE_SOURCE_DIR}/src/automationtest
+  )
+  target_link_libraries(playerbots-tests
+    PRIVATE shared
+    PRIVATE Detour
+    PRIVATE g3dlite
+  )
+  set_target_properties(playerbots-tests PROPERTIES PROJECT_LABEL "PlayerBotsTests")
+endif()
