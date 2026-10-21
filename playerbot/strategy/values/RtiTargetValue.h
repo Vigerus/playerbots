@@ -4,6 +4,7 @@
 #include "playerbot/strategy/Value.h"
 #include "Groups/Group.h"
 #include "TargetValue.h"
+#include "PossibleTargetsValue.h"
 
 namespace ai
 {
@@ -40,7 +41,6 @@ namespace ai
             if (rti_list.empty())
                 return NULL;
 
-            std::list<ObjectGuid> attackers = context->GetValue<std::list<ObjectGuid>>("possible targets")->Get();
             for (const std::string& rti : rti_list)
             {
                 int index = GetRtiIndex(rti);
@@ -51,12 +51,11 @@ namespace ai
                 if (!guid)
                     continue;
 
-                if (std::find(attackers.begin(), attackers.end(), guid) == attackers.end())
-                    continue;
-
+                // the marked unit itself is checked (what "possible targets" accepted): no list to search
                 Unit* unit = ai->GetUnit(ObjectGuid(guid));
                 if (!unit || sServerFacade.UnitIsDead(unit) ||
-                    !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance, false))
+                    !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance, false) ||
+                    !PossibleTargetsValue::IsValid(unit, bot) || !sServerFacade.IsWithinLOSInMap(bot, unit))
                     continue;
 
                 return unit;

@@ -15,9 +15,9 @@ using namespace MaNGOS;
 
 void NearestNpcsValue::FindUnits(std::list<Unit*> &targets)
 {
+    // the units visible to the bot (kept by the core on visibility changes), not a grid search
     AnyUnitInObjectRangeCheck u_check(bot, range);
-    UnitListSearcher<AnyUnitInObjectRangeCheck> searcher(targets, u_check);
-    Cell::VisitAllObjects(bot, searcher, range);
+    VisibleObjects::FindUnits(bot, range, u_check, targets);
 }
 
 bool NearestNpcsValue::AcceptUnit(Unit* unit)
@@ -27,9 +27,9 @@ bool NearestNpcsValue::AcceptUnit(Unit* unit)
 
 void NearestVehiclesValue::FindUnits(std::list<Unit*>& targets)
 {
+    // the units visible to the bot (kept by the core on visibility changes), not a grid search
     AnyUnitInObjectRangeCheck u_check(bot, range);
-    UnitListSearcher<AnyUnitInObjectRangeCheck> searcher(targets, u_check);
-    Cell::VisitAllObjects(bot, searcher, range);
+    VisibleObjects::FindUnits(bot, range, u_check, targets);
 }
 
 bool NearestVehiclesValue::AcceptUnit(Unit* unit)

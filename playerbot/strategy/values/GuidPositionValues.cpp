@@ -4,6 +4,7 @@
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
+#include "VisibleObjects.h"
 
 using namespace ai;
 using namespace MaNGOS;
@@ -12,9 +13,10 @@ std::list<GuidPosition> GameObjectsValue::Calculate()
 {
     std::list<GameObject*> targets;
 
+    // the game objects visible to the bot (kept by the core on visibility changes), not a grid search; react
+    // distance usually reaches past the visibility distance of continents, those fall back to the grid search
     AnyGameObjectInObjectRangeCheck u_check(bot, sPlayerbotAIConfig.reactDistance);
-    GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(targets, u_check);
-    Cell::VisitAllObjects((const WorldObject*)bot, searcher, sPlayerbotAIConfig.reactDistance);
+    VisibleObjects::FindGameObjects(bot, sPlayerbotAIConfig.reactDistance, u_check, targets);
 
     std::list<GuidPosition> result;
     for (auto& target : targets)

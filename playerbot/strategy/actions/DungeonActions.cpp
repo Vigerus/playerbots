@@ -5,6 +5,7 @@
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
+#include "playerbot/strategy/values/VisibleObjects.h"
 
 using namespace ai;
 
@@ -124,11 +125,10 @@ bool MoveAwayFromCreature::Execute(Event& event)
     size_t closestCreatureIdx = 0;
     float closestCreatureDistance = 9999.0f;
 
-    // Iterate through the near creatures
+    // Iterate through the near creatures (visible to the bot, kept by the core on visibility changes)
     std::list<Unit*> units;
     MaNGOS::AllCreaturesOfEntryInRangeCheck u_check(bot, creatureID, range);
-    MaNGOS::UnitListSearcher<MaNGOS::AllCreaturesOfEntryInRangeCheck> searcher(units, u_check);
-    Cell::VisitAllObjects(bot, searcher, range);
+    VisibleObjects::FindUnits(bot, range, u_check, units);
     for (Unit* unit : units)
     {
         Creature* creature = (Creature*)unit;

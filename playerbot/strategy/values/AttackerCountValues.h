@@ -3,11 +3,17 @@
 
 namespace ai
 {
-    class AttackersCountValue : public Uint8CalculatedValue, public Qualified
+    // units that have the bot, its pet or a group member near it on their threat list (PlayerbotAI::GetTeamAttackerCount,
+    // kept up to date by TeamSubsystem events, nothing is calculated here)
+    class AttackersCountValue : public UntypedValue, public Value<uint8>, public Qualified
     {
     public:
-        AttackersCountValue(PlayerbotAI* ai, std::string name = "attackers count") : Uint8CalculatedValue(ai, name, 4), Qualified() {}
-        virtual uint8 Calculate();
+        AttackersCountValue(PlayerbotAI* ai, std::string name = "attackers count") : UntypedValue(ai, name), Qualified() {}
+        virtual uint8 Get() override;
+        virtual uint8 LazyGet() override { return Get(); }
+        virtual void Set(uint8 value) override {}
+        virtual void Reset() override {}
+        virtual std::string Format() override { return std::to_string(Get()); }
     };
 
     class PossibleAttackTargetsCountValue : public Uint8CalculatedValue, public Qualified
@@ -17,11 +23,17 @@ namespace ai
         virtual uint8 Calculate();
     };
 
-    class HasAttackersValue : public BoolCalculatedValue, public Qualified
+    // the bot or a group member near it fights: in combat, has attackers, or the bot announced a fight (pull, attack)
+    // (PlayerbotAI::IsTeamFighting, kept up to date by TeamSubsystem events, nothing is calculated here)
+    class HasAttackersValue : public UntypedValue, public Value<bool>, public Qualified
     {
     public:
-        HasAttackersValue(PlayerbotAI* ai, std::string name = "has attackers") : BoolCalculatedValue(ai, name, 4), Qualified() {}
-        virtual bool Calculate();
+        HasAttackersValue(PlayerbotAI* ai, std::string name = "has attackers") : UntypedValue(ai, name), Qualified() {}
+        virtual bool Get() override;
+        virtual bool LazyGet() override { return Get(); }
+        virtual void Set(bool value) override {}
+        virtual void Reset() override {}
+        virtual std::string Format() override { return Get() ? "true" : "false"; }
     };
 
     class HasPossibleAttackTargetsValue : public BoolCalculatedValue, public Qualified

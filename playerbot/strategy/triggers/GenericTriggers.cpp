@@ -18,24 +18,33 @@ bool NoManaTrigger::IsActive()
     return AI_VALUE2(bool, "has mana", "self target") && AI_VALUE2(uint8, "mana", "self target") < 5;
 }
 
+// the bot has mana left ("has mana") and its mana percent compares to percent: both are conditions kept by the
+// core's power change broadcasts (PlayerbotAI::GetSelfThresholds), nothing is calculated here
+static bool SelfManaCondition(PlayerbotAI* ai, float percent, EResourceCompare compare)
+{
+    UnitResourceThresholds& thresholds = ai->GetSelfThresholds();
+    return thresholds.WatchPower(POWER_MANA, 0.0f, EResourceCompare::Greater).IsActive() &&
+        thresholds.WatchPower(POWER_MANA, percent, compare).IsActive();
+}
+
 bool LowManaTrigger::IsActive()
 {
-    return AI_VALUE2(bool, "has mana", "self target") && AI_VALUE2(uint8, "mana", "self target") < sPlayerbotAIConfig.lowMana;
+    return SelfManaCondition(ai, sPlayerbotAIConfig.lowMana, EResourceCompare::Lesser);
 }
 
 bool MediumManaTrigger::IsActive()
 {
-    return AI_VALUE2(bool, "has mana", "self target") && AI_VALUE2(uint8, "mana", "self target") < sPlayerbotAIConfig.mediumMana;
+    return SelfManaCondition(ai, sPlayerbotAIConfig.mediumMana, EResourceCompare::Lesser);
 }
 
 bool HighManaTrigger::IsActive()
 {
-    return AI_VALUE2(bool, "has mana", "self target") && AI_VALUE2(uint8, "mana", "self target") < 65;
+    return SelfManaCondition(ai, 65.0f, EResourceCompare::Lesser);
 }
 
 bool AlmostFullManaTrigger::IsActive()
 {
-    return AI_VALUE2(bool, "has mana", "self target") && AI_VALUE2(uint8, "mana", "self target") > 85;
+    return SelfManaCondition(ai, 85.0f, EResourceCompare::Greater);
 }
 
 bool RageAvailable::IsActive()

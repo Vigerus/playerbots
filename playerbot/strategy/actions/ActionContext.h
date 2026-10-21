@@ -55,7 +55,6 @@
 #include "RpgSubActions.h"
 #include "VehicleActions.h"
 #include "UseTrinketAction.h"
-#include "BotStateActions.h"
 #include "WaitForAttackAction.h"
 #include "PullActions.h"
 #include "ResetAiAction.h"
@@ -300,10 +299,6 @@ namespace ai
             creators["fish"] = [](PlayerbotAI* ai) { return new FishAction(ai); };
             creators["use fishing bobber"] = [](PlayerbotAI* ai) { return new UseFishingBobberAction(ai); };
 
-            // Bot States
-            creators["set combat state"] = [](PlayerbotAI* ai) { return new SetCombatStateAction(ai); };
-            creators["set non combat state"] = [](PlayerbotAI* ai) { return new SetNonCombatStateAction(ai); };
-            creators["set dead state"] = [](PlayerbotAI* ai) { return new SetDeadStateAction(ai); };
 
             //racials
             creators["war stomp"] = [](PlayerbotAI* ai) { return new CastWarStompAction(ai); };

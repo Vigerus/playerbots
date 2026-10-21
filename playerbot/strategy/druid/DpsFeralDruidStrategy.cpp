@@ -1596,9 +1596,6 @@ public:
             (actionName == "follow") ||
             (actionName == "reach melee") ||
             (actionName == "set behind") ||
-            (actionName == "set combat state") ||
-            (actionName == "set non combat state") ||
-            (actionName == "set dead state") ||
             (actionName == "update pvp strats") ||
             (actionName == "update pve strats") ||
             (actionName == "update raid strats"))

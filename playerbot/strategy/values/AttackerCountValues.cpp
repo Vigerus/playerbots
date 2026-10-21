@@ -58,9 +58,9 @@ bool HasAggroValue::Calculate()
     return false;
 }
 
-uint8 AttackersCountValue::Calculate()
+uint8 AttackersCountValue::Get()
 {
-    return context->GetValue<std::list<ObjectGuid>>("attackers")->Get().size();
+    return uint8(std::min<uint32>(ai->GetTeamAttackerCount(), 255));
 }
 
 uint8 PossibleAttackTargetsCountValue::Calculate()
@@ -68,9 +68,9 @@ uint8 PossibleAttackTargetsCountValue::Calculate()
     return context->GetValue<std::list<ObjectGuid>>("possible attack targets")->Get().size();
 }
 
-bool HasAttackersValue::Calculate()
+bool HasAttackersValue::Get()
 {
-    return !context->GetValue<std::list<ObjectGuid>>("attackers", 1)->Get().empty();
+    return ai->IsTeamFighting();
 }
 
 bool HasPossibleAttackTargetsValue::Calculate()

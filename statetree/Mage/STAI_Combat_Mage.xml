@@ -1,10 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat state tree for Druid bots: AiPlayerbot.StateTree.Combat.Mage -->
+<!-- Combat state tree for Mage bots: AiPlayerbot.StateTree.Combat.Mage -->
 <Root>
-  <Node name="UtilityAI">
-    <Conditions/>
-    <Task class="StateNode_Legacy">
-      <Config filename="statetree/Legacy_Combat_Mage.json"/>
+  <Global>
+    <!-- the bot's crowd-control mark (rti cc, default moon) when it is not the kill target (rti): whoNeeds, onCCNeeded -->
+    <Task class="CCProvider_GlobalTask"/>
+    <!-- the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged -->
+    <Task class="TargetProvider_GlobalTask"/>
+  </Global>
+  <Node name="CC Target">
+    <Conditions>
+      <Condition binding="Root|CCProvider_GlobalTask::whoNeeds"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Polymorph">
+      <Binding local="whoNeeds" external="Root|CCProvider_GlobalTask::whoNeeds"/>
     </Task>
+  </Node>
+  <Node name="Attack Target">
+    <Conditions>
+      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Frostbolt">
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>
+    </Transitions>
+  </Node>
+  <Node name="Idle">
+    <Conditions/>
+    <!-- nothing to attack: waits until a delegate sends the tree elsewhere -->
+    <Task class="Task_Wait">
+      <Delay value="1"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>
+      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root|Attack Target"/>
+    </Transitions>
   </Node>
 </Root>

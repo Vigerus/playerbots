@@ -7,6 +7,7 @@
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
+#include "VisibleObjects.h"
 
 using namespace ai;
 
@@ -18,9 +19,9 @@ bool CollisionValue::Calculate()
 
     std::list<Unit*> targets;
     float range = sPlayerbotAIConfig.contactDistance;
+    // the units visible to the bot (kept by the core on visibility changes), not a grid search
     MaNGOS::AnyUnitInObjectRangeCheck u_check(bot, range);
-    MaNGOS::UnitListSearcher<MaNGOS::AnyUnitInObjectRangeCheck> searcher(targets, u_check);
-    Cell::VisitAllObjects(bot, searcher, range);
+    VisibleObjects::FindUnits(bot, range, u_check, targets);
 
     for (std::list<Unit*>::iterator i = targets.begin(); i != targets.end(); ++i)
     {

@@ -6,6 +6,7 @@
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
+#include "VisibleObjects.h"
 
 namespace ai
 {

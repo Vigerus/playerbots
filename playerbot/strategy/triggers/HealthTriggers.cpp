@@ -9,6 +9,16 @@ float HealthInRangeTrigger::GetValue()
     return AI_VALUE2(uint8, "health", GetTargetName());
 }
 
+bool HealthInRangeTrigger::IsHealthInRange()
+{
+    if (GetTargetName() != "self target")
+        return ValueInRangeTrigger::IsActive();
+
+    UnitResourceThresholds& thresholds = ai->GetSelfThresholds();
+    return thresholds.WatchHealth(maxValue, EResourceCompare::Lesser).IsActive() &&
+        thresholds.WatchHealth(minValue, EResourceCompare::GreaterOrEqual).IsActive();
+}
+
 bool HealthInRangeTrigger::IsActive()
 {
     bool healthCheck = false;
@@ -36,11 +46,11 @@ bool HealthInRangeTrigger::IsActive()
                 }
             }
             else
-                healthCheck = ValueInRangeTrigger::IsActive();
+                healthCheck = IsHealthInRange();
         }
     }
     else
-        healthCheck = ValueInRangeTrigger::IsActive();
+        healthCheck = IsHealthInRange();
 
     return healthCheck
         && !AI_VALUE2(bool, "dead", GetTargetName())

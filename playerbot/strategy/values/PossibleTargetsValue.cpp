@@ -49,9 +49,9 @@ bool PossibleTargetsValue::AcceptUnit(Unit* unit)
 
 void PossibleTargetsValue::FindPossibleTargets(Player* player, std::list<Unit*>& targets, float range)
 {
+    // the units visible to the player (kept by the core on visibility changes), not a grid search
     MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck u_check(player, range);
-    MaNGOS::UnitListSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> searcher(targets, u_check);
-    Cell::VisitAllObjects(player, searcher, range);
+    VisibleObjects::FindUnits(player, range, u_check, targets);
 }
 
 bool PossibleTargetsValue::IsFriendly(Unit* target, Player* player)

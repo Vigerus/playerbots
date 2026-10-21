@@ -6,6 +6,7 @@
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
+#include "playerbot/strategy/values/VisibleObjects.h"
 
 using namespace ai;
 using namespace MaNGOS;
@@ -36,9 +37,10 @@ bool RevealGatheringItemAction::Execute(Event& event)
         return false;
 
     std::list<GameObject*> targets;
+    // the game objects visible to the bot (kept by the core on visibility changes), not a grid search; the check
+    // keeps grind distance (the old search visited react distance but the check dropped everything past grind distance)
     AnyGameObjectInObjectRangeCheck u_check(bot, sPlayerbotAIConfig.grindDistance);
-    GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(targets, u_check);
-    Cell::VisitAllObjects((const WorldObject*)bot, searcher, sPlayerbotAIConfig.reactDistance);
+    VisibleObjects::FindGameObjects(bot, sPlayerbotAIConfig.grindDistance, u_check, targets);
 
     std::vector<GameObject*> result;
     for(std::list<GameObject*>::iterator tIter = targets.begin(); tIter != targets.end(); ++tIter)

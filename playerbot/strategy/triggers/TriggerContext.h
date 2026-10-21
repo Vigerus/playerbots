@@ -12,7 +12,6 @@
 #include "CureTriggers.h"
 #include "GuildTriggers.h"
 #include "StuckTriggers.h"
-#include "BotStateTriggers.h"
 #include "PullTriggers.h"
 #include "RtscTriggers.h"
 #include "OnyxiasLairDungeonTriggers.h"
@@ -77,11 +76,6 @@ namespace ai
             creators["not dps aoe target active"] = [](PlayerbotAI* ai) { return new NotDpsAoeTargetActiveTrigger(ai); };
             creators["has nearest adds"] = [](PlayerbotAI* ai) { return new HasNearestAddsTrigger(ai); };
             creators["enemy player near"] = [](PlayerbotAI* ai) { return new EnemyPlayerNear(ai); };
-
-            creators["combat start"] = [](PlayerbotAI* ai) { return new CombatStartTrigger(ai); };
-            creators["combat end"] = [](PlayerbotAI* ai) { return new CombatEndTrigger(ai); };
-            creators["death"] = [](PlayerbotAI* ai) { return new DeathTrigger(ai); };
-            creators["resurrect"] = [](PlayerbotAI* ai) { return new ResurrectTrigger(ai); };
 
             creators["pull start"] = [](PlayerbotAI* ai) { return new PullStartTrigger(ai); };
             creators["pull end"] = [](PlayerbotAI* ai) { return new PullEndTrigger(ai); };

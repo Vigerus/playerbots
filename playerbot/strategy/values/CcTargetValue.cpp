@@ -97,7 +97,8 @@ private:
 
 Unit* CcTargetValue::Calculate()
 {
-    std::list<ObjectGuid> possible = AI_VALUE(std::list<ObjectGuid>,"possible targets no los");
+    // a unit the bot already crowd-controls is still linked to the team (threat): it is one of the attackers
+    std::list<ObjectGuid> possible = AI_VALUE(std::list<ObjectGuid>, "attackers");
 
     for (std::list<ObjectGuid>::iterator i = possible.begin(); i != possible.end(); ++i)
     {

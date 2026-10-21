@@ -2,6 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "DungeonTriggers.h"
 #include "playerbot/strategy/values/PositionValue.h"
+#include "playerbot/strategy/values/VisibleObjects.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/strategy/AiObjectContext.h"
 #include "playerbot/strategy/values/HazardsValue.h"
@@ -192,10 +193,10 @@ std::list<ObjectGuid> CloseToCreatureHazardTrigger::GetPossibleHazards()
 {
     std::list<ObjectGuid> possibleHazards;
 
+    // the creatures visible to the bot (kept by the core on visibility changes), not a grid search
     std::list<Unit*> creatures;
     MaNGOS::AllCreaturesOfEntryInRangeCheck u_check(bot, creatureID, hazardRadius);
-    MaNGOS::UnitListSearcher<MaNGOS::AllCreaturesOfEntryInRangeCheck> searcher(creatures, u_check);
-    Cell::VisitAllObjects(bot, searcher, hazardRadius);
+    VisibleObjects::FindUnits(bot, hazardRadius, u_check, creatures);
     for (Unit* unit : creatures)
     {
         possibleHazards.push_back(unit->GetObjectGuid());
@@ -243,11 +244,10 @@ bool CloseToCreatureTrigger::IsActive()
     {
         AiObjectContext* context = ai->GetAiObjectContext();
 
-        // Iterate through the near creatures
+        // Iterate through the near creatures (visible to the bot, kept by the core on visibility changes)
         std::list<Unit*> creatures;
         MaNGOS::AllCreaturesOfEntryInRangeCheck u_check(bot, creatureID, range);
-        MaNGOS::UnitListSearcher<MaNGOS::AllCreaturesOfEntryInRangeCheck> searcher(creatures, u_check);
-        Cell::VisitAllObjects(bot, searcher, range);
+        VisibleObjects::FindUnits(bot, range, u_check, creatures);
         for (Unit* unit : creatures)
         {
             Creature* creature = (Creature*)unit;

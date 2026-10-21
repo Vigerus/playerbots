@@ -6,6 +6,7 @@
 #include "playerbot/LootObjectStack.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/strategy/generic/CombatStrategy.h"
+#include "Groups/TeamSubsystem.h"
 
 using namespace ai;
 
@@ -154,8 +155,9 @@ bool AttackAction::Attack(Player* requester, Unit* target)
 
         if (result)
         {
-            // Force change combat state to have a faster reaction time
-            ai->OnCombatStarted();
+            // Force change combat state to have a faster reaction time (the bot and its group members near it)
+            if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
+                teams->BroadcastCombatStarted(bot);
         }
 
         return result;

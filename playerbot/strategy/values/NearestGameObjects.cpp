@@ -6,6 +6,7 @@
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
+#include "VisibleObjects.h"
 
 using namespace ai;
 using namespace MaNGOS;
@@ -51,15 +52,15 @@ std::list<ObjectGuid> NearestGameObjects::Calculate()
     if (!qualifier.empty())
     {
         uint32 gameObjectID = stoi(qualifier);
+        // the game objects visible to the bot (kept by the core on visibility changes), not a grid search
         GameObjectsInObjectRangeCheck u_check(bot, range, gameObjectID);
-        GameObjectListSearcher<GameObjectsInObjectRangeCheck> searcher(targets, u_check);
-        Cell::VisitAllObjects((const WorldObject*)bot, searcher, range);
+        VisibleObjects::FindGameObjects(bot, range, u_check, targets);
     }
     else
     {
+        // the game objects visible to the bot (kept by the core on visibility changes), not a grid search
         AnyGameObjectInObjectRangeCheck u_check(bot, range);
-        GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(targets, u_check);
-        Cell::VisitAllObjects((const WorldObject*)bot, searcher, range);
+        VisibleObjects::FindGameObjects(bot, range, u_check, targets);
     }
 
     std::list<ObjectGuid> result;
@@ -95,9 +96,9 @@ std::list<ObjectGuid> NearestDynamicObjects::Calculate()
 
     // Remove this when updating wotlk core
 #ifndef MANGOSBOT_TWO
+    // the dynamic objects visible to the bot (kept by the core on visibility changes), not a grid search
     AnyDynamicObjectInObjectRangeCheck u_check(bot, range);
-    MaNGOS::DynamicObjectListSearcher<AnyDynamicObjectInObjectRangeCheck> searcher(targets, u_check);
-    Cell::VisitAllObjects((const WorldObject*)bot, searcher, range);
+    VisibleObjects::FindDynamicObjects(bot, range, u_check, targets);
 #endif
 
     std::list<ObjectGuid> result;

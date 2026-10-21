@@ -11,9 +11,9 @@ using namespace MaNGOS;
 
 void NearestFriendlyPlayersValue::FindUnits(std::list<Unit*> &targets)
 {
+    // the players visible to the bot (kept by the core on visibility changes), not a grid search
     AnyFriendlyUnitInObjectRangeCheck u_check(bot, range);
-    UnitListSearcher<AnyFriendlyUnitInObjectRangeCheck> searcher(targets, u_check);
-    Cell::VisitAllObjects(bot, searcher, range);
+    VisibleObjects::FindUnits(bot, range, u_check, targets, true);
 }
 
 bool NearestFriendlyPlayersValue::AcceptUnit(Unit* unit)

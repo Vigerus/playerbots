@@ -19,6 +19,7 @@
 #include "RandomPlayerbotMgr.h"
 
 #include "StateTree/StateMachine.h"
+#include "Entities/UnitResourceThresholds.h"
 
 class Player;
 class PlayerbotMgr;
@@ -667,8 +668,51 @@ public:
     void OnCombatEnded();
     void OnDeath();
     void OnResurrected();
-    // OnDeath / OnResurrected when the state machine's state does not match the bot being alive
-    void SyncLifeState();
+
+    // kept up to date by TeamSubsystem events ("has attackers", "attackers count"):
+    // units that have the bot, its pet or a group member near it (sight distance, on the same map) on their threat list
+    uint32 GetTeamAttackerCount() const { return uint32(teamAttackers.size()); }
+    // attacker -> victim (the bot or a nearby member) -> links (threat list entry, melee attacker) to it and its pet
+    const std::map<ObjectGuid, std::map<ObjectGuid, uint32>>& GetTeamAttackers() const { return teamAttackers; }
+    // changes whenever GetTeamAttackers does ("attackers" rebuilds its list only then)
+    uint32 GetTeamAttackersVersion() const { return teamAttackersVersion; }
+
+    // the bot's health / power percent conditions ("low health", "low mana", ...), kept by its change broadcasts
+    UnitResourceThresholds& GetSelfThresholds() { return selfThresholds; }
+    // the bot or a group member near it is in combat, or the bot announced a fight (pull, attack), or it has attackers
+    bool IsTeamFighting() const { return teamInCombat || !teamAttackers.empty(); }
+private:
+    // TeamSubsystem delegates of the bot, bound in the constructor: keep teamInCombat / teamAttackers and call the
+    // On* handlers above when the state machine's state no longer matches them
+    void HandleCombatStarted(ObjectGuid self);
+    void HandleMemberCombatStarted(ObjectGuid self, Player* member);
+    void HandleCombatEnded(ObjectGuid self);
+    void HandleMemberCombatEnded(ObjectGuid self, Player* member);
+    void HandleAttackerAdded(ObjectGuid self, Unit* attacker);
+    void HandleMemberAttackerAdded(ObjectGuid self, Player* member, Unit* attacker);
+    void HandleAttackerRemoved(ObjectGuid self, Unit* attacker);
+    void HandleMemberAttackerRemoved(ObjectGuid self, Player* member, Unit* attacker);
+    void HandleDied(ObjectGuid self);
+    void HandleResurrected(ObjectGuid self);
+    // group changes come from the world thread: only flagged there, RebuildTeamCombat runs in the bot's next UpdateAI
+    void HandleTeamChanged(Group* /*group*/, ObjectGuid /*self*/) { teamChanged = true; }
+    void HandleMemberTeamChanged(Group* /*group*/, ObjectGuid /*self*/, ObjectGuid /*member*/) { teamChanged = true; }
+    // a teleport leaves the members' map: their attacker events stop reaching the bot
+    void HandleEnterMap(Player* /*player*/, Map* /*map*/) { teamChanged = true; }
+    // the state machine is in NonCombat (Combat), possibly preempted by a reaction
+    bool IsInStateType(HLSStateType type) const;
+    // member is alive and within sight distance of the bot (the "attackers" range)
+    bool IsNearbyMember(Player* member) const;
+    // the bot or a nearby group member is in combat
+    bool IsTeamInCombatNearby() const;
+    // teamInCombat and teamAttackers read from the bot and its nearby group members (login, group changes)
+    void RebuildTeamCombat();
+    // one threat link of attacker to victim (the bot or a member, their pets count for them)
+    void AddTeamAttacker(Unit* attacker, ObjectGuid victim);
+    void RemoveTeamAttacker(Unit* attacker, ObjectGuid victim);
+    // OnCombatStarted / OnCombatEnded when IsTeamFighting no longer matches the state machine's state
+    void UpdateCombatState();
+public:
     
     void SetActionDuration(const Action* action);
     void SetActionDuration(uint32 duration);
@@ -754,6 +798,16 @@ protected:
     bool shouldLogOut = false;
 
     StateMachine StateMachine;
+
+    // attached to the bot in the constructor (the bot outlives this object: it owns it)
+    UnitResourceThresholds selfThresholds;
+
+    // see IsTeamFighting / GetTeamAttackerCount
+    bool teamInCombat = false;
+    // attacker -> victim (the bot or a nearby member) -> threat links to it and its pet
+    std::map<ObjectGuid, std::map<ObjectGuid, uint32>> teamAttackers;
+    uint32 teamAttackersVersion = 0;
+    std::atomic<bool> teamChanged{ true };          // rebuild in the next UpdateAI (also the first one)
 
     // player waiting for a StateTree snapshot ("BOT\tstatetree" addon request); set from chat, consumed in UpdateAI
     std::atomic<uint64> stateTreeDebugRequester{ 0 };

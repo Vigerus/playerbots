@@ -4,6 +4,7 @@
 #include "AI/BaseAI/CreatureAI.h"
 #include "playerbot/TravelMgr.h"
 #include "playerbot/strategy/generic/PullStrategy.h"
+#include "playerbot/strategy/values/PossibleTargetsValue.h"
 
 bool DpsAssistAction::isUseful()
 {
@@ -110,11 +111,15 @@ bool SelectNewTargetAction::Execute(Event& event)
     }
 
     // Clear the target variables
+    // the attack target itself is checked (what "possible targets no los" accepted): no list to search
     ObjectGuid attackTarget = AI_VALUE(ObjectGuid, "attack target");
-    std::list<ObjectGuid> possible = AI_VALUE(std::list<ObjectGuid>, "possible targets no los");
-    if (attackTarget && find(possible.begin(), possible.end(), attackTarget) == possible.end())
+    if (attackTarget)
     {
-        SET_AI_VALUE(ObjectGuid, "attack target", ObjectGuid());
+        Unit* attackUnit = ai->GetUnit(attackTarget);
+        if (!attackUnit || !bot->IsWithinDistInMap(attackUnit, sPlayerbotAIConfig.sightDistance) || !PossibleTargetsValue::IsValid(attackUnit, bot, true))
+        {
+            SET_AI_VALUE(ObjectGuid, "attack target", ObjectGuid());
+        }
     }
 
     // Save the old target and clear the current target

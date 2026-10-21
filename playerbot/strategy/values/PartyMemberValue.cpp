@@ -123,7 +123,19 @@ bool PartyMemberValue::Check(Unit* player)
 
 bool PartyMemberValue::IsTargetOfSpellCast(Player* target, SpellEntryPredicate &predicate)
 {
-    std::list<ObjectGuid> nearestPlayers = AI_VALUE(std::list<ObjectGuid>, "nearest friendly players");
+    // the casters that matter are the bot's team (its group members on its map); a bot without a group helps
+    // whoever is near, so it looks at the players around it
+    std::list<ObjectGuid> nearestPlayers;
+    if (Group* group = bot->GetGroup())
+    {
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->getSource())
+                if (member != bot && member->IsInMap(bot))
+                    nearestPlayers.push_back(member->GetObjectGuid());
+    }
+    else
+        nearestPlayers = AI_VALUE(std::list<ObjectGuid>, "nearest friendly players");
+
     ObjectGuid targetGuid = target ? target->GetObjectGuid() : bot->GetObjectGuid();
     ObjectGuid corpseGuid = target && target->GetCorpse() ? target->GetCorpse()->GetObjectGuid() : ObjectGuid();
 

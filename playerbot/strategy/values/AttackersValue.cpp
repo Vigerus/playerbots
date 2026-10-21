@@ -7,7 +7,23 @@
 using namespace ai;
 using namespace MaNGOS;
 
-std::list<ObjectGuid> AttackersValue::Calculate()
+std::list<ObjectGuid> AttackersValue::Get()
+{
+    const uint32 version = ai->GetTeamAttackersVersion();
+    const uint32 tick = WorldTimer::tickTime();
+    if (!built || version != builtVersion || tick != builtTick)
+    {
+        TRACE_CPU_PROFILER_STAT_SCOPE(GetProfilingStat("V: "));
+        value = Build();
+        built = true;
+        builtVersion = version;
+        builtTick = tick;
+    }
+
+    return value;
+}
+
+std::list<ObjectGuid> AttackersValue::Build()
 {
     std::list<ObjectGuid> result;
     if (!ai->AllowActivity(ALL_ACTIVITY))
@@ -38,125 +54,48 @@ std::list<ObjectGuid> AttackersValue::Calculate()
         return result;
     }
 
-    if (sPlayerbotAIConfig.shareTargets)
-    {
-        // Try to get the value from nearby friendly bots.
-        std::list<ObjectGuid> nearGuids = ai->GetAiObjectContext()->GetValue<std::list<ObjectGuid> >("nearest friendly players")->Get();
-        for (auto& i : nearGuids)
-        {
-            Player* player = sObjectMgr.GetPlayer(i);
-
-            if (!player)
-                continue;
-
-            if (player == bot)
-                continue;
-
-            if (player->GetMapId() != bot->GetMapId())
-                continue;
-
-            if (sServerFacade.GetDistance2d(bot, player) > 10.0f)
-                continue;
-
-            PlayerbotAI* botAi = player->GetPlayerbotAI();
-
-            if (!botAi)
-                continue;
-
-            std::string valueName = "attackers" + !qualifier.empty() ? "::" + qualifier : "";
-
-            // Ignore bots without the value.
-            if (!PHAS_AI_VALUE(valueName))
-                continue;
-
-            UntypedValue* pValue = botAi->GetAiObjectContext()->GetUntypedValue(valueName);
-
-            AttackersValue* pAttackersValue = dynamic_cast<AttackersValue*>(pValue);
-
-            if (!pAttackersValue)
-                continue;
-
-            // Ignore expired values.
-            if (pAttackersValue->Expired())
-                continue;
-
-            if (pAttackersValue->calculatePos.sqDistance2d(bot) > 100.0f)
-                continue;
-
-            // Make the value expire at the same time as the copied value.
-            lastCheckTime = pAttackersValue->lastCheckTime;
-
-            calculatePos = pAttackersValue->calculatePos;
-
-            result = PAI_VALUE(std::list<ObjectGuid>, valueName);
-
-            std::vector<std::string> specificTargetNames = { "current target","old target","attack target","pull target" };
-            Unit* target;
-
-            //Remove bot specific targets of the other bot.
-            for (auto& targetName : specificTargetNames)
-            {
-                target = (targetName == "attack target") ? ai->GetUnit(PAI_VALUE(ObjectGuid, targetName)) : PAI_VALUE(Unit*, targetName);
-                if (target)
-                    result.remove(target->GetObjectGuid());
-            }
-
-            //Add bot specific targets of this bot.
-            for (auto& targetName : specificTargetNames)
-            {
-                target = (targetName == "attack target") ? ai->GetUnit(AI_VALUE(ObjectGuid, targetName)) : AI_VALUE(Unit*, targetName);
-                if (target)
-                    result.push_back(target->GetObjectGuid());
-            }
-
-            //Validate these targets.
-            std::list<ObjectGuid> filter;
-
-            for (auto& guid : result)
-            {
-                target = ai->GetUnit(guid);
-
-                if (!IsValid(target, bot, bot))
-                    filter.push_back(guid);
-            }
-
-            for(auto& guid : filter)
-                result.remove(guid);
-
-            return result;
-        }
-    }
-    
-    calculatePos = bot;
+    // Check if we only need one attacker
+    const bool getOne = !qualifier.empty() && stoi(qualifier);
 
     std::set<Unit*> targets;
 
-    // Check if we only need one attacker
-    bool getOne = false;
-    if (!qualifier.empty())
+    // true once the list is complete (getOne)
+    auto add = [&](Unit* unit) -> bool
     {
-        getOne = stoi(qualifier);
-    }
+        if (!unit || targets.find(unit) != targets.end())
+            return false;
 
-    std::set<ObjectGuid> invalidTargets;
+        // a link (or the bot's own choice) says the unit fights the team: no in combat check
+        if (!IsValid(unit, bot, bot, false))
+            return false;
 
-    // Add the targets of the bot
-    AddTargetsOf(bot, targets, invalidTargets, getOne);
+        targets.insert(unit);
 
-    // Don't check for group member targets if we only need one
-    if (targets.empty() || !getOne)
-    {
-        // Add the targets of the members of the group
-        Group* group = bot->GetGroup();
-        if (group && !bot->InBattleGround())
-        {
-            AddTargetsOf(group, targets, invalidTargets, getOne);
-        }
+        // Add the target's pet/guardian too
+        unit->CallForAllControlledUnits(AddGuardiansHelper(targets), CONTROLLED_PET | CONTROLLED_GUARDIANS | CONTROLLED_CHARM | CONTROLLED_MINIPET | CONTROLLED_TOTEMS);
+        return getOne;
+    };
 
-        Player* master = GetMaster();
-        if (master && !bot->InBattleGround() && (!group || master->GetGroup() != group))
-            AddTargetsOf(master, targets, invalidTargets, getOne);
-    }
+    // the bot's own targets: the fight it starts (attack, pull target), its duel, and the rti target of a bot
+    // without an active player master
+    std::vector<Unit*> ownTargets = {
+        ai->GetUnit(AI_VALUE(ObjectGuid, "attack target")),
+        AI_VALUE(Unit*, "pull target"),
+        bot->duel ? bot->duel->opponent : nullptr
+    };
+    if (!ai->HasActivePlayerMaster())
+        ownTargets.push_back(AI_VALUE(Unit*, "rti target"));
+
+    bool done = false;
+    for (Unit* unit : ownTargets)
+        if ((done = add(unit)))
+            break;
+
+    // the units with a link to the bot, its pet or a group member near it (TeamSubsystem events)
+    if (!done)
+        for (const auto& attacker : ai->GetTeamAttackers())
+            if (add(ai->GetUnit(attacker.first)))
+                break;
 
     // Convert the targets to guids
     for (Unit* target : targets)
@@ -165,141 +104,6 @@ std::list<ObjectGuid> AttackersValue::Calculate()
     }
 
     return result;
-}
-
-void AttackersValue::AddTargetsOf(Group* group, std::set<Unit*>& targets, std::set<ObjectGuid>& invalidTargets, bool getOne)
-{
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
-    {
-        // Only add group member targets that are alive and near the player
-        Player* member = sObjectMgr.GetPlayer(itr->guid);
-        if (member && (member != bot) &&
-           sServerFacade.IsAlive(member) &&
-           member->IsInWorld() &&
-           !member->IsBeingTeleported() &&
-           (member->GetMapId() == bot->GetMapId()) && 
-           (sServerFacade.GetDistance2d(bot, member) <= GetRange()))
-        {
-            AddTargetsOf(member, targets, invalidTargets, getOne);
-
-            // Finish early if we only need one target
-            if (getOne && !targets.empty())
-            {
-                break;
-            }
-        }
-    }
-}
-
-void AttackersValue::AddTargetsOf(Player* player, std::set<Unit*>& targets, std::set<ObjectGuid>& invalidTargets, bool getOne)
-{
-    // If the player is available
-    if (ai->IsSafe(player))
-    {
-        std::set<Unit*> units;
-
-        // If the player is a bot
-        PlayerbotAI* playerBot = player->GetPlayerbotAI();
-        if (playerBot)
-        {
-            // Get all the units around the player
-            // NOTE: We don't validate the value here because it will be validated later on
-            const std::string ignoreValidate = std::to_string(true);
-            const std::string range = std::to_string((int32)GetRange());
-            const std::vector<std::string> qualifiers = { range, ignoreValidate };
-            const std::list<ObjectGuid> possibleTargets = PAI_VALUE2(std::list<ObjectGuid>, "possible targets", Qualified::MultiQualify(qualifiers, ":"));
-            for (const ObjectGuid& guid : possibleTargets)
-            {
-                if (Unit* unit = ai->GetUnit(guid))
-                {
-                    units.insert(unit);
-                }
-            }
-
-            // Add the current target
-            Unit* currentTarget = PAI_VALUE(Unit*, "current target");
-            if (currentTarget)
-            {
-                units.insert(currentTarget);
-            }
-
-            // Add the previous target
-            Unit* oldTarget = PAI_VALUE(Unit*, "old target");
-            if (oldTarget)
-            {
-                units.insert(oldTarget);
-            }
-
-            // Add the pull and attack targets (Only consider the owner bot)
-            if (bot == player)
-            {
-                Unit* attackTarget = playerBot->GetUnit(PAI_VALUE(ObjectGuid, "attack target"));
-                if (attackTarget)
-                {
-                    units.insert(attackTarget);
-                }
-
-                Unit* pullTarget = PAI_VALUE(Unit*, "pull target");
-                if (pullTarget)
-                {
-                    units.insert(pullTarget);
-                }
-            }
-        }
-
-        // Get the current attackers of the player
-        for (Unit* attacker : player->getAttackers())
-        {
-            units.insert(attacker);
-        }
-
-        // Add the duel opponent (Only consider the owner bot)
-        if (bot == player && bot->duel && bot->duel->opponent)
-        {
-            units.insert(bot->duel->opponent);
-        }
-
-        // Add the pet attackers (if nearby)
-        Pet* pet = player->GetPet();
-        if (pet && sServerFacade.GetDistance2d(bot, pet) <= GetRange())
-        {
-            for (Unit* attacker : pet->getAttackers())
-            {
-                units.insert(attacker);
-            }
-        }
-
-        // Filter the units that are valid
-        for (Unit* unit : units)
-        {
-            // Prevent checking a target that has already been validated
-            if((targets.find(unit) == targets.end()))
-            {
-                // Prevent checking a target that has already been invalidated
-                if(InCombat(unit, player) || (invalidTargets.find(unit->GetObjectGuid()) == invalidTargets.end()))
-                {
-                    if (IsValid(unit, player, bot))
-                    {
-                        // Add the target to the list of combat targets
-                        targets.insert(unit);
-
-                        // Add the target's pet/guardian too
-                        unit->CallForAllControlledUnits(AddGuardiansHelper(targets), CONTROLLED_PET | CONTROLLED_GUARDIANS | CONTROLLED_CHARM | CONTROLLED_MINIPET | CONTROLLED_TOTEMS);
-
-                        if (getOne)
-                        {
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        invalidTargets.insert(unit->GetObjectGuid());
-                    }
-                }
-            }
-        }
-    }
 }
 
 bool AttackersValue::InCombat(Unit* target, Player* player, bool checkPullTargets)

@@ -4,8 +4,12 @@
 
 namespace ai
 {
-    // List of hostile targets that are in combat with the bot (or bot group)
-    class AttackersValue : public ObjectGuidListCalculatedValue, public Qualified
+    // List of hostile targets that are in combat with the bot (or bot group): the units with a link (threat list entry,
+    // melee attack) to the bot, its pet or a group member near it, kept by PlayerbotAI from TeamSubsystem events
+    // (GetTeamAttackers), plus the bot's own attack / pull target, duel opponent and rti target. Nothing is searched:
+    // the list is only rebuilt from those (and validated, IsValid) when the links changed or a new world tick started.
+    // Qualifier "1": the first valid one only.
+    class AttackersValue : public UntypedValue, public Value<std::list<ObjectGuid>>, public Qualified
 	{
         struct AddGuardiansHelper
         {
@@ -19,8 +23,12 @@ namespace ai
         };
 
 	public:
-        AttackersValue(PlayerbotAI* ai, std::string name = "attackers", int interval = 2) : ObjectGuidListCalculatedValue(ai, name, interval), Qualified() {}
-        virtual std::list<ObjectGuid> Calculate() override;
+        AttackersValue(PlayerbotAI* ai, std::string name = "attackers") : UntypedValue(ai, name), Qualified() {}
+
+        virtual std::list<ObjectGuid> Get() override;
+        virtual std::list<ObjectGuid> LazyGet() override { return Get(); }
+        virtual void Set(std::list<ObjectGuid> value) override {}
+        virtual void Reset() override { built = false; }
 
         static bool IsValid(Unit* target, Player* player, Player* owner = nullptr, bool checkInCombat = true, bool validatePossibleTarget = true);
         static bool IgnoreTarget(Unit* target, Player* playerToCheckAgainst);
@@ -33,17 +41,18 @@ namespace ai
         {
             return "This value contains all the units attacking the player, it's group or those the player or group is attacking.";
         }
-        virtual std::vector<std::string> GetUsedValues() { return {"possible targets", "current target" , "attack target" ,  "pull target" }; }
+        virtual std::vector<std::string> GetUsedValues() { return { "attack target", "pull target", "rti target" }; }
 #endif
 
 	private:
-        void AddTargetsOf(Group* group, std::set<Unit*>& targets, std::set<ObjectGuid>& invalidTargets, bool getOne = false);
-        void AddTargetsOf(Player* player, std::set<Unit*>& targets, std::set<ObjectGuid>& invalidTargets, bool getOne = false);
-        static float GetRange() { return sPlayerbotAIConfig.sightDistance; }
+        std::list<ObjectGuid> Build();
 
         static bool InCombat(Unit* target, Player* player, bool checkPullTargets = true);
 
-        WorldPosition calculatePos;
+        std::list<ObjectGuid> value;
+        bool built = false;
+        uint32 builtVersion = 0;    // PlayerbotAI::GetTeamAttackersVersion
+        uint32 builtTick = 0;       // WorldTimer::tickTime: validity (evading, visibility, ...) is checked again each tick
     };
 
     // List of attackers that are currently targeting the bot

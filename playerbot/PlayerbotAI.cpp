@@ -31,6 +31,7 @@
 #include "Movement/MoveSplineInitArgs.h"
 #include "Maps/InstanceData.h"
 #include "Maps/InstanceSubsystem.h"
+#include "Groups/TeamSubsystem.h"
 #include "ChatHelper.h"
 #include "strategy/values/BudgetValues.h"
 #include "Social/SocialMgr.h"
@@ -252,8 +253,33 @@ PlayerbotAI::PlayerbotAI(Player* bot) : PlayerbotAIBase()
 
         StateMachine.RegisterNode(std::make_unique<StateNode_Tree>(STAI_TaskContext{ this, bot, state, &StateMachine.GetActivityLog() }, tree), state == HLSStateType::NonCombat);
     }
-    StateMachine.TransitionTo(HLSStateType::NonCombat);
+    // the bot can log in dead (ghost or corpse): from here on TeamSubsystem reports the changes
+    StateMachine.TransitionTo(sServerFacade.IsAlive(bot) ? HLSStateType::NonCombat : HLSStateType::Dead);
 #endif
+
+    if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
+    {
+        const ObjectGuid self = bot->GetObjectGuid();
+        teams->AddOnCombatStarted(self, this, &PlayerbotAI::HandleCombatStarted);
+        teams->AddOnMemberCombatStarted(self, this, &PlayerbotAI::HandleMemberCombatStarted);
+        teams->AddOnCombatEnded(self, this, &PlayerbotAI::HandleCombatEnded);
+        teams->AddOnMemberCombatEnded(self, this, &PlayerbotAI::HandleMemberCombatEnded);
+        teams->AddOnAttackerAdded(self, this, &PlayerbotAI::HandleAttackerAdded);
+        teams->AddOnMemberAttackerAdded(self, this, &PlayerbotAI::HandleMemberAttackerAdded);
+        teams->AddOnAttackerRemoved(self, this, &PlayerbotAI::HandleAttackerRemoved);
+        teams->AddOnMemberAttackerRemoved(self, this, &PlayerbotAI::HandleMemberAttackerRemoved);
+        teams->AddOnJoinedTeam(self, this, &PlayerbotAI::HandleTeamChanged);
+        teams->AddOnLeftTeam(self, this, &PlayerbotAI::HandleTeamChanged);
+        teams->AddOnMemberJoinedTeam(self, this, &PlayerbotAI::HandleMemberTeamChanged);
+        teams->AddOnMemberLeftTeam(self, this, &PlayerbotAI::HandleMemberTeamChanged);
+        teams->AddOnDied(self, this, &PlayerbotAI::HandleDied);
+        teams->AddOnResurrected(self, this, &PlayerbotAI::HandleResurrected);
+    }
+
+    if (InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>())
+        instances->AddOnPlayerEnterMap(bot->GetObjectGuid(), this, &PlayerbotAI::HandleEnterMap);
+
+    selfThresholds.Attach(bot);
 
     if (!HasRealPlayerMaster() && bot->GetFreeTalentPoints() > 0)
     {
@@ -268,6 +294,15 @@ PlayerbotAI::~PlayerbotAI()
 //         if (engines[i])
 //             delete engines[i];
 //     }
+
+    // the bot's subscriptions (the bot-less AI of the shared value context made none)
+    if (bot)
+    {
+        if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
+            teams->RemoveAll(bot->GetObjectGuid(), this);
+        if (InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>())
+            instances->RemoveAll(bot->GetObjectGuid(), this);
+    }
 
     if (aiObjectContext)
         delete aiObjectContext;
@@ -560,7 +595,12 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 #endif
 
 #ifdef USE_HLS
-    SyncLifeState();
+    // flagged by a group change (or set at login): read the team's combat once, events keep it up to date after
+    if (teamChanged.exchange(false))
+    {
+        RebuildTeamCombat();
+        UpdateCombatState();
+    }
     ApplyStateTreeToggles();
     ApplyStateTreeStrategyEdits();
     StateMachine.Update(elapsed, minimal);
@@ -913,7 +953,6 @@ void PlayerbotAI::OnCombatStarted()
         }
 
         aiObjectContext->GetValue<std::list<ObjectGuid>>("attackers", 1)->Reset();
-        aiObjectContext->GetValue<bool>("has attackers")->Reset();
 
         ChangeEngine(BotState::BOT_STATE_COMBAT);
         if (bot->IsSitState())
@@ -1029,21 +1068,6 @@ void PlayerbotAI::OnDeath()
     }
 }
 
-void PlayerbotAI::SyncLifeState()
-{
-    // death and resurrection are facts, not decisions: the state follows them even when no reaction caught them
-    // (resurrected at the corpse, at a spirit healer, by entering an instance as a ghost, by another player)
-    HLSStateType state;
-    if (!StateMachine.GetStateType(state))
-        return;
-
-    const bool alive = sServerFacade.IsAlive(bot);
-    if (alive && state == HLSStateType::Dead)
-        OnResurrected();
-    else if (!alive && state != HLSStateType::Dead)
-        OnDeath();
-}
-
 void PlayerbotAI::OnResurrected()
 {
     StateMachine.TransitionTo(HLSStateType::NonCombat);
@@ -1058,6 +1082,177 @@ void PlayerbotAI::OnResurrected()
 
         ChangeEngine(BotState::BOT_STATE_NON_COMBAT);
     }
+}
+
+bool PlayerbotAI::IsInStateType(HLSStateType type) const
+{
+    HLSStateType state;
+    return StateMachine.GetStateType(state) && state == type;
+}
+
+bool PlayerbotAI::IsNearbyMember(Player* member) const
+{
+    return member && member != bot && member->IsInMap(bot) && sServerFacade.IsAlive(member) &&
+        sServerFacade.GetDistance2d(bot, member) <= sPlayerbotAIConfig.sightDistance;
+}
+
+bool PlayerbotAI::IsTeamInCombatNearby() const
+{
+    if (sServerFacade.IsInCombat(bot))
+        return true;
+
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (IsNearbyMember(ref->getSource()) && sServerFacade.IsInCombat(ref->getSource()))
+                return true;
+
+    return false;
+}
+
+void PlayerbotAI::RebuildTeamCombat()
+{
+    teamInCombat = IsTeamInCombatNearby();
+    teamAttackers.clear();
+    ++teamAttackersVersion;
+
+    // victim: the player the links count for (the unit itself or its owner, like Unit::GetBeneficiaryPlayer); the
+    // same links Unit::BroadcastAttackerLink reports: threat list entries and melee attackers
+    auto addAttackersOf = [this](Unit* unit, ObjectGuid victim)
+    {
+        if (!unit)
+            return;
+
+        for (HostileReference* ref = unit->getHostileRefManager().getFirst(); ref; ref = ref->next())
+            if (Unit* attacker = ref->getSource()->getOwner())
+                AddTeamAttacker(attacker, victim);
+
+        for (Unit* attacker : unit->getAttackers())
+            AddTeamAttacker(attacker, victim);
+    };
+
+    addAttackersOf(bot, bot->GetObjectGuid());
+    addAttackersOf(bot->GetPet(), bot->GetObjectGuid());
+
+    if (Group* group = bot->GetGroup())
+    {
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->getSource();
+            if (!IsNearbyMember(member))
+                continue;
+
+            addAttackersOf(member, member->GetObjectGuid());
+            addAttackersOf(member->GetPet(), member->GetObjectGuid());
+        }
+    }
+}
+
+void PlayerbotAI::UpdateCombatState()
+{
+    if (IsTeamFighting())
+    {
+        if (IsInStateType(HLSStateType::NonCombat))
+            OnCombatStarted();
+    }
+    else if (IsInStateType(HLSStateType::Combat))
+    {
+        OnCombatEnded();
+    }
+}
+
+void PlayerbotAI::HandleCombatStarted(ObjectGuid /*self*/)
+{
+    teamInCombat = true;
+    UpdateCombatState();
+}
+
+void PlayerbotAI::HandleMemberCombatStarted(ObjectGuid /*self*/, Player* member)
+{
+    if (!IsNearbyMember(member))
+        return;
+
+    teamInCombat = true;
+    UpdateCombatState();
+}
+
+void PlayerbotAI::HandleCombatEnded(ObjectGuid /*self*/)
+{
+    teamInCombat = IsTeamInCombatNearby();
+    // the fight is over around the bot: read the links from the core once, drops any the events missed
+    if (!teamInCombat)
+        RebuildTeamCombat();
+    UpdateCombatState();
+}
+
+void PlayerbotAI::HandleMemberCombatEnded(ObjectGuid /*self*/, Player* /*member*/)
+{
+    teamInCombat = IsTeamInCombatNearby();
+    UpdateCombatState();
+}
+
+void PlayerbotAI::AddTeamAttacker(Unit* attacker, ObjectGuid victim)
+{
+    ++teamAttackers[attacker->GetObjectGuid()][victim];
+    ++teamAttackersVersion;
+}
+
+void PlayerbotAI::RemoveTeamAttacker(Unit* attacker, ObjectGuid victim)
+{
+    // only links that were counted: a member out of range when the link was added was skipped
+    auto itr = teamAttackers.find(attacker->GetObjectGuid());
+    if (itr == teamAttackers.end())
+        return;
+
+    auto victimItr = itr->second.find(victim);
+    if (victimItr == itr->second.end())
+        return;
+
+    if (--victimItr->second == 0)
+        itr->second.erase(victimItr);
+    if (itr->second.empty())
+        teamAttackers.erase(itr);
+    ++teamAttackersVersion;
+}
+
+void PlayerbotAI::HandleAttackerAdded(ObjectGuid self, Unit* attacker)
+{
+    AddTeamAttacker(attacker, self);
+    UpdateCombatState();
+}
+
+void PlayerbotAI::HandleMemberAttackerAdded(ObjectGuid /*self*/, Player* member, Unit* attacker)
+{
+    if (!IsNearbyMember(member))
+        return;
+
+    AddTeamAttacker(attacker, member->GetObjectGuid());
+    UpdateCombatState();
+}
+
+void PlayerbotAI::HandleAttackerRemoved(ObjectGuid self, Unit* attacker)
+{
+    RemoveTeamAttacker(attacker, self);
+    UpdateCombatState();
+}
+
+void PlayerbotAI::HandleMemberAttackerRemoved(ObjectGuid /*self*/, Player* member, Unit* attacker)
+{
+    // not range checked: a link counted while the member was near is removed wherever it is now
+    RemoveTeamAttacker(attacker, member->GetObjectGuid());
+    UpdateCombatState();
+}
+
+void PlayerbotAI::HandleDied(ObjectGuid /*self*/)
+{
+    OnDeath();
+}
+
+void PlayerbotAI::HandleResurrected(ObjectGuid /*self*/)
+{
+    OnResurrected();
+    // the fight may still go on around the bot
+    RebuildTeamCombat();
+    UpdateCombatState();
 }
 
 void PlayerbotAI::HandleCommands()

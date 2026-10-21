@@ -38,6 +38,10 @@ namespace ai
 		float GetValue() override;
 
     protected:
+        // in [minValue, maxValue): for the bot itself from its health conditions (kept by the core's health change
+        // broadcasts, PlayerbotAI::GetSelfThresholds), for other targets from the "health" value
+        bool IsHealthInRange();
+
         bool isTankRequired;
 	};
 

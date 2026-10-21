@@ -4,6 +4,7 @@
 #include "playerbot/strategy/values/AttackersValue.h"
 #include "PullActions.h"
 #include "playerbot/strategy/values/PositionValue.h"
+#include "Groups/TeamSubsystem.h"
 
 using namespace ai;
 
@@ -54,8 +55,9 @@ bool PullRequestAction::Execute(Event& event)
 
     strategy->RequestPull(target);
 
-    // Force change combat state to have a faster reaction time
-    ai->OnCombatStarted();
+    // Force change combat state to have a faster reaction time (the bot and its group members near it)
+    if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
+        teams->BroadcastCombatStarted(bot);
 
     return true;
 }
