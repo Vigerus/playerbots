@@ -17,6 +17,12 @@ void StateMachine::RegisterNode(std::unique_ptr<IStateNode> node, bool bInitial)
     {
         auto inserted = nodes.emplace(type, std::move(node));
 
+        if (type == HLSStateType::Reaction)
+        {
+            reactionNode = inserted.first->second.get();
+            reactionChecker = dynamic_cast<IReactionChecker*>(reactionNode);
+        }
+
         if (bInitial)
         {
             initial = inserted.first->second.get();
@@ -118,29 +124,26 @@ void StateMachine::Update(uint32 elapsed, bool minimal)
         bInitialized = true;
     }
 
-    if (IStateNode* reactionNode = FindNode(HLSStateType::Reaction))
+    if (reactionChecker)
     {
-        if (IReactionChecker* checker = dynamic_cast<IReactionChecker*>(reactionNode))
+        TRACE_CPU_PROFILER_ENTRY_SCOPE(StateMachine::Update::Reaction);
+        if (active != reactionNode)
         {
-            if (active != reactionNode)
+            if (reactionChecker->ShouldEnterReaction())
             {
-                if (checker->ShouldEnterReaction())
-                {
-                    PreemptTo(HLSStateType::Reaction);
-                }
+                PreemptTo(HLSStateType::Reaction);
             }
-            else
+        }
+        else
+        {
+            if (!reactionChecker->IsReacting())
             {
-                if (!checker->IsReacting())
-                {
-                    ResumePrevious();
-                }
+                ResumePrevious();
             }
         }
     }
 
-    CCLOG_TRACE(m_logger) << "[UPDATE] " << active->GetName();
-
+    // no per tick trace: with TRACE on (root logger) it was a log file write per bot and tick; transitions are logged
     active->Update(elapsed, minimal);
 }
 

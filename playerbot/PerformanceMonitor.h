@@ -57,6 +57,8 @@ class PerformanceMonitor
         }
 
     public:
+        // sPlayerbotAIConfig.perfMonEnabled: per tick call sites build the name only when it is
+        bool IsEnabled() const;
         std::unique_ptr<PerformanceMonitorOperation> start(PerformanceMetric metric, std::string name, PerformanceStack* stack = nullptr);
         std::unique_ptr<PerformanceMonitorOperation> start(PerformanceMetric metric, std::string name, PlayerbotAI* ai);
         void PrintStats(bool perTick = false,  bool fullStack = false);

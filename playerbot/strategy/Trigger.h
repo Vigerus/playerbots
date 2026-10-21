@@ -35,6 +35,14 @@ namespace ai
         }
         virtual bool IsActive() { return false; }
         virtual bool IsAlreadyTriggered() { return triggered; }
+        // fires only through ExternalEvent (chat commands, packets): the engine checks it only once triggered
+        virtual bool IsEventDriven() const { return false; }
+        // reads only the bot's own health / power conditions (PlayerbotAI::GetSelfThresholds): the reaction engine
+        // wakes on their switches instead of checking it
+        virtual bool IsResourceDriven() { return false; }
+        // any other trigger: the reaction engine checks it at least this often, 250ms; with a check interval (whole
+        // seconds, needCheck) every second, needCheck still lets it through once per interval
+        virtual uint32 GetPollIntervalMs() const { return checkInterval >= 2 ? 1000 : 250; }
         virtual NextAction** getHandlers() { return NULL; }
         void Update() {}  //Nonfunctional see AiObjectContext::Update() to enable.
         virtual void Reset() { triggered = false; }

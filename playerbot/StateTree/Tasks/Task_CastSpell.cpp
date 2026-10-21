@@ -29,10 +29,12 @@ namespace
     }
 
     // spellid="..." of the <Task>: a spell id, or the name of a spell (lower case) with the first spell of that name
+    // and every spell of that name, highest rank first
     struct ParsedSpell
     {
         uint32 spellId = 0;
         std::string spellName;
+        std::vector<uint32> namedSpells;
     };
 
     ParsedSpell ParseSpell(const STAI_TaskConfig& config)
@@ -49,13 +51,20 @@ namespace
             return { spellId, "" };
         }
 
-        const std::string name = ToLower(value);
+        ParsedSpell spell;
+        spell.spellName = ToLower(value);
         for (uint32 id = 1; id < sSpellTemplate.GetMaxEntry(); ++id)
             if (const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(id))
-                if (ToLower(spellInfo->SpellName[0]) == name)
-                    return { id, name };
+                if (ToLower(spellInfo->SpellName[0]) == spell.spellName)
+                    spell.namedSpells.push_back(id);
 
-        throw std::runtime_error("spellid=\"" + value + "\": no spell has that name");
+        if (spell.namedSpells.empty())
+            throw std::runtime_error("spellid=\"" + value + "\": no spell has that name");
+
+        spell.spellId = spell.namedSpells.front();
+        // stable: spells of the same rank keep their id order
+        std::stable_sort(spell.namedSpells.begin(), spell.namedSpells.end(), [](uint32 a, uint32 b) { return sSpellMgr.GetSpellRank(a) > sSpellMgr.GetSpellRank(b); });
+        return spell;
     }
 }
 
@@ -67,7 +76,7 @@ void Task_CastSpell::Validate(const STAI_TaskConfig& config)
 std::unique_ptr<STAI_Task> Task_CastSpell::Create(const STAI_TaskConfig& config)
 {
     const ParsedSpell spell = ParseSpell(config);
-    return std::make_unique<Task_CastSpell>(spell.spellId, spell.spellName);
+    return std::make_unique<Task_CastSpell>(spell.spellId, spell.spellName, spell.namedSpells);
 }
 
 uint32 Task_CastSpell::ResolveSpell(const Player* bot) const
@@ -75,20 +84,11 @@ uint32 Task_CastSpell::ResolveSpell(const Player* bot) const
     if (spellName.empty())
         return bot->HasSpell(spellId) ? spellId : 0;
 
-    uint32 best = 0;
-    for (const auto& [id, spell] : bot->GetSpellMap())
-    {
-        if (spell.state == PLAYERSPELL_REMOVED || spell.disabled)
-            continue;
-
-        const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(id);
-        if (!spellInfo || ToLower(spellInfo->SpellName[0]) != spellName)
-            continue;
-
-        if (!best || sSpellMgr.GetSpellRank(id) > sSpellMgr.GetSpellRank(best))
-            best = id;
-    }
-    return best;
+    // the highest rank the bot knows (HasSpell: learned, not removed or disabled)
+    for (uint32 id : namedSpells)
+        if (bot->HasSpell(id))
+            return id;
+    return 0;
 }
 
 void Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const

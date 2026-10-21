@@ -10,6 +10,7 @@
 #include "Groups/Group.h"
 #include "Maps/Map.h"
 
+#include <algorithm>
 #include <list>
 #include <sstream>
 
@@ -21,15 +22,15 @@ namespace
     constexpr uint32 chooseIntervalMs = 250;
 
     // the living units marked with the icons of the bot's rti value, in the value's order
-    std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, const std::string& rtiValue)
+    std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, Value<std::vector<std::string>>* rtiValue)
     {
         std::vector<Unit*> units;
         Player* bot = context.bot;
         Group* group = bot->GetGroup();
-        if (!group)
+        if (!group || !rtiValue)
             return units;
 
-        for (const std::string& icon : context.ai->GetAiObjectContext()->GetValue<std::vector<std::string>>(rtiValue)->Get())
+        for (const std::string& icon : rtiValue->Get())
         {
             const int index = RtiTargetValue::GetRtiIndex(icon);
             if (index < 0)
@@ -47,7 +48,7 @@ namespace
     }
 }
 
-bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, Unit* unit)
+bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, Unit* unit, const std::vector<Unit*>& ccMarks)
 {
     Player* bot = context.bot;
     if (!unit || !unit->IsInWorld() || !sServerFacade.IsAlive(unit) || unit->GetMap() != bot->GetMap())
@@ -58,21 +59,18 @@ bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, U
         return false;
 
     // the bot's own crowd-control mark is left for CC
-    for (Unit* ccMark : GetMarkedUnits(context, "rti cc"))
-        if (ccMark == unit)
-            return false;
-    return true;
+    return std::find(ccMarks.begin(), ccMarks.end(), unit) == ccMarks.end();
 }
 
-Unit* TargetProvider_GlobalTask::FindMarkedTarget(const STAI_TaskContext& context)
+Unit* TargetProvider_GlobalTask::FindMarkedTarget(const TargetProvider_GlobalTaskContext& context, const std::vector<Unit*>& ccMarks)
 {
-    for (Unit* unit : GetMarkedUnits(context, "rti"))
-        if (IsValidTarget(context, unit))
+    for (Unit* unit : GetMarkedUnits(context, context.rtiValue))
+        if (IsValidTarget(context, unit, ccMarks))
             return unit;
     return nullptr;
 }
 
-Unit* TargetProvider_GlobalTask::FindAssistTarget(const STAI_TaskContext& context)
+Unit* TargetProvider_GlobalTask::FindAssistTarget(const STAI_TaskContext& context, const std::vector<Unit*>& ccMarks)
 {
     // the value caches its list (the expensive part: units around the bot, its group and master)
     const std::list<ObjectGuid> attackers = context.ai->GetAiObjectContext()->GetValue<std::list<ObjectGuid>>("possible attack targets")->Get();
@@ -81,7 +79,7 @@ Unit* TargetProvider_GlobalTask::FindAssistTarget(const STAI_TaskContext& contex
     for (const ObjectGuid& guid : attackers)
     {
         Unit* unit = context.ai->GetUnit(guid);
-        if (!unit || unit->IsPlayer() || !IsValidTarget(context, unit))
+        if (!unit || unit->IsPlayer() || !IsValidTarget(context, unit, ccMarks))
             continue;
         if (!best || unit->GetHealth() < best->GetHealth())
             best = unit;
@@ -111,8 +109,11 @@ void TargetProvider_GlobalTask::Update(TargetProvider_GlobalTaskContext& context
         return;
     }
 
+    // the bot's crowd-control marks, once per update (no group: none)
+    const std::vector<Unit*> ccMarks = GetMarkedUnits(context, context.rtiCcValue);
+
     Unit* current = context.target.IsEmpty() ? nullptr : bot->GetMap()->GetUnit(context.target);
-    const bool currentValid = current && IsValidTarget(context, current);
+    const bool currentValid = current && IsValidTarget(context, current, ccMarks);
 
     // the current target stays until the next choice, unless it died / got crowd-controlled
     if (!choose && (currentValid || !current))
@@ -124,7 +125,7 @@ void TargetProvider_GlobalTask::Update(TargetProvider_GlobalTaskContext& context
     }
 
     // a living mark always wins
-    if (Unit* marked = FindMarkedTarget(context))
+    if (Unit* marked = FindMarkedTarget(context, ccMarks))
     {
         SetTarget(context, marked, true);
         return;
@@ -133,7 +134,7 @@ void TargetProvider_GlobalTask::Update(TargetProvider_GlobalTaskContext& context
     // without marks: keep a valid fallback target, else the dps assist choice
     if (currentValid && !context.marked)
         return;
-    SetTarget(context, FindAssistTarget(context), false);
+    SetTarget(context, FindAssistTarget(context, ccMarks), false);
 }
 
 void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
@@ -143,6 +144,9 @@ void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
     context.target.Clear();
     context.marked = false;
     context.sinceCheckMs = 0;
+    AiObjectContext* aiObjectContext = context.ai->GetAiObjectContext();
+    context.rtiValue = aiObjectContext->GetValue<std::vector<std::string>>("rti");
+    context.rtiCcValue = aiObjectContext->GetValue<std::vector<std::string>>("rti cc");
     Update(context, true);
 }
 

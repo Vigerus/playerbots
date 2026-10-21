@@ -121,22 +121,32 @@ bool PossibleAttackTargetsValue::HasBreakableCC(Unit* target, Player* player)
         return true;
     }
 
-    PlayerbotAI* ai = player->GetPlayerbotAI();
-    if (ai)
+    // sap, gouge, shackle undead: their spell ids (every rank) looked up once, checked against the unit's auras
+    static const std::vector<uint32> breakableCCSpells = []()
     {
-        if (ai->HasAura("sap", target))
+        std::vector<uint32> spells;
+        for (const char* name : { "sap", "gouge", "shackle undead" })
+        {
+            const std::vector<uint32> ids = ChatHelper::SpellIds(name);
+            spells.insert(spells.end(), ids.begin(), ids.end());
+        }
+        return spells;
+    }();
+
+    for (uint32 spellId : breakableCCSpells)
+    {
+        if (target->HasAura(spellId))
         {
             return true;
         }
+    }
 
-        if (ai->HasAura("gouge", target))
+    // spell list not known (empty spell name table): by name, as before
+    if (breakableCCSpells.empty())
+    {
+        if (PlayerbotAI* ai = player->GetPlayerbotAI())
         {
-            return true;
-        }
-
-        if (ai->HasAura("shackle undead", target))
-        {
-            return true;
+            return ai->HasAura("sap", target) || ai->HasAura("gouge", target) || ai->HasAura("shackle undead", target);
         }
     }
 

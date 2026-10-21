@@ -69,6 +69,8 @@ namespace ai
         Engine(PlayerbotAI* ai, AiObjectContext *factory, BotState state);
 
 	    void Init();
+        // counts the Init calls: changes whenever the strategies (and so the triggers) changed
+        uint32 GetInitCount() const { return initCount; }
         void addStrategy(const std::string& name);
 		void addStrategies(std::string first, ...);
         bool removeStrategy(const std::string& name, bool init = true);
@@ -141,6 +143,7 @@ namespace ai
     protected:
 	    Queue queue;
 	    std::list<TriggerNode*> triggers;
+        uint32 initCount = 0;
         std::list<Multiplier*> multipliers;
         AiObjectContext* aiObjectContext;
         std::map<std::string, Strategy*> strategies;

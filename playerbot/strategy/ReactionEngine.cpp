@@ -3,6 +3,7 @@
 #include "Log/LogHelper.h"
 
 #include "ReactionEngine.h"
+#include "World/ProfilingSubsystem.h"
 #include <iomanip>
 
 using namespace ai;
@@ -28,11 +29,52 @@ bool Reaction::Update(uint32 elapsed)
     return !IsActive();
 }
 
+namespace
+{
+    // a fired trigger whose reaction could not be done (cooldown, not useful yet) is checked again this soon
+    constexpr uint32 reactionRetryMs = 500;
+}
+
 ReactionEngine::ReactionEngine(PlayerbotAI* ai, AiObjectContext* factory, BotState engineState) 
 : Engine(ai, factory, engineState)
 , aiReactionUpdateDelay(0U)
 {
-    
+    // the flag, not the engine, is captured: the thresholds may outlive the engine
+    std::shared_ptr<std::atomic<bool>> wake = wakeUp;
+    ai->GetSelfThresholds().onAnySwitched.AddLambda([wake](bool /*active*/) { wake->store(true); });
+}
+
+bool ReactionEngine::NeedsReactionCheck(uint32 now)
+{
+    if (wakeUp->exchange(false))
+        return true;
+    if (GetInitCount() != checkedInitCount || aiObjectContext->GetExternalEventCount() != checkedExternalEvents)
+        return true;
+    if (ai->HasPendingCommands())
+        return true;
+    return hasNextCheck && int32(now - nextCheckMs) >= 0;
+}
+
+void ReactionEngine::ScheduleNextCheck(uint32 now, bool hadCandidates)
+{
+    checkedInitCount = GetInitCount();
+    checkedExternalEvents = aiObjectContext->GetExternalEventCount();
+
+    // reactions left in the queue (iteration limit): the next tick goes on
+    uint32 delay = queue.Size() ? 0 : 0xFFFFFFFF;
+    if (hadCandidates && !incomingReaction.IsValid())
+        delay = std::min(delay, reactionRetryMs);
+
+    // the triggers that have no event
+    for (TriggerNode* node : triggers)
+    {
+        Trigger* trigger = node ? node->getTrigger() : nullptr;
+        if (trigger && !trigger->IsEventDriven() && !trigger->IsResourceDriven())
+            delay = std::min(delay, trigger->GetPollIntervalMs());
+    }
+
+    hasNextCheck = delay != 0xFFFFFFFF;
+    nextCheckMs = now + (hasNextCheck ? delay : 0);
 }
 
 bool ReactionEngine::FindReaction(bool isStunned)
@@ -40,12 +82,24 @@ bool ReactionEngine::FindReaction(bool isStunned)
     // Don't find a new reaction if the previous reaction is still running
     if (!IsReacting())
     {
-        aiObjectContext->Update();
+        const uint32 now = WorldTimer::getMSTime();
+        if (!NeedsReactionCheck(now))
+            return false;
 
-        ai->HandleCommands();
+        TRACE_CPU_PROFILER_ENTRY_SCOPE(ReactionEngine::FindReaction);
+        {
+            TRACE_CPU_PROFILER_ENTRY_SCOPE(AiObjectContext::Update);
+            aiObjectContext->Update();
+        }
+
+        {
+            TRACE_CPU_PROFILER_ENTRY_SCOPE(PlayerbotAI::HandleCommands);
+            ai->HandleCommands();
+        }
 
         // This will populate the queue to be processed with the reactions that can be triggered
         ProcessTriggers(false);
+        const bool hadCandidates = queue.Size() > 0;
 
         ActionBasket* reactionItem = NULL;
 
@@ -126,6 +180,7 @@ bool ReactionEngine::FindReaction(bool isStunned)
         // Remove the expired reactions
         queue.RemoveExpired();
 
+        ScheduleNextCheck(now, hadCandidates);
         return incomingReaction.IsValid();
     }
 
@@ -300,6 +355,8 @@ void ReactionEngine::Reset()
     ongoingReaction.Reset();
     incomingReaction.Reset();
     aiReactionUpdateDelay = 0U;
+    // looked for again on the next update
+    wakeUp->store(true);
 }
 
 bool ReactionEngine::CanUpdateAIReaction() const

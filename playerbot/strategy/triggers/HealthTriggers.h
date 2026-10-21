@@ -1,6 +1,7 @@
 #pragma once
 #include "playerbot/strategy/Trigger.h"
 #include "playerbot/PlayerbotAIConfig.h"
+#include "Entities/UnitResourceThresholds.h"
 
 namespace ai
 {
@@ -36,6 +37,8 @@ namespace ai
 
         bool IsActive() override;
 		float GetValue() override;
+        // the bot's own health, without health prediction (preheal reads the incoming damage)
+        bool IsResourceDriven() override;
 
     protected:
         // in [minValue, maxValue): for the bot itself from its health conditions (kept by the core's health change
@@ -43,6 +46,12 @@ namespace ai
         bool IsHealthInRange();
 
         bool isTankRequired;
+
+    private:
+        // looked up on the first check: whether the target is the bot itself, and its two health conditions
+        int8 selfTarget = -1;
+        UnitResourceThresholds::Condition* belowMax = nullptr;
+        UnitResourceThresholds::Condition* atLeastMin = nullptr;
 	};
 
     class LowHealthTrigger : public HealthInRangeTrigger

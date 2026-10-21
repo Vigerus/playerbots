@@ -101,6 +101,7 @@ void Engine::Reset()
 
 void Engine::Init()
 {
+    ++initCount;
     Reset();
 
     for (std::map<std::string, Strategy*>::iterator i = strategies.begin(); i != strategies.end(); i++)
@@ -647,11 +648,15 @@ void Engine::ProcessTriggers(bool minimal)
         if (!trigger)
             continue;
 
+        // chat command / packet triggers have nothing to check until their event arrived
+        if (!testMode && trigger->IsEventDriven() && !trigger->IsAlreadyTriggered())
+            continue;
+
         if (testMode || trigger->IsAlreadyTriggered() || trigger->needCheck())
         {
             if (minimal && node->getFirstRelevance() < 100)
                 continue;
-            auto pmo = sPerformanceMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
+            auto pmo = sPerformanceMonitor.IsEnabled() ? sPerformanceMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack) : nullptr;
             // per trigger: its check and the actions it pushes
             TRACE_CPU_PROFILER_STAT_SCOPE(trigger->GetProfilingStat("T: "));
             Event event = trigger->Check();
@@ -833,21 +838,17 @@ bool Engine::ListenAndExecute(Action* action, Event& event)
 void Engine::LogAction(const char* format, ...)
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Engine::LogAction);
+
+    // nothing records it (no test log, detail level off, or only bots in groups are logged): not formatted at all
+    if (!testMode && (!sLog.HasLogLevelOrHigher(LOG_LVL_DETAIL) || (sPlayerbotAIConfig.logInGroupOnly && !ai->GetBot()->GetGroup())))
+        return;
+
     char buf[1024];
 
     va_list ap;
     va_start(ap, format);
-    vsprintf(buf, format, ap);
+    vsnprintf(buf, sizeof(buf), format, ap);
     va_end(ap);
-    std::string lastAction = GetLastAction();
-    lastAction += "|";
-    lastAction += buf;
-    if (lastAction.size() > 512)
-    {
-        lastAction = lastAction.substr(512);
-        size_t pos = lastAction.find("|");
-        lastAction = (pos == std::string::npos ? "" : lastAction.substr(pos));
-    }
 
     if (testMode)
     {
@@ -858,11 +859,7 @@ void Engine::LogAction(const char* format, ...)
     }
     else
     {
-        Player* bot = ai->GetBot();
-        if (sPlayerbotAIConfig.logInGroupOnly && !bot->GetGroup())
-            return;
-
-        sLog.outDetail( "%s %s", bot->GetName(), buf);
+        sLog.outDetail("%s %s", ai->GetBot()->GetName(), buf);
     }
 }
 

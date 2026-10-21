@@ -39,7 +39,8 @@ namespace ai
     class Task_CastSpell : public STAI_Task
     {
     public:
-        Task_CastSpell(uint32 spellId, const std::string& spellName) : spellId(spellId), spellName(spellName) {}
+        Task_CastSpell(uint32 spellId, const std::string& spellName, std::vector<uint32> namedSpells = {})
+            : spellId(spellId), spellName(spellName), namedSpells(std::move(namedSpells)) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -66,5 +67,6 @@ namespace ai
 
         uint32 spellId;             // the configured spell id, or the first spell of the configured name
         std::string spellName;      // lower case, empty when configured by id: by name the bot's highest rank is cast
+        std::vector<uint32> namedSpells;    // by name: every spell of that name, highest rank first (found once at load)
     };
 }

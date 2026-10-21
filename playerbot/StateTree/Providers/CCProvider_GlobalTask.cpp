@@ -59,16 +59,15 @@ std::unique_ptr<STAI_Task> CCProvider_GlobalTask::Create(const STAI_TaskConfig& 
     return std::make_unique<CCProvider_GlobalTask>(ParseAuras(config));
 }
 
-std::vector<Unit*> CCProvider_GlobalTask::GetMarkedUnits(const STAI_TaskContext& context, const std::string& rtiValue)
+std::vector<Unit*> CCProvider_GlobalTask::GetMarkedUnits(const STAI_TaskContext& context, Value<std::vector<std::string>>* rtiValue)
 {
     std::vector<Unit*> units;
     Player* bot = context.bot;
     Group* group = bot->GetGroup();
-    if (!group || !bot->IsInWorld())
+    if (!group || !bot->IsInWorld() || !rtiValue)
         return units;
 
-    const std::vector<std::string> icons = context.ai->GetAiObjectContext()->GetValue<std::vector<std::string>>(rtiValue)->Get();
-    for (const std::string& icon : icons)
+    for (const std::string& icon : rtiValue->Get())
     {
         const int index = RtiTargetValue::GetRtiIndex(icon);
         if (index < 0)
@@ -96,17 +95,17 @@ bool CCProvider_GlobalTask::IsCrowdControlled(Unit* unit, Player* bot) const
     return false;
 }
 
-ObjectGuid CCProvider_GlobalTask::FindTarget(const STAI_TaskContext& context) const
+ObjectGuid CCProvider_GlobalTask::FindTarget(const CCProvider_GlobalTaskContext& context) const
 {
     Player* bot = context.bot;
     if (!bot->IsInWorld() || !sServerFacade.IsAlive(bot))
         return ObjectGuid();
 
     // the group kills the first living rti target first: that one is never crowd-controlled
-    const std::vector<Unit*> killOrder = GetMarkedUnits(context, "rti");
+    const std::vector<Unit*> killOrder = GetMarkedUnits(context, context.rtiValue);
     Unit* killFirst = killOrder.empty() ? nullptr : killOrder.front();
 
-    for (Unit* unit : GetMarkedUnits(context, "rti cc"))
+    for (Unit* unit : GetMarkedUnits(context, context.rtiCcValue))
     {
         if (unit == killFirst || unit->IsPlayer())
             continue;
@@ -145,6 +144,9 @@ void CCProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
     context.whoNeeds.clear();
     context.sinceCheckMs = 0;
     context.sinceFireMs = 0;
+    AiObjectContext* aiObjectContext = context.ai->GetAiObjectContext();
+    context.rtiValue = aiObjectContext->GetValue<std::vector<std::string>>("rti");
+    context.rtiCcValue = aiObjectContext->GetValue<std::vector<std::string>>("rti cc");
     Update(context);
 }
 

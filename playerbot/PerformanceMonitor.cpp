@@ -13,6 +13,11 @@ PerformanceMonitor::~PerformanceMonitor()
 {
 }
 
+bool PerformanceMonitor::IsEnabled() const
+{
+    return sPlayerbotAIConfig.perfMonEnabled;
+}
+
 std::unique_ptr<PerformanceMonitorOperation> PerformanceMonitor::start(PerformanceMetric metric, std::string name, PerformanceStack* stack)
 {
    if (!sPlayerbotAIConfig.perfMonEnabled)

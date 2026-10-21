@@ -63,7 +63,7 @@ namespace ai
             {
                 lastCheckTime = now;
 
-                auto pmo = sPerformanceMonitor.start(PERF_MON_VALUE, AiNamedObject::getName(), this->ai);
+                auto pmo = sPerformanceMonitor.IsEnabled() ? sPerformanceMonitor.start(PERF_MON_VALUE, AiNamedObject::getName(), this->ai) : nullptr;
                 TRACE_CPU_PROFILER_STAT_SCOPE(GetProfilingStat("V: "));
                 value = Calculate();
             }
@@ -101,7 +101,7 @@ namespace ai
             {
                 this->lastCheckTime = now;
 
-                auto pmo = sPerformanceMonitor.start(PERF_MON_VALUE, AiNamedObject::getName(), this->ai);
+                auto pmo = sPerformanceMonitor.IsEnabled() ? sPerformanceMonitor.start(PERF_MON_VALUE, AiNamedObject::getName(), this->ai) : nullptr;
                 TRACE_CPU_PROFILER_STAT_SCOPE(this->GetProfilingStat("V: "));
                 this->value = this->Calculate();
             }

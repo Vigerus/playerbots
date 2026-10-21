@@ -11,12 +11,26 @@ float HealthInRangeTrigger::GetValue()
 
 bool HealthInRangeTrigger::IsHealthInRange()
 {
-    if (GetTargetName() != "self target")
+    if (selfTarget < 0)
+        selfTarget = GetTargetName() == "self target" ? 1 : 0;
+    if (!selfTarget)
         return ValueInRangeTrigger::IsActive();
 
-    UnitResourceThresholds& thresholds = ai->GetSelfThresholds();
-    return thresholds.WatchHealth(maxValue, EResourceCompare::Lesser).IsActive() &&
-        thresholds.WatchHealth(minValue, EResourceCompare::GreaterOrEqual).IsActive();
+    // the conditions keep their address for the bot's lifetime
+    if (!belowMax)
+    {
+        UnitResourceThresholds& thresholds = ai->GetSelfThresholds();
+        belowMax = &thresholds.WatchHealth(maxValue, EResourceCompare::Lesser);
+        atLeastMin = &thresholds.WatchHealth(minValue, EResourceCompare::GreaterOrEqual);
+    }
+    return belowMax->IsActive() && atLeastMin->IsActive();
+}
+
+bool HealthInRangeTrigger::IsResourceDriven()
+{
+    if (selfTarget < 0)
+        selfTarget = GetTargetName() == "self target" ? 1 : 0;
+    return selfTarget && !isTankRequired && !ai->HasStrategy("preheal", BotState::BOT_STATE_COMBAT);
 }
 
 bool HealthInRangeTrigger::IsActive()

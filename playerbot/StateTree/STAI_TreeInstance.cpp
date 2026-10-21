@@ -4,6 +4,7 @@
 #include "playerbot/strategy/AiObjectContext.h"
 #include "playerbot/strategy/Trigger.h"
 #include "playerbot/StateTree/STAI_ActivityLog.h"
+#include "World/ProfilingSubsystem.h"
 
 #include <algorithm>
 
@@ -345,6 +346,7 @@ void STAI_TreeInstance::OnFinish()
 
 EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
 {
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(STAI_TreeInstance::OnTick);
     const uint32 now = WorldTimer::getMSTime();
 
     if (!running)

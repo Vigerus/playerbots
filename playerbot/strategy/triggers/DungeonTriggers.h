@@ -83,6 +83,8 @@ namespace ai
         , hazardDuration(hazardDuration) {}
 
         bool IsActive() override final;
+        // standing in it hurts: checked every 250ms by the reaction engine whatever the check interval
+        virtual uint32 GetPollIntervalMs() const override { return 250; }
 
     protected:
         virtual std::list<ObjectGuid> GetPossibleHazards() = 0;

@@ -12,6 +12,8 @@ class Unit;
 
 namespace ai
 {
+    template<class T> class Value;
+
     class CCProvider_GlobalTask;
 
     // runtime context of CCProvider_GlobalTask: the target to crowd-control right now
@@ -26,6 +28,10 @@ namespace ai
 
         uint32 sinceCheckMs = 0;
         uint32 sinceFireMs = 0;
+
+        // the bot's "rti" / "rti cc" values, looked up once on enter
+        Value<std::vector<std::string>>* rtiValue = nullptr;
+        Value<std::vector<std::string>>* rtiCcValue = nullptr;
     };
 
     // Global task that watches the bot's crowd-control marks (its "rti cc" icons, default moon) in the bot's group:
@@ -65,9 +71,9 @@ namespace ai
     private:
         static std::vector<uint32> ParseAuras(const STAI_TaskConfig& config);
         // the living units marked with the icons of the bot's rti value (rti / rti cc), in the value's order
-        static std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, const std::string& rtiValue);
+        static std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, Value<std::vector<std::string>>* rtiValue);
         bool IsCrowdControlled(Unit* unit, Player* bot) const;
-        ObjectGuid FindTarget(const STAI_TaskContext& context) const;
+        ObjectGuid FindTarget(const CCProvider_GlobalTaskContext& context) const;
         void Update(CCProvider_GlobalTaskContext& context) const;
 
         std::vector<uint32> auras;  // first ranks

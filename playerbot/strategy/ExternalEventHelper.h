@@ -74,6 +74,7 @@ namespace ai
 
             WorldPacket p(packet);
             trigger->ExternalEvent(p, owner);
+            aiObjectContext->OnExternalEvent();
 
             return true;
         }
@@ -88,6 +89,7 @@ namespace ai
                 trigger->ExternalEvent(param, owner);
             else
                 trigger->ExternalEventForce(param, owner);
+            aiObjectContext->OnExternalEvent();
             return true;
         }
 

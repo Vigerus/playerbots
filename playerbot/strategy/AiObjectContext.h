@@ -106,7 +106,13 @@ namespace ai
         void Load(std::list<std::string> data);
 
         std::vector<std::string> performanceStack;
+
+        // counts the triggers fired by chat commands and packets (ExternalEventHelper): the reaction engine looks
+        // for a reaction when it changed
+        uint32 GetExternalEventCount() const { return externalEventCount; }
+        void OnExternalEvent() { ++externalEventCount; }
     protected:
+        uint32 externalEventCount = 0;
         NamedObjectContextList<Strategy> strategyContexts;
         NamedObjectContextList<Action> actionContexts;
         NamedObjectContextList<Trigger> triggerContexts;

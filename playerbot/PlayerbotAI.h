@@ -377,6 +377,8 @@ public:
     virtual void UpdateAI(uint32 elapsed, bool minimal = false);
 
     void HandleCommands();
+    // chat commands waiting for HandleCommands (also delayed ones)
+    bool HasPendingCommands() const { return !chatCommands.empty(); }
 //private:
     virtual bool UpdateAIInternal(uint32 elapsed, bool minimal = false) override;
 

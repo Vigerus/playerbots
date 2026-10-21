@@ -586,6 +586,7 @@ namespace ai
 		LowManaTrigger(PlayerbotAI* ai) : Trigger(ai, "low mana") {}
 
 		virtual bool IsActive() override;
+		virtual bool IsResourceDriven() override { return true; }
 	};
 
 	class MediumManaTrigger : public Trigger
@@ -594,6 +595,7 @@ namespace ai
 		MediumManaTrigger(PlayerbotAI* ai) : Trigger(ai, "medium mana") {}
 
 		virtual bool IsActive() override;
+		virtual bool IsResourceDriven() override { return true; }
 	};
 
     class HighManaTrigger : public Trigger
@@ -602,6 +604,7 @@ namespace ai
         HighManaTrigger(PlayerbotAI* ai) : Trigger(ai, "high mana") {}
 
         virtual bool IsActive() override;
+        virtual bool IsResourceDriven() override { return true; }
     };
 
     class AlmostFullManaTrigger : public Trigger
@@ -610,6 +613,7 @@ namespace ai
         AlmostFullManaTrigger(PlayerbotAI* ai) : Trigger(ai, "almost full mana") {}
 
         virtual bool IsActive() override;
+        virtual bool IsResourceDriven() override { return true; }
     };
 
     BEGIN_TRIGGER(PanicTrigger, Trigger)
@@ -1295,6 +1299,8 @@ namespace ai
     {
     public:
         DispelEnrageOnTargetTrigger(PlayerbotAI* ai, std::string name = "dispel enrage") : DispelOnTargetTrigger(ai, name, DISPEL_ENRAGE) {}
+        // the target's auras: no event, checked twice a second by the reaction engine
+        virtual uint32 GetPollIntervalMs() const override { return 500; }
     };
 
     class RtscJumpTrigger : public Trigger

@@ -12,6 +12,8 @@ class Unit;
 
 namespace ai
 {
+    template<class T> class Value;
+
     // runtime context of TargetProvider_GlobalTask: the bot's target
     struct TargetProvider_GlobalTaskContext : public STAI_TaskContext
     {
@@ -25,6 +27,10 @@ namespace ai
         bool marked = false;        // target is an rti mark (not the fallback)
 
         uint32 sinceCheckMs = 0;
+
+        // the bot's "rti" / "rti cc" values, looked up once on enter
+        Value<std::vector<std::string>>* rtiValue = nullptr;
+        Value<std::vector<std::string>>* rtiCcValue = nullptr;
     };
 
     // Global task that picks the unit the bot attacks:
@@ -57,10 +63,10 @@ namespace ai
 
 
     private:
-        // alive, hostile, in sight, not crowd-controlled, not a crowd-control mark of the bot
-        static bool IsValidTarget(const STAI_TaskContext& context, Unit* unit);
-        static Unit* FindMarkedTarget(const STAI_TaskContext& context);
-        static Unit* FindAssistTarget(const STAI_TaskContext& context);
+        // alive, hostile, in sight, not crowd-controlled, not one of the bot's crowd-control marks (ccMarks)
+        static bool IsValidTarget(const STAI_TaskContext& context, Unit* unit, const std::vector<Unit*>& ccMarks);
+        static Unit* FindMarkedTarget(const TargetProvider_GlobalTaskContext& context, const std::vector<Unit*>& ccMarks);
+        static Unit* FindAssistTarget(const STAI_TaskContext& context, const std::vector<Unit*>& ccMarks);
         static void SetTarget(TargetProvider_GlobalTaskContext& context, Unit* unit, bool marked);
         void Update(TargetProvider_GlobalTaskContext& context, bool choose) const;
     };

@@ -437,9 +437,7 @@ bool StateNode_Reaction::UpdateAIReaction(StateNode_ReactionContext& context, ui
     ReactionEngine* reactionEngine = context.reactionEngine.get();
 
     bool reactionFound;
-    std::string mapString = WorldPosition(context.bot).isInstance() ? "I" : std::to_string(context.bot->GetMapId());
-
-    auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIReaction " + mapString);
+    auto pmo = sPerformanceMonitor.IsEnabled() ? sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIReaction " + (WorldPosition(context.bot).isInstance() ? std::string("I") : std::to_string(context.bot->GetMapId()))) : nullptr;
 
     const bool reactionInProgress = reactionEngine->Update(elapsed, minimal, isStunned, reactionFound);
     //const bool reactionInProgress = dynamic_cast<ai::ReactionEngine*>(ai->engines[(uint8)BotState::BOT_STATE_REACTION].get())->Update(elapsed, minimal, isStunned, reactionFound);

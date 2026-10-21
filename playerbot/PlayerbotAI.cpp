@@ -311,8 +311,7 @@ PlayerbotAI::~PlayerbotAI()
 void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 {
     AiObjectContext* context = aiObjectContext;
-    std::string mapString = WorldPosition(bot).isInstance() ? "I" :  std::to_string(bot->GetMapId());
-    auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAI " + mapString);
+    auto pmo = sPerformanceMonitor.IsEnabled() ? sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAI " + (WorldPosition(bot).isInstance() ? std::string("I") : std::to_string(bot->GetMapId()))) : nullptr;
     
     if(aiInternalUpdateDelay > elapsed)
     {
@@ -1294,8 +1293,7 @@ bool PlayerbotAI::UpdateAIInternal(uint32 elapsed, bool minimal)
     if (bot->IsBeingTeleported() || !bot->IsInWorld())
         return false;
 
-    std::string mapString = WorldPosition(bot).isInstance() ? "I" : std::to_string(bot->GetMapId());
-    auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIInternal " + mapString);
+    auto pmo = sPerformanceMonitor.IsEnabled() ? sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIInternal " + (WorldPosition(bot).isInstance() ? std::string("I") : std::to_string(bot->GetMapId()))) : nullptr;
 
     ExternalEventHelper helper(aiObjectContext);
 

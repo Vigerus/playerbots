@@ -46,5 +46,7 @@ namespace ai
     private:
         HLSStateType state;
         STAI_TreeInstance tree;
+        // the reaction checker of a task of the tree (its context lives as long as the tree), nullptr when none
+        IReactionChecker* reactionChecker = nullptr;
     };
 }

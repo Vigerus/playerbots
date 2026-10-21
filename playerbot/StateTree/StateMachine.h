@@ -56,6 +56,10 @@ namespace ai
     private:
         log4cxx::LoggerPtr m_logger;
 
+        // the Reaction node and its checker, resolved when it is registered (nullptr without one)
+        IStateNode* reactionNode = nullptr;
+        IReactionChecker* reactionChecker = nullptr;
+
         bool bInitialized = false;
         uint32 activeSinceMs = 0;
         STAI_ActivityLog activityLog;

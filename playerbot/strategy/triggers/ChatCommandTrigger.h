@@ -15,6 +15,8 @@ namespace ai
             triggered = true;
         }
 
+        virtual bool IsEventDriven() const override { return true; }
+
         virtual Event Check()
         {
             if (!triggered)
