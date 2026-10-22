@@ -1425,6 +1425,15 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
         // deprecated/snapshots/playerbot/PlayerbotAI.cpp
         return;
     }
+    case SMSG_TRADE_STATUS:
+    {
+        WorldPacket p(packet);
+        p.rpos(0);
+        uint32 status;
+        p >> status;
+        onTradeStatus.Broadcast(status);
+        return;
+    }
     case SMSG_MOVE_KNOCK_BACK:
     {
         // TODO(strategy): knockbacks were simulated with the legacy JumpAction::CalculateJumpParameters (landing

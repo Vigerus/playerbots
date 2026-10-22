@@ -224,6 +224,9 @@ namespace ai
         virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const { return status == EActionRunStatus::Succeeded; }
         // tasks that log their own entries or none (subtrees, global tasks) return false
         virtual bool LogsActivity() const { return true; }
+        // the task's runs get History entries; <Task class="..." show_log="false"> switches them off (e.g. an idle
+        // Task_Wait that only waits for transitions)
+        bool bShowLog = true;
         // a run right after a run of the same task (same info, same node) is merged into its History entry (one
         // entry counting the runs, e.g. Task_Wait); false gives every run its own entry (each cast of Task_CastSpell)
         virtual bool AreConsecutiveLogsStacked() const { return true; }

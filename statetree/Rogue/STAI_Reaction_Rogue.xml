@@ -1,11 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Reaction state tree for Rogue bots: AiPlayerbot.StateTree.Reaction.Rogue -->
 <Root>
+  <Global>
+    <!-- what a player answers in its UI: loot rolls (rolls, onRollRequested) and trades (tradeOpenRequested,
+         tradeAcceptRequested, onTradeRequested, onTradeAccepted) -->
+    <Task class="UIInteractionProvider_GlobalTask"/>
+  </Global>
+  <Node name="Roll For Item">
+    <Conditions>
+      <Condition binding="Root|UIInteractionProvider_GlobalTask::rolls"/>
+    </Conditions>
+    <!-- votes on every pending roll, greed for now -->
+    <Task class="Task_RollForItem">
+      <Binding local="rolls" external="Root|UIInteractionProvider_GlobalTask::rolls"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnFinish" node="Root"/>
+    </Transitions>
+  </Node>
+  <Node name="Open Trade">
+    <Conditions>
+      <Condition binding="Root|UIInteractionProvider_GlobalTask::tradeOpenRequested"/>
+    </Conditions>
+    <!-- opens the trade window for the master / a group member / a bot, cancels any other trade -->
+    <Task class="Task_OpenTrade"/>
+    <Transitions>
+      <Transition type="OnFinish" node="Root"/>
+    </Transitions>
+  </Node>
+  <Node name="Accept Trade">
+    <Conditions>
+      <Condition binding="Root|UIInteractionProvider_GlobalTask::tradeAcceptRequested"/>
+    </Conditions>
+    <!-- the other player accepted: accept too -->
+    <Task class="Task_AcceptTrade"/>
+    <Transitions>
+      <Transition type="OnFinish" node="Root"/>
+    </Transitions>
+  </Node>
   <Node name="Idle">
     <Conditions/>
     <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
-    <Task class="Task_Wait">
+    <Task class="Task_Wait" show_log="false">
       <Delay value="0"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onRollRequested" node="Root|Roll For Item"/>
+      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onTradeRequested" node="Root|Open Trade"/>
+      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onTradeAccepted" node="Root|Accept Trade"/>
+    </Transitions>
   </Node>
 </Root>

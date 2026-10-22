@@ -4,6 +4,7 @@
 #include "playerbot/StateTree/Providers/CCProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CurseProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/InstanceProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/UIInteractionProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/MasterDistance_GlobalTask.h"
 #include "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/TargetProvider_GlobalTask.h"
@@ -16,7 +17,9 @@
 #include "playerbot/StateTree/Tasks/Task_MoveTo.h"
 #include "playerbot/StateTree/Tasks/Task_MoveToPosition.h"
 #include "playerbot/StateTree/Tasks/Task_GetInRange.h"
+#include "playerbot/StateTree/Tasks/Task_RollForItem.h"
 #include "playerbot/StateTree/Tasks/Task_RunSubtree.h"
+#include "playerbot/StateTree/Tasks/Task_Trade.h"
 #include "playerbot/StateTree/Tasks/Task_Wait.h"
 
 namespace ai
@@ -38,6 +41,10 @@ namespace ai
         factory.RegisterTask("ManaProvider_GlobalTask", { &ManaProvider_GlobalTask::Validate, &ManaProvider_GlobalTask::Create });
         factory.RegisterTask("Task_EatAndDrink", { &Task_EatAndDrink::Validate, &Task_EatAndDrink::Create });
         factory.RegisterTask("InstanceProvider_GlobalTask", { &InstanceProvider_GlobalTask::Validate, &InstanceProvider_GlobalTask::Create });
+        factory.RegisterTask("UIInteractionProvider_GlobalTask", { &UIInteractionProvider_GlobalTask::Validate, &UIInteractionProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_RollForItem", { &Task_RollForItem::Validate, &Task_RollForItem::Create });
+        factory.RegisterTask("Task_OpenTrade", { &Task_OpenTrade::Validate, &Task_OpenTrade::Create });
+        factory.RegisterTask("Task_AcceptTrade", { &Task_AcceptTrade::Validate, &Task_AcceptTrade::Create });
 
         factory.RegisterTask("Task_Wait", { &Task_Wait::Validate, &Task_Wait::Create });
         factory.RegisterTask("CCProvider_GlobalTask", { &CCProvider_GlobalTask::Validate, &CCProvider_GlobalTask::Create });

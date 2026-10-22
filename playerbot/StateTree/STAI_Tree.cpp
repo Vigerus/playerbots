@@ -181,6 +181,13 @@ namespace
         def.task = taskClass->create(def.taskConfig);
         if (!def.task)
             throw std::runtime_error(where + " (" + def.taskClass + "): the task could not be created");
+
+        // show_log="false": no History entries for the task's runs
+        const std::string showLog = Attribute(task, "show_log");
+        if (showLog == "false" || showLog == "0")
+            def.task->bShowLog = false;
+        else if (!showLog.empty() && showLog != "true" && showLog != "1")
+            throw std::runtime_error(where + " (" + def.taskClass + "): show_log must be true or false, got '" + showLog + "'");
     }
 }
 

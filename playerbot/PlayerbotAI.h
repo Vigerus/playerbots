@@ -19,6 +19,7 @@
 #include "RandomPlayerbotMgr.h"
 
 #include "StateTree/StateMachine.h"
+#include "delegates/Delegates.h"
 #include "Entities/UnitResourceThresholds.h"
 
 class Player;
@@ -353,6 +354,9 @@ private:
     time_t time;
 };
 
+// the bot got SMSG_TRADE_STATUS (TradeStatus): its trade, as the client of a player sees it
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnBotTradeStatus, uint32 /*status*/);
+
 class PlayerbotAI : public PlayerbotAIBase
 {
 public:
@@ -382,6 +386,9 @@ public:
     // what the client does for a player: entering a teleport area trigger (dungeon portal) sends CMSG_AREATRIGGER,
     // the core checks the requirements and teleports the bot like a player
     void UpdateAreaTriggers();
+    // the trade status packets the bot gets (UIInteractionProvider_GlobalTask); declared before StateMachine, which
+    // unsubscribes from it when its trees are destroyed
+    FOnBotTradeStatus onTradeStatus;
     void Reset(bool full = false);
     bool IsTank(Player* player, bool inGroup = true);
     bool IsHeal(Player* player, bool inGroup = true);

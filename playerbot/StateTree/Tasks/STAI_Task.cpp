@@ -30,7 +30,7 @@ void STAI_Task::Enter(STAI_TaskContext& context) const
 {
     context.activityId = 0;
     context.activityStartMs = WorldTimer::getMSTime();
-    context.activityOpen = context.activity && LogsActivity();
+    context.activityOpen = context.activity && LogsActivity() && bShowLog;
     OnEnter(context);
 }
 

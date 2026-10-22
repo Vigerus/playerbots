@@ -83,6 +83,11 @@ container not empty, else its bool value), or while it is not set with `negate="
 green (passed), red (failed) or gray (not checked in the last update). (The legacy trigger conditions,
 `<Condition trigger="..."/>`, went with the strategy engine.)
 
+`<Task class="..." show_log="false">` keeps a task's runs out of the History (the idle `Task_Wait` of the Reaction
+trees, which only waits for transitions); default `true`. Tasks whose runs repeat right after each other share one
+History entry counting the runs, unless the task gives each run its own (`STAI_Task::AreConsecutiveLogsStacked`:
+`Task_CastSpell`, `Task_CastBuff`).
+
 Tasks:
 
 | class                | settings | does |
@@ -101,6 +106,10 @@ Tasks:
 | `Task_GetInRange`    | `<Range value="spell"/>` (yards or a range name), `<Binding local="target" .../>` | chases the target into range and line of sight, then stops the bot; Succeeded there (or without a living target), Failed after 10s |
 | `Task_Wait`          | `<Delay value="0"/>` (ms, default 0) | waits: Succeeded once its updates add up to the delay; with 0 it never finishes, the node is left through its transitions (an idle node) |
 | `Task_EatAndDrink`   | `<Health until="100"/>`, `<Mana until="100"/>` (percent, default 100) | one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or with the item cheat the spell of the conjured food / drink of the bot's level); a food / drink that ends before its target is followed by the next one; Succeeded when both targets are reached or nothing is left to eat or drink after the bot ate or drank, Failed when nothing could be started within 3s; `OnExit` stands the bot up |
+| `UIInteractionProvider_GlobalTask` | none | global task, ticked: what a player answers in its UI. Loot rolls the bot is asked to vote on (core `TeamSubsystem::OnLootRollStarted`, fired by `GroupLootRoll` for each voter): property `rolls` (the rolls not voted on yet, oldest first; dropped once voted or after the 60s roll timeout), delegate `onRollRequested` fired for every new roll. Trades (the bot's `SMSG_TRADE_STATUS`, `PlayerbotAI::onTradeStatus`): property `tradeOpenRequested` (a player opened a trade, the bot's window is not open yet) with delegate `onTradeRequested`, property `tradeAcceptRequested` (the window is open, the other player accepted, the bot did not) with delegate `onTradeAccepted` |
+| `Task_OpenTrade`     | none | opens the bot's trade window (faces the trader); cancels the trade unless the trader is a bot, the master or a group member (with the security level for everything); Failed when it cancelled |
+| `Task_AcceptTrade`   | none | accepts the trade (the other player accepted first), with the same trader rule; Failed when it cancelled |
+| `Task_RollForItem`   | `<Binding local="rolls" external="Root\|UIInteractionProvider_GlobalTask::rolls"/>` | votes on every bound roll: greed for now (pass when greed is not allowed); not tickable, Succeeded once entered |
 | `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`; global tasks that publish properties and delegates for
@@ -154,7 +163,13 @@ missing; each casts once per visit and is selected again while its `whoNeeds` / 
 `CCProvider_GlobalTask::whoNeeds`), Attack Target (`Task_GetInRange`, then `Task_CastSpell` Frostbolt on
 `TargetProvider_GlobalTask::target`, one cast per visit; `WithThreat` holds the target back at 90% of the tank's
 threat) and Idle (`Task_Wait` 0, left on `onCCNeeded` /
-`onTargetChanged`). The other classes' Combat, Reaction and Dead trees are only Idle for now.
+`onTargetChanged`). The other classes' Combat and Dead trees are only Idle for now.
+Every Reaction tree (`STAI_Reaction.xml` and each class's) trades and rolls for loot: Idle goes to Open Trade on
+`onTradeRequested` and to Accept Trade on `onTradeAccepted` (each also selected while `tradeOpenRequested` /
+`tradeAcceptRequested`, then back to Root), so the bot opens the window when its master starts a trade and accepts
+once the master put something in and accepted. Loot: `UIInteractionProvider_GlobalTask` collects the
+group's loot rolls, Idle (`Task_Wait` 0, `show_log="false"`) goes to Roll For Item on `onRollRequested`, the node is
+also selected while `rolls` is not empty, and `Task_RollForItem` votes greed on them, then back to Root.
 
 Stages: the rooms of a dungeon, registered once per map in the core `InstanceSubsystem` by the instance script
 (Scholomance: `instance_scholomance.cpp`): boxes around the creature spawns of each room, its boss entries and the
