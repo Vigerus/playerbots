@@ -3,16 +3,20 @@
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/ServerFacade.h"
+#include "playerbot/StateTree/STAI_TaskFactory.h"
 #include "playerbot/strategy/AiObjectContext.h"
 #include "playerbot/strategy/values/PossibleAttackTargetsValue.h"
 #include "playerbot/strategy/values/RtiTargetValue.h"
 
+#include "Combat/ThreatManager.h"
 #include "Groups/Group.h"
 #include "Maps/Map.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <list>
 #include <sstream>
+#include <stdexcept>
 
 using namespace ai;
 
@@ -46,6 +50,39 @@ namespace
         }
         return units;
     }
+
+    // <WithThreat value="true|false"/>, default false
+    bool ParseWithThreat(const STAI_TaskConfig& config)
+    {
+        const std::string value = STAI_TaskFactory::GetSetting(config, "WithThreat").value_or("false");
+        if (value == "true" || value == "1")
+            return true;
+        if (value == "false" || value == "0")
+            return false;
+        throw std::runtime_error("<WithThreat value=\"...\">: expected true or false, got '" + value + "'");
+    }
+
+    // <ThreatAmount value="90"/>, percent of the highest other threat, default 90
+    float ParseThreatShare(const STAI_TaskConfig& config)
+    {
+        const std::string value = STAI_TaskFactory::GetSetting(config, "ThreatAmount").value_or("90");
+        char* end = nullptr;
+        const double percent = std::strtod(value.c_str(), &end);
+        if (value.empty() || *end || percent <= 0.0)
+            throw std::runtime_error("<ThreatAmount value=\"...\">: expected a percent greater than 0, got '" + value + "'");
+        return float(percent / 100.0);
+    }
+}
+
+void TargetProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
+{
+    ParseWithThreat(config);
+    ParseThreatShare(config);
+}
+
+std::unique_ptr<STAI_Task> TargetProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+{
+    return std::make_unique<TargetProvider_GlobalTask>(ParseWithThreat(config), ParseThreatShare(config));
 }
 
 bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, Unit* unit, const std::vector<Unit*>& ccMarks)
@@ -87,32 +124,86 @@ Unit* TargetProvider_GlobalTask::FindAssistTarget(const STAI_TaskContext& contex
     return best;
 }
 
-void TargetProvider_GlobalTask::SetTarget(TargetProvider_GlobalTaskContext& context, Unit* unit, bool marked)
+bool TargetProvider_GlobalTask::IsThreatHigh(const STAI_TaskContext& context, Unit* unit, float threatShare)
+{
+    // players have no threat list
+    Player* bot = context.bot;
+    Group* group = bot->GetGroup();
+    if (!unit->IsCreature() || !group)
+        return false;
+
+    // somebody to hold aggro instead of the bot
+    bool hasTank = false;
+    for (GroupReference* ref = group->GetFirstMember(); ref && !hasTank; ref = ref->next())
+    {
+        Player* member = ref->getSource();
+        hasTank = member && member != bot && member->IsInMap(bot) && sServerFacade.IsAlive(member) && context.ai->IsTank(member);
+    }
+    if (!hasTank)
+        return false;
+
+    float botThreat = 0.0f;
+    float highestThreat = 0.0f;
+    for (HostileReference* ref : sServerFacade.GetThreatManager(unit).getThreatList())
+    {
+        if (ref->getUnitGuid() == bot->GetObjectGuid())
+            botThreat = ref->getThreat();
+        else
+            highestThreat = std::max(highestThreat, ref->getThreat());
+    }
+    // nobody else has threat yet (also before the pull): the bot waits for the tank
+    return botThreat >= threatShare * highestThreat;
+}
+
+void TargetProvider_GlobalTask::SetChosen(TargetProvider_GlobalTaskContext& context, Unit* unit, bool marked)
 {
     const ObjectGuid guid = unit ? unit->GetObjectGuid() : ObjectGuid();
     context.marked = unit && marked;
-    if (guid == context.target)
+    if (guid == context.chosen)
         return;
 
-    context.target = guid;
+    context.chosen = guid;
     // the legacy values (reaction engine, chat commands) see the same target
     context.ai->GetAiObjectContext()->GetValue<Unit*>("current target")->Set(unit);
+}
+
+void TargetProvider_GlobalTask::Publish(TargetProvider_GlobalTaskContext& context, bool checkThreat) const
+{
+    Unit* chosen = context.chosen.IsEmpty() ? nullptr : context.bot->GetMap()->GetUnit(context.chosen);
+    if (!withThreat || !chosen)
+        context.threatHigh = false;
+    else if (checkThreat)
+        context.threatHigh = IsThreatHigh(context, chosen, threatShare);
+
+    const ObjectGuid target = context.threatHigh ? ObjectGuid() : context.chosen;
+    if (target == context.target)
+        return;
+
+    context.target = target;
     context.onTargetChanged.Broadcast();
 }
 
 void TargetProvider_GlobalTask::Update(TargetProvider_GlobalTaskContext& context, bool choose) const
 {
+    const ObjectGuid previous = context.chosen;
+    Choose(context, choose);
+    // the threat is checked with each choice, and right away for a new unit
+    Publish(context, choose || context.chosen != previous);
+}
+
+void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context, bool choose)
+{
     Player* bot = context.bot;
     if (!bot->IsInWorld() || !sServerFacade.IsAlive(bot))
     {
-        SetTarget(context, nullptr, false);
+        SetChosen(context, nullptr, false);
         return;
     }
 
     // the bot's crowd-control marks, once per update (no group: none)
     const std::vector<Unit*> ccMarks = GetMarkedUnits(context, context.rtiCcValue);
 
-    Unit* current = context.target.IsEmpty() ? nullptr : bot->GetMap()->GetUnit(context.target);
+    Unit* current = context.chosen.IsEmpty() ? nullptr : bot->GetMap()->GetUnit(context.chosen);
     const bool currentValid = current && IsValidTarget(context, current, ccMarks);
 
     // the current target stays until the next choice, unless it died / got crowd-controlled
@@ -127,14 +218,14 @@ void TargetProvider_GlobalTask::Update(TargetProvider_GlobalTaskContext& context
     // a living mark always wins
     if (Unit* marked = FindMarkedTarget(context, ccMarks))
     {
-        SetTarget(context, marked, true);
+        SetChosen(context, marked, true);
         return;
     }
 
     // without marks: keep a valid fallback target, else the dps assist choice
     if (currentValid && !context.marked)
         return;
-    SetTarget(context, FindAssistTarget(context, ccMarks), false);
+    SetChosen(context, FindAssistTarget(context, ccMarks), false);
 }
 
 void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
@@ -142,6 +233,8 @@ void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
     TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnEnter);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
     context.target.Clear();
+    context.chosen.Clear();
+    context.threatHigh = false;
     context.marked = false;
     context.sinceCheckMs = 0;
     AiObjectContext* aiObjectContext = context.ai->GetAiObjectContext();
@@ -155,6 +248,8 @@ void TargetProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
     TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnExit);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
     context.target.Clear();
+    context.chosen.Clear();
+    context.threatHigh = false;
     context.marked = false;
 }
 
@@ -172,7 +267,10 @@ EActionRunStatus TargetProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext
 
 const std::vector<STAI_PropertyDef>& TargetProvider_GlobalTask::GetProperties() const
 {
-    static const std::vector<STAI_PropertyDef> properties = { STAI_PropertyDef::Of("target", &TargetProvider_GlobalTaskContext::target) };
+    static const std::vector<STAI_PropertyDef> properties = {
+        STAI_PropertyDef::Of("target", &TargetProvider_GlobalTaskContext::target),
+        STAI_PropertyDef::Of("threatHigh", &TargetProvider_GlobalTaskContext::threatHigh),
+    };
     return properties;
 }
 

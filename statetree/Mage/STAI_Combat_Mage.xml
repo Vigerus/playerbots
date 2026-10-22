@@ -4,8 +4,12 @@
   <Global>
     <!-- the bot's crowd-control mark (rti cc, default moon) when it is not the kill target (rti): whoNeeds, onCCNeeded -->
     <Task class="CCProvider_GlobalTask"/>
-    <!-- the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged -->
-    <Task class="TargetProvider_GlobalTask"/>
+    <!-- the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
+         target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's -->
+    <Task class="TargetProvider_GlobalTask">
+      <WithThreat value="true"/>
+      <ThreatAmount value="90"/>
+    </Task>
   </Global>
   <Node name="CC Target">
     <Conditions>
