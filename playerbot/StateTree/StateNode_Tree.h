@@ -38,9 +38,9 @@ namespace ai
             tree.AppendDebugTreeStack(stack);
             return stack;
         }
-        virtual bool SetTaskDisabled(const std::string& name, int node, int task, bool disabled) override
+        virtual bool SetDebugSwitch(StateTreeSwitch what, const std::string& name, int node, int index, int value) override
         {
-            return tree.SetTaskDisabled(name, node, task, disabled);
+            return tree.SetDebugSwitch(what, name, node, index, value);
         }
 
     private:

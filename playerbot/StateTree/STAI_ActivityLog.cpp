@@ -13,6 +13,13 @@ uint64 STAI_ActivityLog::BeginAt(const std::string& kind, const std::string& nam
 {
     Prune(WorldTimer::getMSTime());
 
+    if (Entry* merged = MergeRun(kind, name, source, startMs))
+    {
+        merged->open = true;
+        merged->result = -1;
+        return merged->id;
+    }
+
     Entry entry;
     entry.id = nextId++;
     entry.kind = kind;
@@ -23,12 +30,30 @@ uint64 STAI_ActivityLog::BeginAt(const std::string& kind, const std::string& nam
     return entries.back().id;
 }
 
+STAI_ActivityLog::Entry* STAI_ActivityLog::MergeRun(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs)
+{
+    if (entries.empty())
+        return nullptr;
+
+    Entry& last = entries.back();
+    if (last.open || last.kind != kind || last.name != name || last.source != source)
+        return nullptr;
+
+    // the earlier run ended at the latest when this one started (an expected end may lie ahead)
+    last.doneMs += std::min(WorldTimer::getMSTimeDiff(last.startMs, last.endMs), WorldTimer::getMSTimeDiff(last.startMs, startMs));
+    ++last.count;
+    last.startMs = startMs;
+    return &last;
+}
+
 void STAI_ActivityLog::End(uint64 id, int8 result)
 {
     if (Entry* entry = Find(id))
     {
         if (result >= 0)
             entry->result = result;
+        if (result == 0)
+            ++entry->failures;
         if (entry->open)
         {
             entry->endMs = WorldTimer::getMSTime();
@@ -40,6 +65,12 @@ void STAI_ActivityLog::End(uint64 id, int8 result)
 uint64 STAI_ActivityLog::Add(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs, uint32 endMs)
 {
     Prune(WorldTimer::getMSTime());
+
+    if (Entry* merged = MergeRun(kind, name, source, startMs))
+    {
+        merged->endMs = endMs;
+        return merged->id;
+    }
 
     Entry entry;
     entry.id = nextId++;

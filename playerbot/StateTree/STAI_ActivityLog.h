@@ -7,6 +7,9 @@ namespace ai
 {
     // Recent activity of one bot (tree nodes, executed actions) for the StateTree debug view.
     // Entries older than the retention are dropped. Written and read from the bot's own update.
+    // A run of the same kind, name and source as the newest entry (a node picked over and over, an action executed
+    // again and again) is merged into it instead of flooding the log: the entry counts the runs and sums their time,
+    // its start / end are the latest run's.
     class STAI_ActivityLog
     {
     public:
@@ -21,7 +24,10 @@ namespace ai
             uint32 startMs = 0;    // WorldTimer::getMSTime()
             uint32 endMs = 0;
             bool open = true;      // still running, endMs not known yet
-            int8 result = -1;      // -1 none, 0 failed, 1 successful
+            int8 result = -1;      // -1 none, 0 failed, 1 successful (the latest run)
+            uint32 count = 1;      // runs merged into the entry
+            uint32 doneMs = 0;     // summed duration of the runs before the latest one
+            uint32 failures = 0;   // runs that failed (result 0), the latest one included
         };
 
         // starts an entry that is ended with End(id); returns its id
@@ -42,6 +48,9 @@ namespace ai
     private:
         Entry* Find(uint64 id);
         void Prune(uint32 now);
+        // the newest entry when it is of the same kind, name and source and finished: the run starting at startMs
+        // is merged into it (the earlier run's time is summed); nullptr when a new entry is needed
+        Entry* MergeRun(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs);
 
         std::deque<Entry> entries;
         uint64 nextId = 1;

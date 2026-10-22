@@ -386,7 +386,7 @@ public:
     static std::string BotStateToString(BotState state);
 	std::string HandleRemoteCommand(std::string command);
     void SendStateTreeDebug();
-    // applies the addon's task toggles (StateMachine::SetTaskDisabled)
+    // applies the addon's switches (StateMachine::SetDebugSwitch)
     void ApplyStateTreeToggles();
     void ApplyStateTreeStrategyEdits();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
@@ -672,9 +672,9 @@ public:
     void OnResurrected();
 
     // kept up to date by TeamSubsystem events ("has attackers", "attackers count"):
-    // units that have the bot, its pet or a group member near it (sight distance, on the same map) on their threat list
+    // units that have the bot, its pet or a group member on the same map (any distance) on their threat list
     uint32 GetTeamAttackerCount() const { return uint32(teamAttackers.size()); }
-    // attacker -> victim (the bot or a nearby member) -> links (threat list entry, melee attacker) to it and its pet
+    // attacker -> victim (the bot or a member) -> links (threat list entry, melee attacker) to it and its pet
     const std::map<ObjectGuid, std::map<ObjectGuid, uint32>>& GetTeamAttackers() const { return teamAttackers; }
     // changes whenever GetTeamAttackers does ("attackers" rebuilds its list only then)
     uint32 GetTeamAttackersVersion() const { return teamAttackersVersion; }
@@ -703,11 +703,11 @@ private:
     void HandleEnterMap(Player* /*player*/, Map* /*map*/) { teamChanged = true; }
     // the state machine is in NonCombat (Combat), possibly preempted by a reaction
     bool IsInStateType(HLSStateType type) const;
-    // member is alive and within sight distance of the bot (the "attackers" range)
+    // member is alive and within sight distance of the bot (whose combat starts / ends count for the bot)
     bool IsNearbyMember(Player* member) const;
     // the bot or a nearby group member is in combat
     bool IsTeamInCombatNearby() const;
-    // teamInCombat and teamAttackers read from the bot and its nearby group members (login, group changes)
+    // teamInCombat (nearby members) and teamAttackers (members on the map) read from the core (login, group changes)
     void RebuildTeamCombat();
     // one threat link of attacker to victim (the bot or a member, their pets count for them)
     void AddTeamAttacker(Unit* attacker, ObjectGuid victim);
@@ -814,12 +814,14 @@ protected:
     // player waiting for a StateTree snapshot ("BOT\tstatetree" addon request); set from chat, consumed in UpdateAI
     std::atomic<uint64> stateTreeDebugRequester{ 0 };
     std::atomic<bool> stateTreeDebugHistory{ false };
-    // task toggles of the BotStateTree addon ("BOT\tstatetree toggle ..."): set from chat, applied in UpdateAI
+    // task / node / condition switches of the BotStateTree addon ("BOT\tstatetree toggle|nodetoggle|condition ..."):
+    // set from chat, applied in UpdateAI
     struct StateTreeToggle
     {
+        StateTreeSwitch what = StateTreeSwitch::Task;
         std::string state, tree;
-        int node = -1, task = -1;
-        bool disabled = false;
+        int node = -1, index = -1;
+        int value = 0;
     };
     std::mutex stateTreeToggleLock;
     std::vector<StateTreeToggle> stateTreeToggles;

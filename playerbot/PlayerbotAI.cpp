@@ -1136,8 +1136,9 @@ void PlayerbotAI::RebuildTeamCombat()
     {
         for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
+            // every member on the bot's map, near or not: a link added while a member was far is never sent again
             Player* member = ref->getSource();
-            if (!IsNearbyMember(member))
+            if (!member || member == bot || !member->IsInMap(bot))
                 continue;
 
             addAttackersOf(member, member->GetObjectGuid());
@@ -1221,9 +1222,7 @@ void PlayerbotAI::HandleAttackerAdded(ObjectGuid self, Unit* attacker)
 
 void PlayerbotAI::HandleMemberAttackerAdded(ObjectGuid /*self*/, Player* member, Unit* attacker)
 {
-    if (!IsNearbyMember(member))
-        return;
-
+    // not range checked: the link is not sent again when the bot comes near later ("attackers" checks the range)
     AddTeamAttacker(attacker, member->GetObjectGuid());
     UpdateCombatState();
 }
@@ -1236,7 +1235,7 @@ void PlayerbotAI::HandleAttackerRemoved(ObjectGuid self, Unit* attacker)
 
 void PlayerbotAI::HandleMemberAttackerRemoved(ObjectGuid /*self*/, Player* member, Unit* attacker)
 {
-    // not range checked: a link counted while the member was near is removed wherever it is now
+    // not range checked, like the add
     RemoveTeamAttacker(attacker, member->GetObjectGuid());
     UpdateCombatState();
 }
@@ -1541,20 +1540,29 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
         // BotStateTree addon poll: "statetree [history]" (whisper) or "statetree [history] <bot name>" (party/raid,
         // every bot sees it); "history" asks for the recent activity instead of the tree.
         // Answered from UpdateAI so the snapshot is taken on the bot's own update.
-        // BotStateTree addon task switch: "statetree toggle <state> <tree> <node> <task> <disabled 0|1>" (whisper)
-        // or with " <bot name>" at the end (party/raid, only that bot); node and task index the top tree's nodes
-        if (filtered.rfind("statetree toggle ", 0) == 0)
+        // BotStateTree addon switches (whisper, or with " <bot name>" at the end on party/raid, only that bot); node,
+        // task and condition index the top tree's nodes:
+        //   "statetree toggle <state> <tree> <node> <task> <disabled 0|1>"
+        //   "statetree nodetoggle <state> <tree> <node> <disabled 0|1>"
+        //   "statetree condition <state> <tree> <node> <condition> <0 checked|1 pass|2 fail>"
+        const bool taskToggle = filtered.rfind("statetree toggle ", 0) == 0;
+        const bool nodeToggle = filtered.rfind("statetree nodetoggle ", 0) == 0;
+        const bool conditionToggle = filtered.rfind("statetree condition ", 0) == 0;
+        if (taskToggle || nodeToggle || conditionToggle)
         {
-            std::istringstream request(filtered.substr(17));
+            // the arguments follow the second word
+            std::istringstream request(filtered.substr(filtered.find(' ', 10) + 1));
             StateTreeToggle toggle;
-            int disabled = 0;
+            toggle.what = taskToggle ? StateTreeSwitch::Task : nodeToggle ? StateTreeSwitch::Node : StateTreeSwitch::Condition;
             std::string name;
-            if (request >> toggle.state >> toggle.tree >> toggle.node >> toggle.task >> disabled)
+            request >> toggle.state >> toggle.tree >> toggle.node;
+            if (!nodeToggle)
+                request >> toggle.index;
+            if (request >> toggle.value)
             {
                 request >> name;
                 if (name.empty() ? type == CHAT_MSG_WHISPER : name == bot->GetName())
                 {
-                    toggle.disabled = disabled != 0;
                     std::lock_guard<std::mutex> lock(stateTreeToggleLock);
                     stateTreeToggles.push_back(toggle);
                 }
@@ -6574,9 +6582,9 @@ void PlayerbotAI::ApplyStateTreeToggles()
     }
 
     for (const StateTreeToggle& toggle : toggles)
-        if (!StateMachine.SetTaskDisabled(toggle.state, toggle.tree, toggle.node, toggle.task, toggle.disabled))
-            sLog.outDetail("StateTree: %s has no task %d of node %d in %s tree %s", bot->GetName(), toggle.task, toggle.node,
-                toggle.state.c_str(), toggle.tree.c_str());
+        if (!StateMachine.SetDebugSwitch(toggle.state, toggle.what, toggle.tree, toggle.node, toggle.index, toggle.value))
+            sLog.outDetail("StateTree: %s has no switch %d / %d of node %d in %s tree %s", bot->GetName(), int(toggle.what),
+                toggle.index, toggle.node, toggle.state.c_str(), toggle.tree.c_str());
 }
 
 void PlayerbotAI::ApplyStateTreeStrategyEdits()

@@ -65,8 +65,9 @@ namespace ai
         void AppendDebugTreeStack(std::vector<StateNodeDebugTree>& stack) const;
         const char* GetActiveNodeName() const;
 
-        // switches a node task of the tree named tree (this one or a subtree running on it, the top one first)
-        bool SetTaskDisabled(const std::string& tree, int node, int task, bool disabled);
+        // an addon switch of the tree named tree (this one or a subtree running on it, the top one first): a task,
+        // the node or a condition of node (StateTreeSwitch)
+        bool SetDebugSwitch(StateTreeSwitch what, const std::string& tree, int node, int index, int value);
 
     private:
         // a <Binding> of a task: the values in the bot's contexts
@@ -100,6 +101,8 @@ namespace ai
             int current = -1;                                     // task running while the node is active
             RuntimeConditions conditions;
             std::vector<StateNodeConditionResult> results;        // per condition, last update
+            std::vector<uint8> conditionOverrides;                // per condition: 0 checked, 1 forced to pass, 2 forced to fail (addon)
+            bool disabled = false;                                // switched off in the addon: never selected
             bool failed = false;
             uint32 failedAtMs = 0;
             std::vector<RuntimeConditions> transitionConditions;      // per transition
@@ -118,7 +121,9 @@ namespace ai
         void ExitGlobals();
         void ResolveMembers();
         void ResolveConditions(RuntimeConditions& conditions, const STAI_ConditionsDef& def, const std::string& nodeName);
-        static bool CheckConditions(const RuntimeConditions& conditions, std::vector<StateNodeConditionResult>* results = nullptr);
+        // overrides: per condition 0 checked, 1 passes, 2 fails (a node's addon switches), nullptr checks all
+        static bool CheckConditions(const RuntimeConditions& conditions, std::vector<StateNodeConditionResult>* results = nullptr,
+            const std::vector<uint8>* overrides = nullptr);
         STAI_TaskContext* GetContext(const STAI_MemberRef& ref) const;
         static void ApplyBindings(const TaskSlot& slot);
         static void EnterTask(const TaskSlot& slot);

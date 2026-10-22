@@ -20,6 +20,14 @@ enum class StateNodeConditionResult : uint8
     Failed
 };
 
+// what an addon switch (BotStateTree, "statetree toggle ...") changes in a node of a tree
+enum class StateTreeSwitch : uint8
+{
+    Task,           // a task of the node: value 1 switched off (skipped), 0 runs
+    Node,           // the node: value 1 switched off (never selected, left when running), 0 normal
+    Condition       // a condition of the node: value 0 checked normally, 1 forced to pass, 2 forced to fail
+};
+
 // child node of a state, as shown by the StateTree debug view
 struct StateNodeDebugChild
 {
@@ -31,6 +39,8 @@ struct StateNodeDebugChild
     int currentTask = -1;                           // index into tasks while the node is active
     std::vector<std::string> transitions;           // "<type> Root|<node>", in the order they are checked
     std::vector<std::pair<std::string, StateNodeConditionResult>> conditions;
+    std::vector<uint8> conditionOverrides;          // per condition: 0 checked normally, 1 forced to pass, 2 forced to fail
+    bool disabled = false;                          // the node is switched off (never selected)
     bool conditionsAny = false;                     // <Conditions match="any">: one of them has to pass
     std::string info;
     std::vector<uint32_t> spells;                   // spells of the running task (the first one while inactive)
@@ -75,9 +85,9 @@ public:
     virtual Engine* GetDebugEngine() const { return nullptr; }
     // trees the state runs, bottom (its initial tree) to top (the tree selecting nodes)
     virtual std::vector<StateNodeDebugTree> GetDebugTreeStack() const { return {}; }
-    // switches a node task of the tree named tree on its tree stack on / off (BotStateTree addon); false when
-    // there is no such tree, node or task
-    virtual bool SetTaskDisabled(const std::string& tree, int node, int task, bool disabled) { return false; }
+    // an addon switch of the tree named tree on its tree stack (BotStateTree addon): a task (index), the node or
+    // a condition (index) of node; false when there is no such tree, node, task or condition
+    virtual bool SetDebugSwitch(StateTreeSwitch what, const std::string& tree, int node, int index, int value) { return false; }
 };
 
 

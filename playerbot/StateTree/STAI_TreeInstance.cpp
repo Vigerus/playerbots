@@ -28,6 +28,7 @@ STAI_TreeInstance::STAI_TreeInstance(const STAI_TaskContext& context, std::share
         for (const STAI_TaskDef& task : def.tasks)
             node.tasks.push_back({ &task, nullptr, {} });
         node.results.assign(def.conditions.size(), StateNodeConditionResult::NotChecked);
+        node.conditionOverrides.assign(def.conditions.size(), 0);
 
         nodes.push_back(std::move(node));
     }
@@ -63,7 +64,8 @@ void STAI_TreeInstance::ResolveConditions(RuntimeConditions& conditions, const S
     }
 }
 
-bool STAI_TreeInstance::CheckConditions(const RuntimeConditions& conditions, std::vector<StateNodeConditionResult>* results)
+bool STAI_TreeInstance::CheckConditions(const RuntimeConditions& conditions, std::vector<StateNodeConditionResult>* results,
+    const std::vector<uint8>* overrides)
 {
     const STAI_ConditionsDef& def = *conditions.def;
     if (def.empty())
@@ -73,7 +75,9 @@ bool STAI_TreeInstance::CheckConditions(const RuntimeConditions& conditions, std
     for (size_t i = 0; i < def.size(); ++i)
     {
         const STAI_ConditionDef& condition = def.list[i];
-        const bool passed = condition.trigger.empty()
+        const uint8 forced = overrides ? (*overrides)[i] : 0;
+        const bool passed = forced ? forced == 1
+            : condition.trigger.empty()
             ? condition.Passes(conditions.boundValues[i])
             : conditions.triggers[i] && conditions.triggers[i]->IsActive() != condition.negate;
         if (results)
@@ -256,6 +260,10 @@ bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now, bool ignoreFaile
 {
     std::fill(node.results.begin(), node.results.end(), StateNodeConditionResult::NotChecked);
 
+    // switched off in the addon
+    if (node.disabled)
+        return false;
+
     if (!ignoreFailedDelay && node.failed && WorldTimer::getMSTimeDiff(node.failedAtMs, now) < failedRetryDelayMs)
         return false;
 
@@ -263,7 +271,7 @@ bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now, bool ignoreFaile
     if (NextEnabledTask(node, 0) < 0)
         return false;
 
-    return CheckConditions(node.conditions, &node.results);
+    return CheckConditions(node.conditions, &node.results, &node.conditionOverrides);
 }
 
 void STAI_TreeInstance::EnterNode(int index)
@@ -360,6 +368,10 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
     for (int i = 0; i < int(nodes.size()); ++i)
         if (i != active)
             std::fill(nodes[i].results.begin(), nodes[i].results.end(), StateNodeConditionResult::NotChecked);
+
+    // the running node was switched off in the addon: left, the selection starts from the first node
+    if (active >= 0 && nodes[active].disabled)
+        ExitActive();
 
     // the path to the running node only changes when a delegate of one of its OnDelegate transitions fired
     if (active >= 0)
@@ -526,6 +538,8 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
         for (size_t c = 0; c < node.def->conditions.size(); ++c)
             child.conditions.emplace_back(node.def->conditions.list[c].GetText(), node.results[c]);
         child.conditionsAny = node.def->conditions.any;
+        child.conditionOverrides = node.conditionOverrides;
+        child.disabled = node.disabled;
 
         tree.nodes.push_back(std::move(child));
     }
@@ -539,22 +553,39 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
     }
 }
 
-bool STAI_TreeInstance::SetTaskDisabled(const std::string& tree, int node, int task, bool disabled)
+bool STAI_TreeInstance::SetDebugSwitch(StateTreeSwitch what, const std::string& tree, int node, int index, int value)
 {
     // the snapshot shows the top tree of the stack: subtrees running on this tree first
     if (active >= 0 && nodes[active].current >= 0)
     {
         TaskSlot& slot = nodes[active].tasks[nodes[active].current];
         if (STAI_TreeInstance* subtree = slot.def->task->GetRunningSubtree(*slot.context))
-            if (subtree->SetTaskDisabled(tree, node, task, disabled))
+            if (subtree->SetDebugSwitch(what, tree, node, index, value))
                 return true;
     }
 
-    if (asset->name != tree || node < 0 || node >= int(nodes.size()) || task < 0 || task >= int(nodes[node].tasks.size()))
+    if (asset->name != tree || node < 0 || node >= int(nodes.size()))
         return false;
 
-    nodes[node].tasks[task].context->bDisabled = disabled;
-    return true;
+    RuntimeNode& runtimeNode = nodes[node];
+    switch (what)
+    {
+        case StateTreeSwitch::Task:
+            if (index < 0 || index >= int(runtimeNode.tasks.size()))
+                return false;
+            runtimeNode.tasks[index].context->bDisabled = value != 0;
+            return true;
+        case StateTreeSwitch::Node:
+            // a running node is left on the next tick
+            runtimeNode.disabled = value != 0;
+            return true;
+        case StateTreeSwitch::Condition:
+            if (index < 0 || index >= int(runtimeNode.conditionOverrides.size()) || value < 0 || value > 2)
+                return false;
+            runtimeNode.conditionOverrides[index] = uint8(value);
+            return true;
+    }
+    return false;
 }
 
 const char* STAI_TreeInstance::GetActiveNodeName() const

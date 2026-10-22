@@ -222,6 +222,8 @@ static std::string SanitizeTransition(const std::string& text)
 //       ^<transition;transition;...>^<spell id,...>   (spells of the running task)
 //       ^<disabled 0|1,...>   (per task: switched off in the addon, STAI_TaskContext::bDisabled)
 //       ^<info;info;...>      (per task: its static debug info, {spell:<id>} shown as the spell)
+//       ^<node disabled 0|1>  (switched off in the addon: never selected)
+//       ^<override 0|1|2,...> (per condition: 0 checked, 1 forced to pass, 2 forced to fail in the addon)
 //       nodes of the top tree; task class / info of the running task (the first one while inactive), every task
 //       of the node in the order they run, its transitions "<type> Root/<node>" in the order they are checked
 //       conditions: [ANY:]<result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked;
@@ -329,6 +331,9 @@ std::string StateMachine::BuildDebugSnapshot() const
             out << "^";
             for (size_t task = 0; task < child.taskInfos.size(); ++task)
                 out << (task ? ";" : "") << SanitizeTaskInfo(child.taskInfos[task]);
+            out << "^" << (child.disabled ? 1 : 0) << "^";
+            for (size_t condition = 0; condition < child.conditionOverrides.size(); ++condition)
+                out << (condition ? "," : "") << int(child.conditionOverrides[condition]);
         }
     }
 
@@ -343,11 +348,11 @@ std::string StateMachine::BuildDebugSnapshot() const
     return out.str();
 }
 
-bool StateMachine::SetTaskDisabled(const std::string& state, const std::string& tree, int node, int task, bool disabled)
+bool StateMachine::SetDebugSwitch(const std::string& state, StateTreeSwitch what, const std::string& tree, int node, int index, int value)
 {
     for (const auto& [type, stateNode] : nodes)
         if (state == GetHLSStateTypeName(type))
-            return stateNode->SetTaskDisabled(tree, node, task, disabled);
+            return stateNode->SetDebugSwitch(what, tree, node, index, value);
     return false;
 }
 
@@ -363,7 +368,9 @@ Engine* StateMachine::FindDebugEngine(const std::string& state) const
 //   Y^<entries in the log>
 //   A^<ms since start>^<duration ms>^<running 0|1>^<kind: task|action>^<name: the task's debug info|action>
 //     ^<source: node name|strategy>^<result: 1 successful, 0 failed, empty none>
-// running entries report the time so far as duration
+//     ^<runs merged into the entry>^<total ms of the runs>^<failed runs>
+// running entries report the time so far as duration; age, duration and result are the latest run's (repeated
+// runs of the newest entry are merged into it, STAI_ActivityLog)
 std::string StateMachine::BuildDebugHistory()
 {
     static constexpr size_t maxEntries = 50;
@@ -383,7 +390,8 @@ std::string StateMachine::BuildDebugHistory()
 
         out << "~A^" << age << "^" << duration << "^" << (running ? 1 : 0) << "^" << it->kind
             << "^" << SanitizeDebugField(it->name) << "^" << SanitizeDebugField(it->source)
-            << "^" << (it->result < 0 ? "" : it->result ? "1" : "0");
+            << "^" << (it->result < 0 ? "" : it->result ? "1" : "0")
+            << "^" << it->count << "^" << (it->doneMs + duration) << "^" << it->failures;
     }
 
     return out.str();
