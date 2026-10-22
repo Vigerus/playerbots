@@ -437,9 +437,11 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         UpdateCombatState();
     }
     ApplyStateTreeToggles();
+    ApplyInventoryCommands();
     StateMachine.Update(elapsed, minimal);
     UpdateUpkeep();
     SendStateTreeDebug();
+    SendInventory();
 }
 
 void PlayerbotAI::SetActionDuration(uint32 duration)
@@ -1197,6 +1199,38 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
                 {
                     std::lock_guard<std::mutex> lock(stateTreeToggleLock);
                     stateTreeToggles.push_back(toggle);
+                }
+            }
+            return;
+        }
+
+        // WoWAddonInspectBot addon (whisper, or with " <bot name>" at the end on party/raid, only that bot):
+        //   "inventory"                                   the bot's gear and bags (answered with BOTIN chunks)
+        //   "equip <bag> <slot> <inventory slot or -1>"   equips the item of the bag slot
+        //   "unequip <inventory slot>"                    moves the item to the bags
+        if (filtered == "inventory" || filtered == "inventory " + std::string(bot->GetName()))
+        {
+            if (filtered != "inventory" || type == CHAT_MSG_WHISPER)
+                inventoryRequester = fromPlayer.GetObjectGuid().GetRawValue();
+            return;
+        }
+        if (filtered.rfind("equip ", 0) == 0 || filtered.rfind("unequip ", 0) == 0)
+        {
+            std::istringstream request(filtered);
+            std::string command, name;
+            InventoryCommand inventoryCommand;
+            request >> command;
+            inventoryCommand.equip = command == "equip";
+            if (inventoryCommand.equip)
+                request >> inventoryCommand.bag >> inventoryCommand.slot;
+            if (request >> inventoryCommand.inventorySlot)
+            {
+                request >> name;
+                if (name.empty() ? type == CHAT_MSG_WHISPER : name == bot->GetName())
+                {
+                    inventoryCommand.requester = fromPlayer.GetObjectGuid().GetRawValue();
+                    std::lock_guard<std::mutex> lock(inventoryCommandLock);
+                    inventoryCommands.push_back(inventoryCommand);
                 }
             }
             return;
@@ -5694,6 +5728,184 @@ void PlayerbotAI::SendStateTreeDebug()
     {
         std::ostringstream text;
         text << "BOTST\tS" << seq << ":" << (i + 1) << "/" << count << ":" << snapshot.substr(i * chunkSize, chunkSize);
+
+        WorldPacket data;
+        ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, text.str().c_str(), LANG_ADDON, CHAT_TAG_NONE, bot->GetObjectGuid(), bot->GetName());
+        sServerFacade.SendPacket(requester, data);
+    }
+}
+
+namespace
+{
+    // client bag 0 (backpack) - 4 and slot from 1 to the server's bag / slot; false when out of range
+    bool ToServerBagSlot(Player* bot, int bag, int slot, uint8& serverBag, uint8& serverSlot)
+    {
+        if (slot < 1)
+            return false;
+
+        if (bag == 0)
+        {
+            if (slot > INVENTORY_SLOT_ITEM_END - INVENTORY_SLOT_ITEM_START)
+                return false;
+            serverBag = INVENTORY_SLOT_BAG_0;
+            serverSlot = uint8(INVENTORY_SLOT_ITEM_START + slot - 1);
+            return true;
+        }
+
+        if (bag < 1 || bag > INVENTORY_SLOT_BAG_END - INVENTORY_SLOT_BAG_START)
+            return false;
+        serverBag = uint8(INVENTORY_SLOT_BAG_START + bag - 1);
+        const Bag* container = dynamic_cast<Bag*>(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, serverBag));
+        if (!container || slot > int(container->GetBagSize()))
+            return false;
+        serverSlot = uint8(slot - 1);
+        return true;
+    }
+}
+
+void PlayerbotAI::ApplyInventoryCommands()
+{
+    std::vector<InventoryCommand> commands;
+    {
+        std::lock_guard<std::mutex> lock(inventoryCommandLock);
+        commands.swap(inventoryCommands);
+    }
+
+    for (const InventoryCommand& command : commands)
+    {
+        // the addon shows the result: the bot's inventory after the change
+        inventoryRequester = command.requester;
+        if (!bot->IsInWorld() || bot->IsInCombat() || !bot->IsAlive())
+            continue;
+
+        if (!command.equip)
+        {
+            // client inventory slot 1-19 is equipment slot 0-18
+            if (command.inventorySlot < 1 || command.inventorySlot > EQUIPMENT_SLOT_END)
+                continue;
+            const uint8 equipmentSlot = uint8(command.inventorySlot - 1);
+            Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, equipmentSlot);
+            if (!item)
+                continue;
+
+            ItemPosCountVec dest;
+            if (bot->CanUnequipItem(uint16(INVENTORY_SLOT_BAG_0) << 8 | equipmentSlot, false) != EQUIP_ERR_OK ||
+                bot->CanStoreItem(NULL_BAG, NULL_SLOT, dest, item, false) != EQUIP_ERR_OK)
+                continue;
+
+            bot->RemoveItem(INVENTORY_SLOT_BAG_0, equipmentSlot, true);
+            bot->StoreItem(dest, item, true);
+            continue;
+        }
+
+        uint8 bag, slot;
+        if (!ToServerBagSlot(bot, command.bag, command.slot, bag, slot))
+            continue;
+        Item* item = bot->GetItemByPos(bag, slot);
+        if (!item)
+            continue;
+
+        if (item->GetProto()->InventoryType == INVTYPE_AMMO)
+        {
+            bot->SetAmmo(item->GetProto()->ItemId);
+            continue;
+        }
+
+        // to the chosen slot (the other ring / trinket / weapon slot), else where it fits like a right click
+        if (command.inventorySlot >= 1 && command.inventorySlot <= EQUIPMENT_SLOT_END)
+        {
+            uint16 dest;
+            const uint8 equipmentSlot = uint8(command.inventorySlot - 1);
+            if (bot->CanEquipItem(equipmentSlot, dest, item, true) == EQUIP_ERR_OK && (dest & 255) == equipmentSlot)
+            {
+                bot->SwapItem(uint16(bag) << 8 | slot, dest);
+                continue;
+            }
+        }
+
+        WorldPacket packet(CMSG_AUTOEQUIP_ITEM, 2);
+        packet << bag << slot;
+        bot->GetSession()->HandleAutoEquipItemOpcode(packet);
+    }
+}
+
+void PlayerbotAI::SendInventory()
+{
+    const uint64 requesterGuid = inventoryRequester.exchange(0);
+    if (!requesterGuid)
+        return;
+
+    Player* requester = sObjectMgr.GetPlayer(ObjectGuid(requesterGuid));
+    if (!requester || !requester->IsInWorld())
+        return;
+
+    // Payload (records separated by '~', fields by '^'), client numbering:
+    //   H^<bot name>^<money in copper>^<ammo item id>
+    //   E^<inventory slot 1-19>^<item id>^<random property id>^<permanent enchant id>
+    //   G^<bag 1-4>^<bag item id>^<slots>
+    //   B^<bag 0-4>^<slot from 1>^<item id>^<count>^<random property id>^<permanent enchant id>
+    //     ^<inventory slots it can be equipped in, ',' separated; 0 usable ammo>
+    std::ostringstream out;
+    out << "H^" << bot->GetName() << "^" << bot->GetMoney() << "^" << bot->GetUInt32Value(PLAYER_AMMO_ID);
+
+    for (uint8 equipmentSlot = EQUIPMENT_SLOT_START; equipmentSlot < EQUIPMENT_SLOT_END; ++equipmentSlot)
+        if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, equipmentSlot))
+            out << "~E^" << (equipmentSlot + 1) << "^" << item->GetEntry() << "^" << item->GetItemRandomPropertyId()
+                << "^" << item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT);
+
+    auto writeItem = [&](int bag, int slot, Item* item)
+    {
+        out << "~B^" << bag << "^" << slot << "^" << item->GetEntry() << "^" << item->GetCount() << "^" << item->GetItemRandomPropertyId()
+            << "^" << item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT) << "^";
+
+        const ItemPrototype* proto = item->GetProto();
+        if (proto->InventoryType == INVTYPE_AMMO)
+        {
+            if (bot->CanUseAmmo(proto->ItemId) == EQUIP_ERR_OK)
+                out << "0";
+            return;
+        }
+        if (proto->InventoryType == INVTYPE_NON_EQUIP || proto->InventoryType == INVTYPE_BAG || proto->InventoryType == INVTYPE_QUIVER)
+            return;
+
+        bool first = true;
+        for (uint8 equipmentSlot = EQUIPMENT_SLOT_START; equipmentSlot < EQUIPMENT_SLOT_END; ++equipmentSlot)
+        {
+            uint16 dest;
+            if (bot->CanEquipItem(equipmentSlot, dest, item, true, false) == EQUIP_ERR_OK && (dest & 255) == equipmentSlot)
+            {
+                out << (first ? "" : ",") << (equipmentSlot + 1);
+                first = false;
+            }
+        }
+    };
+
+    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+        if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+            writeItem(0, slot - INVENTORY_SLOT_ITEM_START + 1, item);
+
+    for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
+    {
+        const Bag* container = dynamic_cast<Bag*>(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bagSlot));
+        if (!container)
+            continue;
+
+        const int bag = bagSlot - INVENTORY_SLOT_BAG_START + 1;
+        out << "~G^" << bag << "^" << container->GetEntry() << "^" << container->GetBagSize();
+        for (uint32 slot = 0; slot < container->GetBagSize(); ++slot)
+            if (Item* item = container->GetItemByPos(uint8(slot)))
+                writeItem(bag, int(slot) + 1, item);
+    }
+
+    // addon messages are limited to 255 chars: "BOTIN\tS<seq>:<index>/<count>:<payload part>" (index is 1-based)
+    static constexpr size_t chunkSize = 220;
+    const std::string payload = out.str();
+    const size_t count = std::max<size_t>(1, (payload.size() + chunkSize - 1) / chunkSize);
+    const uint32 seq = ++inventorySeq;
+    for (size_t i = 0; i < count; ++i)
+    {
+        std::ostringstream text;
+        text << "BOTIN\tS" << seq << ":" << (i + 1) << "/" << count << ":" << payload.substr(i * chunkSize, chunkSize);
 
         WorldPacket data;
         ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, text.str().c_str(), LANG_ADDON, CHAT_TAG_NONE, bot->GetObjectGuid(), bot->GetName());

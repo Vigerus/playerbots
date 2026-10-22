@@ -377,6 +377,9 @@ public:
     void SendStateTreeDebug();
     // applies the addon's switches (StateMachine::SetDebugSwitch)
     void ApplyStateTreeToggles();
+    // WoWAddonInspectBot addon: runs its equip / unequip requests, then answers its inventory request
+    void ApplyInventoryCommands();
+    void SendInventory();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
@@ -793,6 +796,20 @@ protected:
     std::mutex stateTreeToggleLock;
     std::vector<StateTreeToggle> stateTreeToggles;
     uint8 stateTreeDebugSeq = 0;
+    // player waiting for the bot's gear and bags ("BOT\tinventory" addon request of WoWAddonInspectBot) and the
+    // addon's equip / unequip requests ("BOT\tequip <bag> <slot> <inventory slot>", "BOT\tunequip <inventory slot>",
+    // client numbering: bags 0-4, slots from 1, inventory slots 1-19); set from chat, run in UpdateAI
+    std::atomic<uint64> inventoryRequester{ 0 };
+    struct InventoryCommand
+    {
+        bool equip = true;
+        int bag = 0, slot = 0;      // equip: the item in the bags
+        int inventorySlot = -1;     // equip: where to (-1 wherever it fits), unequip: what
+        uint64 requester = 0;
+    };
+    std::mutex inventoryCommandLock;
+    std::vector<InventoryCommand> inventoryCommands;
+    uint8 inventorySeq = 0;
     ai::PlayerbotDungeonPositions dungeonPositions;
 
 #ifdef BUILD_ELUNA
