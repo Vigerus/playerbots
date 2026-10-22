@@ -169,15 +169,17 @@ void Task_EatAndDrink::Start(Task_EatAndDrinkContext& context) const
     }
 }
 
-void Task_EatAndDrink::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_EatAndDrink::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnEnter);
+    StartLog(baseContext);
     Task_EatAndDrinkContext& context = ContextAs<Task_EatAndDrinkContext>(baseContext);
     context.startMs = WorldTimer::getMSTime();
     context.eatStarted = false;
     context.drinkStarted = false;
     context.consumed = false;
     Start(context);
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -187,7 +189,7 @@ EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 
     Player* bot = context.bot;
 
     if (!NeedsHealth(bot) && !NeedsMana(bot))
-        return EActionRunStatus::Succeeded;
+        return LogStatus(baseContext, EActionRunStatus::Succeeded);
 
     // the meal runs while a food / drink aura restores something still below its target; an aura that ends before
     // its target is followed by the next food / drink
@@ -205,15 +207,17 @@ EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 
     // running: an aura is up, or a food / drink just started and its aura is not applied yet (or the bot was still
     // moving at the start)
     if (eating || drinking || WorldTimer::getMSTimeDiff(context.startMs, WorldTimer::getMSTime()) < startTimeoutMs)
-        return EActionRunStatus::Running;
+        return LogStatus(baseContext, EActionRunStatus::Running);
 
     // nothing left to eat or drink
-    return context.consumed ? EActionRunStatus::Succeeded : EActionRunStatus::Failed;
+    return LogStatus(baseContext, context.consumed ? EActionRunStatus::Succeeded : EActionRunStatus::Failed);
 }
 
 void Task_EatAndDrink::OnExit(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnExit);
+    // left while running: the run did not get done
+    EndLog(baseContext, false);
     // standing up ends the food and drink auras, the next node starts from a standing bot
     Player* bot = baseContext.bot;
     if (bot->IsSitState())

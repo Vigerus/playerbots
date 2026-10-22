@@ -15,17 +15,17 @@ namespace
     constexpr uint32 castTimeoutMs = 10000;
 }
 
-void Task_CastBuff::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_CastBuff::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnEnter);
     Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
     context.spellId = 0;
     context.target.Clear();
-    context.failed = false;
+    StartLog(context);
 
     // nothing needed (any more): the task succeeds right away
     if (context.needs.empty())
-        return;
+        return LogStatus(context, EActionRunStatus::Succeeded);
 
     Player* bot = context.bot;
     for (const BuffNeed& need : context.needs)
@@ -40,30 +40,26 @@ void Task_CastBuff::OnEnter(STAI_TaskContext& baseContext) const
         context.spellId = need.spellId;
         context.target = need.target;
         context.castStartMs = WorldTimer::getMSTime();
-        return;
+        return EActionRunStatus::Running;
     }
 
     // every missing buff is out of reach right now (range, mana, reagents...)
-    context.failed = true;
+    return LogStatus(context, EActionRunStatus::Failed);
 }
 
 EActionRunStatus Task_CastBuff::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnTick);
     Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
-    if (context.failed)
-        return EActionRunStatus::Failed;
-    if (!context.spellId)
-        return EActionRunStatus::Succeeded;
 
     // wait in the node for the cast and the global cooldown instead of casting the next buff right away
     Player* bot = context.bot;
     const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(context.spellId);
     const bool busy = bot->IsNonMeleeSpellCasted(false) || (spellInfo && bot->HasGCD(spellInfo));
     if (busy && WorldTimer::getMSTimeDiff(context.castStartMs, WorldTimer::getMSTime()) < castTimeoutMs)
-        return EActionRunStatus::Running;
+        return LogStatus(context, EActionRunStatus::Running);
 
-    return EActionRunStatus::Succeeded;
+    return LogStatus(context, EActionRunStatus::Succeeded);
 }
 
 const std::vector<STAI_PropertyDef>& Task_CastBuff::GetProperties() const
@@ -75,13 +71,7 @@ const std::vector<STAI_PropertyDef>& Task_CastBuff::GetProperties() const
 void Task_CastBuff::OnExit(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnExit);
-    // a cast in progress is left alone: a transition to follow stops it by moving if it has to
-}
-
-bool Task_CastBuff::IsSuccessful(const STAI_TaskContext& baseContext, EActionRunStatus status) const
-{
-    const Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
-    if (status != EActionRunStatus::Running)
-        return status == EActionRunStatus::Succeeded;
-    return context.spellId && !context.bot->IsNonMeleeSpellCasted(false);
+    // a cast in progress is left alone: a transition to follow stops it by moving if it has to; a run left during
+    // the GCD went well (the buff was cast and is not being cast any more)
+    EndLog(baseContext, !baseContext.bot->IsNonMeleeSpellCasted(false));
 }

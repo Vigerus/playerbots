@@ -17,7 +17,6 @@ namespace ai
         uint32 spellId = 0;             // 0: nothing was cast
         ObjectGuid target;
         uint32 castStartMs = 0;
-        bool failed = false;
     };
 
     // Casts one of the buffs in its needs property (bound to what BuffProvider_GlobalTask found missing), then waits
@@ -29,8 +28,8 @@ namespace ai
     //     </Task>
     //   </Node>
     // OnEnter casts the first need the bot can cast now (self, a single member, or a group spell on a member of the
-    // subgroup missing it). Succeeded once the cast and the GCD are over, or right away when nothing is needed;
-    // Failed when no need can be cast (range, mana, reagents...).
+    // subgroup missing it). Succeeded once the cast and the GCD are over, or in OnEnter when nothing is needed;
+    // Failed in OnEnter when no need can be cast (range, mana, reagents...).
     class Task_CastBuff : public STAI_Task
     {
     public:
@@ -43,18 +42,18 @@ namespace ai
         explicit Task_CastBuff(const std::string& needsSource) : needsSource(needsSource) {}
 
         virtual const char* GetTaskClass() const override { return "Task_CastBuff"; }
+        inline static std::string task_name = "CastBuff";
+        virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_CastBuffContext>(); }
 
-        virtual void OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
         virtual void OnExit(STAI_TaskContext& context) const override;
         virtual bool IsTickable() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
-        // a buff was cast and is not being cast any more (a run left during the GCD)
-        virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const override;
         virtual std::string GetDebugInfo() const override { return "Cast " + needsSource; }
         // every cast gets its own History entry
         virtual bool AreConsecutiveLogsStacked() const override { return false; }

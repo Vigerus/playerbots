@@ -106,15 +106,15 @@ namespace ai
         Player* bot = nullptr;
         HLSStateType state = HLSStateType::NonCombat;
         STAI_ActivityLog* activity = nullptr;   // the bot's recent activity, tasks may add entries
-        // the node the task belongs to (nullptr for global tasks): the source of its History entries
-        const std::string* nodeName = nullptr;
-        // the task's History entry of the current run (STAI_Task::Enter / Tick / Exit)
+        // the task's History entry of the current run (STAI_Task::StartLog / LogStatus / EndLog)
         uint64 activityId = 0;
         uint32 activityStartMs = 0;
         bool activityOpen = false;
         // switched off in the BotStateTree addon (runtime only, the bot's contexts live as long as the bot): the
         // tree skips the task, a node whose tasks are all disabled is not selected
         bool bDisabled = false;
+        // set by a task (STAI_FinishTreeTask): once it succeeded, the tree of its node finishes
+        bool bFinishTree = false;
     };
 
     // {spell:<id>} in a task's debug info: the addon shows the spell's icon and name
@@ -144,38 +144,32 @@ namespace ai
     // Task of a STAI state tree node (<Task class="...">). Created once per tree file when it is loaded and
     // shared by every bot running that tree: tasks hold only their configuration, everything per bot lives in
     // the context the tree constructs for the node (see GetContextType) and passes to every call.
-    // Lifecycle when its turn in the node comes (a node's tasks run one after another): OnEnter, OnTick every bot
-    // update until it returns Succeeded (the next task of the node is entered) or Failed (the node fails), OnExit
-    // (also called when an OnDelegate transition leaves the node or the tree finishes). Tasks that are not tickable
-    // (IsTickable) never get OnTick: in a node they succeed on their first update. The task's <Binding>s are copied
-    // into its context before OnEnter and before every OnTick.
+    // Lifecycle when its turn in the node comes (a node's tasks run one after another): OnEnter, which already
+    // finishes the task when it returns Succeeded / Failed; Running: OnTick every bot update (tickable tasks only,
+    // IsTickable) until it returns Succeeded (the next task of the node is entered) or Failed (the node fails); a
+    // task that is not tickable keeps running until a transition leaves the node. OnExit when the task is left
+    // (finished, an OnDelegate transition, the tree finishing). Per bot setup is done by the task in OnEnter.
+    // The task's <Binding>s are copied into its context before OnEnter and before every OnTick.
     class STAI_Task
     {
     public:
         virtual ~STAI_Task() = default;
 
         virtual const char* GetTaskClass() const = 0;
-        // short name shown by the debug addon and the activity log: the class without its Task_ / StateNode_ / STAI_
-        // prefix and _GlobalTask suffix (Task_CastBuff -> CastBuff, BuffProvider_GlobalTask -> BuffProvider)
+
+        // short name shown by the debug addon and the activity log: every task class has its own task_name
+        static std::string task_name;
+
         virtual std::string GetName() const
         {
-            std::string name = GetTaskClass();
-            for (const char* prefix : { "Task_", "StateNode_", "STAI_" })
-                if (name.rfind(prefix, 0) == 0 && name.size() > std::char_traits<char>::length(prefix))
-                    name.erase(0, std::char_traits<char>::length(prefix));
-            const std::string suffix = "_GlobalTask";
-            if (name.size() > suffix.size() && name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0)
-                name.erase(name.size() - suffix.size());
-            return name;
+            return task_name;
         }
 
         // the context class the tree constructs for this task, override for tasks with their own context
         virtual const STAI_TaskContextType& GetContextType() const { return STAI_TaskContextType::Of<STAI_TaskContext>(); }
-        // called once per bot after its context was constructed (bot setup the task needs before it runs)
-        virtual void InitContext(STAI_TaskContext& context) const {}
 
-        virtual void OnEnter(STAI_TaskContext& context) const {}
-        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const = 0;
+        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const { return EActionRunStatus::Succeeded; }
+        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const { return EActionRunStatus::Running; }
         virtual void OnExit(STAI_TaskContext& context) const {}
 
         // OnTick is called only for tickable tasks
@@ -201,8 +195,6 @@ namespace ai
             return nullptr;
         }
 
-        // the tree of the node finishes (OnFinish) once this task succeeded, see STAI_FinishTreeTask
-        virtual bool FinishesTree() const { return false; }
         // the node runs a tree stacked on top of the node's tree (Task_RunSubtree): while it does, the node's tree
         // only ticks the node
         virtual bool HoldsActiveTree(const STAI_TaskContext& context) const { return false; }
@@ -210,23 +202,11 @@ namespace ai
         // tree files this task runs (relative to the config directory), checked when the trees are loaded
         virtual std::vector<std::string> GetReferencedTrees() const { return {}; }
 
-        // What the tree calls: OnEnter / OnTick / OnExit, and the task's History entry (activity log): one per run,
-        // its GetDebugInfo and whether it succeeded, made once the task keeps running after its first update or
-        // fails (a task that succeeds at once leaves none). A task left while it runs (a transition, the tree
-        // finishing, the bot leaving the state) ends its entry in Exit with what IsSuccessful says.
-        void Enter(STAI_TaskContext& context) const;
-        EActionRunStatus Tick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const;
-        void Exit(STAI_TaskContext& context) const;
-
-        // whether the run counts as successful in the History: when it finished (status Succeeded / Failed), or
-        // when it is left while running (status Running: interrupted, unsuccessful unless the task knows better,
-        // e.g. a spell that already went off)
-        virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const { return status == EActionRunStatus::Succeeded; }
-        // tasks that log their own entries or none (subtrees, global tasks) return false
-        virtual bool LogsActivity() const { return true; }
         // the task's runs get History entries; <Task class="..." show_log="false"> switches them off (e.g. an idle
-        // Task_Wait that only waits for transitions)
-        bool bShowLog = true;
+        // Task_Wait that only waits for transitions), global tasks and subtrees have none by default
+        bool LogsActivity() const { return bShowLog; }
+        void SetShowLog(bool show) { bShowLog = show; }
+
         // a run right after a run of the same task (same info, same node) is merged into its History entry (one
         // entry counting the runs, e.g. Task_Wait); false gives every run its own entry (each cast of Task_CastSpell)
         virtual bool AreConsecutiveLogsStacked() const { return true; }
@@ -246,5 +226,16 @@ namespace ai
         static T& ContextAs(STAI_TaskContext& context) { return static_cast<T&>(context); }
         template<class T>
         static const T& ContextAs(const STAI_TaskContext& context) { return static_cast<const T&>(context); }
+
+        // History entries (activity log): tasks log their runs by themselves, one entry per run named by its
+        // GetDebugInfo (else GetName), its source is the task's name. StartLog in OnEnter remembers when the run
+        // started; LogStatus with a status of the run: Running gives the run its entry (from its start), Succeeded /
+        // Failed end it (a run that succeeds at once leaves none, a failed one always gets one); EndLog ends it when
+        // the run is left while it runs, with whether it went well. Nothing is logged when LogsActivity is off.
+        void StartLog(STAI_TaskContext& context) const;
+        EActionRunStatus LogStatus(STAI_TaskContext& context, EActionRunStatus status) const;
+        void EndLog(STAI_TaskContext& context, bool successful) const;
+
+        bool bShowLog = true;
     };
 }

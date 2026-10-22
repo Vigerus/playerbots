@@ -4,59 +4,53 @@
 
 using namespace ai;
 
+std::string STAI_Task::task_name = "Task";
+
 namespace
 {
-    // ends the run's History entry; an instant success leaves none, everything else gets one
-    void EndActivity(const STAI_Task& task, STAI_TaskContext& context, bool successful)
+    // the run's History entry, from the time the run started
+    void BeginActivity(const STAI_Task& task, STAI_TaskContext& context)
     {
-        if (!context.activityOpen)
-            return;
-
-        context.activityOpen = false;
-        if (!context.activityId)
-        {
-            if (successful)
-                return;
-            const std::string info = task.GetDebugInfo();
-            context.activityId = context.activity->BeginAt("task", info.empty() ? task.GetName() : info,
-                context.nodeName ? *context.nodeName : task.GetName(), context.activityStartMs, task.AreConsecutiveLogsStacked());
-        }
-        context.activity->End(context.activityId, successful ? 1 : 0);
-        context.activityId = 0;
+        const std::string info = task.GetDebugInfo();
+        context.activityId = context.activity->BeginAt("task", info.empty() ? task.GetName() : info, task.GetName(),
+            context.activityStartMs, task.AreConsecutiveLogsStacked());
     }
 }
 
-void STAI_Task::Enter(STAI_TaskContext& context) const
+void STAI_Task::StartLog(STAI_TaskContext& context) const
 {
     context.activityId = 0;
     context.activityStartMs = WorldTimer::getMSTime();
-    context.activityOpen = context.activity && LogsActivity() && bShowLog;
-    OnEnter(context);
+    context.activityOpen = context.activity && LogsActivity();
 }
 
-EActionRunStatus STAI_Task::Tick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const
+EActionRunStatus STAI_Task::LogStatus(STAI_TaskContext& context, EActionRunStatus status) const
 {
-    // a task that is not tickable is done once entered
-    const EActionRunStatus status = IsTickable() ? OnTick(context, elapsed, minimal) : EActionRunStatus::Succeeded;
-    if (status != EActionRunStatus::Running)
+    if (status == EActionRunStatus::Running)
     {
-        EndActivity(*this, context, IsSuccessful(context, status));
+        // still running: the run gets its entry
+        if (context.activityOpen && !context.activityId)
+            BeginActivity(*this, context);
         return status;
     }
 
-    // still running after an update: the run gets its entry, from the time the task was entered
-    if (context.activityOpen && !context.activityId)
-    {
-        const std::string info = GetDebugInfo();
-        context.activityId = context.activity->BeginAt("task", info.empty() ? GetName() : info,
-            context.nodeName ? *context.nodeName : GetName(), context.activityStartMs, AreConsecutiveLogsStacked());
-    }
+    EndLog(context, status == EActionRunStatus::Succeeded);
     return status;
 }
 
-void STAI_Task::Exit(STAI_TaskContext& context) const
+void STAI_Task::EndLog(STAI_TaskContext& context, bool successful) const
 {
-    // left while running: the task tells whether the run went well (a spell that went off) before it cleans up
-    EndActivity(*this, context, IsSuccessful(context, EActionRunStatus::Running));
-    OnExit(context);
+    if (!context.activityOpen)
+        return;
+
+    context.activityOpen = false;
+    // an instant success leaves no entry, everything else gets one
+    if (!context.activityId)
+    {
+        if (successful)
+            return;
+        BeginActivity(*this, context);
+    }
+    context.activity->End(context.activityId, successful ? 1 : 0);
+    context.activityId = 0;
 }

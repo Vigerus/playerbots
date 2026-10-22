@@ -29,7 +29,7 @@ namespace ai
     public:
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<ResourceProvider_GlobalTaskContext>(); }
 
-        virtual void OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
         virtual bool IsTickable() const override { return true; }
 
@@ -46,6 +46,8 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<HealthProvider_GlobalTask>(); }
 
         virtual const char* GetTaskClass() const override { return "HealthProvider_GlobalTask"; }
+        inline static std::string task_name = "HealthProvider";
+        virtual std::string GetName() const override { return task_name; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;
@@ -62,6 +64,8 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<ManaProvider_GlobalTask>(); }
 
         virtual const char* GetTaskClass() const override { return "ManaProvider_GlobalTask"; }
+        inline static std::string task_name = "ManaProvider";
+        virtual std::string GetName() const override { return task_name; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

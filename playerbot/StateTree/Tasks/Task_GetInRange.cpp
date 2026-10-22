@@ -78,12 +78,14 @@ void Task_GetInRange::Stop(Task_GetInRangeContext& context)
     context.bot->StopMoving();
 }
 
-void Task_GetInRange::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_GetInRange::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_GetInRange::OnEnter);
+    StartLog(baseContext);
     Task_GetInRangeContext& context = ContextAs<Task_GetInRangeContext>(baseContext);
     context.enterMs = WorldTimer::getMSTime();
     context.chasing = false;
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -97,27 +99,27 @@ EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 e
     if (!target)
     {
         Stop(context);
-        return EActionRunStatus::Succeeded;
+        return LogStatus(baseContext, EActionRunStatus::Succeeded);
     }
 
     const float yards = GetRange(context);
     if (sServerFacade.GetDistance2d(bot, target) <= yards && bot->IsWithinLOSInMap(target))
     {
         Stop(context);
-        return EActionRunStatus::Succeeded;
+        return LogStatus(baseContext, EActionRunStatus::Succeeded);
     }
 
     if (WorldTimer::getMSTimeDiff(context.enterMs, WorldTimer::getMSTime()) >= timeoutMs)
     {
         Stop(context);
-        return EActionRunStatus::Failed;
+        return LogStatus(baseContext, EActionRunStatus::Failed);
     }
 
     // not after a target in a dungeon stage that is not cleared (the master pulls it out)
     if (context.ai->IsStageEntryBlocked(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ()))
     {
         Stop(context);
-        return EActionRunStatus::Failed;
+        return LogStatus(baseContext, EActionRunStatus::Failed);
     }
 
     // chase into range; in range without sight the bot closes in until it sees the target
@@ -131,12 +133,14 @@ EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 e
         context.chasing = true;
         context.chaseDistance = chaseDistance;
     }
-    return EActionRunStatus::Running;
+    return LogStatus(baseContext, EActionRunStatus::Running);
 }
 
 void Task_GetInRange::OnExit(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_GetInRange::OnExit);
+    // left while running: the run did not get done
+    EndLog(baseContext, false);
     Stop(ContextAs<Task_GetInRangeContext>(baseContext));
 }
 

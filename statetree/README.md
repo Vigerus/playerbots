@@ -63,9 +63,10 @@ The StateTree debug addon shows each state's tree nodes, the active one highligh
 
 There is always a single active path from the tree to the running node. A node is selected only while none runs
 (the tree started, the node finished, a transition went to `Root`): the first node from the top whose conditions all
-pass is entered (`OnEnter`); conditions are only checked then. Its task is updated every bot update until it
-returns Succeeded or Failed (`OnExit`, the next update selects again), or until an `OnDelegate` transition of the node
-fires. A task that finishes in its update hands over in the same update: the next task of the node is entered and
+pass is entered (`OnEnter`); conditions are only checked then. A task can finish in `OnEnter` already (it returns
+Succeeded / Failed, e.g. `Task_RollForItem`, the trades); else a tickable task (`IsTickable`) is updated every bot
+update until it returns Succeeded or Failed (`OnExit`, the next update selects again), or until an `OnDelegate`
+transition of the node fires; a task that is not tickable keeps running until a transition leaves the node. A task that finishes in its update hands over in the same update: the next task of the node is entered and
 updated, a finished node is followed by the selection right away (up to 8 hand-overs per update). Nothing else leaves
 a running node: a node that never finishes (Idle, `Task_Wait` with delay 0) needs `OnDelegate` transitions, for
 example to Follow. A node whose task failed is not selected for 3 seconds. Empty `<Conditions/>` always pass, so a
@@ -109,7 +110,7 @@ Tasks:
 | `UIInteractionProvider_GlobalTask` | none | global task, ticked: what a player answers in its UI. Loot rolls the bot is asked to vote on (core `TeamSubsystem::OnLootRollStarted`, fired by `GroupLootRoll` for each voter): property `rolls` (the rolls not voted on yet, oldest first; dropped once voted or after the 60s roll timeout), delegate `onRollRequested` fired for every new roll. Trades (the bot's `SMSG_TRADE_STATUS`, `PlayerbotAI::onTradeStatus`): property `tradeOpenRequested` (a player opened a trade, the bot's window is not open yet) with delegate `onTradeRequested`, property `tradeAcceptRequested` (the window is open, the other player accepted, the bot did not) with delegate `onTradeAccepted` |
 | `Task_OpenTrade`     | none | opens the bot's trade window (faces the trader); cancels the trade unless the trader is a bot, the master or a group member (with the security level for everything); Failed when it cancelled |
 | `Task_AcceptTrade`   | none | accepts the trade (the other player accepted first), with the same trader rule; Failed when it cancelled |
-| `Task_RollForItem`   | `<Binding local="rolls" external="Root\|UIInteractionProvider_GlobalTask::rolls"/>` | votes on every bound roll: greed for now (pass when greed is not allowed); not tickable, Succeeded once entered |
+| `Task_RollForItem`   | `<Binding local="rolls" external="Root\|UIInteractionProvider_GlobalTask::rolls"/>` | votes on every bound roll: greed for now (pass when greed is not allowed); not tickable, Succeeded in `OnEnter` |
 | `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`; global tasks that publish properties and delegates for
@@ -214,13 +215,13 @@ checks the requirements and teleports it as it would a player. `MotionMaster::Mo
 its path from the worker (the unit stands until it is there).
 
 Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
-`STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. Tasks log their own runs: the tree calls
-`STAI_Task::Enter` / `Tick` / `Exit`, which wrap `OnEnter` / `OnTick` / `OnExit` and make one entry per run, named by the
-task's `GetDebugInfo()` (static: what the task does, e.g. `Cast {spell:116}`, the addon shows the spell's icon and name)
-under its node, once the task is still running after its first update or fails (a task that succeeds at once is not
-logged). The entry ends Successful / Fail with the task's `IsSuccessful(context, status)`: by default the status it
-finished with; a task left while running (a transition, the tree finishing, the bot leaving the state: the tree exits
-the node, the node its running task) is a failed run unless the task knows better (`Task_CastSpell`: the spell went
-off, instant and channeled ones when they start, cast-time spells with their spell go; `Task_CastBuff`: the buff is not
-being cast any more). Tasks return `false` from `LogsActivity()` to log nothing (global tasks, subtrees) or their own
-entries (`STAI_ActivityLog::Add` / `Shorten`).
+`STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. Tasks log their own runs, the tree
+does not: `STAI_Task::StartLog` (in `OnEnter`), `LogStatus` (with a status of the run) and `EndLog` (left while running,
+in `OnExit`) make one entry per run, named by the task's `GetDebugInfo()` (static: what the task does, e.g.
+`Cast {spell:116}`, the addon shows the spell's icon and name) with the task's name as its source, once the task is
+still running after its first update or fails (a task that succeeds at once is not logged). The task decides how its
+run went: `Task_CastSpell` ends its entry with whether the spell went off (instant and channeled ones when they start,
+cast-time spells with their spell go, also when the node is left during the cast), `Task_CastBuff` left during the GCD
+is successful once the buff is not being cast any more, the movement and eat tasks left while running count as failed.
+Global tasks and subtrees log nothing by default (`show_log="true"` switches it on); tasks may also add entries of
+their own (`STAI_ActivityLog::Add` / `Shorten`).

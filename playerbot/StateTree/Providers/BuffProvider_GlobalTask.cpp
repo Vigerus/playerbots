@@ -127,17 +127,14 @@ std::unique_ptr<STAI_Task> BuffProvider_GlobalTask::Create(const STAI_TaskConfig
     return std::make_unique<BuffProvider_GlobalTask>(ParseBuffs(config));
 }
 
-void BuffProvider_GlobalTask::InitContext(STAI_TaskContext& baseContext) const
-{
-    ContextAs<BuffProvider_GlobalTaskContext>(baseContext).task = this;
-}
-
-void BuffProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus BuffProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnEnter);
     BuffProvider_GlobalTaskContext& context = ContextAs<BuffProvider_GlobalTaskContext>(baseContext);
+    context.task = this;
     context.Subscribe();
     context.Evaluate();
+    return EActionRunStatus::Running;
 }
 
 void BuffProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const

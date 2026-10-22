@@ -41,11 +41,12 @@ std::unique_ptr<STAI_Task> MasterDistance_GlobalTask::Create(const STAI_TaskConf
     return std::make_unique<MasterDistance_GlobalTask>(ParseRange(config));
 }
 
-void MasterDistance_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus MasterDistance_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(MasterDistance_GlobalTask::OnEnter);
     ContextAs<MasterDistance_GlobalTaskContext>(baseContext).masterFar = false;
     ContextAs<MasterDistance_GlobalTaskContext>(baseContext).location = STAI_Location();
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus MasterDistance_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const

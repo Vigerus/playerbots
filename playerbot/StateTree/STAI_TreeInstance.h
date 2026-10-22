@@ -23,7 +23,8 @@ namespace ai
     // selects from the first node. A delegate fired while no node with a transition on it runs is remembered until
     // one does (cleared when the tree starts). Bindings are copied into a task's context before its OnEnter and
     // every OnTick.
-    // A tree runs until a STAI_FinishTreeTask node of it succeeds; that is the only way it finishes on its own.
+    // A tree runs until a task of it that set bFinishTree in its context succeeds (STAI_FinishTreeTask); that is the
+    // only way it finishes on its own.
     // Trees form a stack (Task_RunSubtree): only the top tree selects nodes, the trees below it just tick their
     // running node, the Task_RunSubtree leading up to the top tree.
     // Global tasks (<Global> of the tree) are scopeless: they belong to no node and run the whole time the tree
@@ -96,6 +97,10 @@ namespace ai
             uint32 failedAtMs = 0;
             std::vector<RuntimeConditions> transitionConditions;      // per transition
             std::vector<std::pair<size_t, size_t>> delegateTransitions;  // index in delegates, index of the transition
+            // the running task's OnEnter result: a task that finished at once is not ticked
+            EActionRunStatus enterStatus = EActionRunStatus::Running;
+            // a task of the node finished the tree (STAI_TaskContext::bFinishTree)
+            bool bTreeFinished = false;
         };
 
         void CreateContexts();
@@ -115,7 +120,7 @@ namespace ai
             const std::vector<uint8>* overrides = nullptr);
         STAI_TaskContext* GetContext(const STAI_MemberRef& ref) const;
         static void ApplyBindings(const TaskSlot& slot);
-        static void EnterTask(const TaskSlot& slot);
+        static EActionRunStatus EnterTask(const TaskSlot& slot);
         static EActionRunStatus TickTask(const TaskSlot& slot, uint32 elapsed, bool minimal);
         // the running node takes its transition of a fired delegate: true when the node was left
         bool TakeDelegateTransition(uint32 now);

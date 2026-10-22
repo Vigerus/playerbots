@@ -88,9 +88,10 @@ float Task_MoveTo::GetRadius(const STAI_TaskContext& context) const
     return context.ai->GetRange(acceptableRadius);
 }
 
-void Task_MoveTo::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_MoveTo::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MoveTo::OnEnter);
+    StartLog(baseContext);
     Task_MoveToContext& context = ContextAs<Task_MoveToContext>(baseContext);
     Player* bot = context.bot;
 
@@ -104,8 +105,9 @@ void Task_MoveTo::OnEnter(STAI_TaskContext& baseContext) const
 
     bool last;
     const NavPathSegment* leg = context.path.IsEmpty() ? nullptr : FindLeg(context.path, context.mapId, last);
+    // no leg on this map: OnTick decides (Running while teleported, else Failed)
     if (!leg)
-        return;
+        return EActionRunStatus::Running;
 
     context.startDistance = Distance(bot, GetLegEnd(context.path, *leg, last));
 
@@ -114,6 +116,7 @@ void Task_MoveTo::OnEnter(STAI_TaskContext& baseContext) const
         length += (leg->points[i] - leg->points[i - 1]).length();
     const float speed = std::max(bot->GetSpeed(MOVE_RUN), 1.0f);
     context.timeoutMs = uint32(length / speed * float(IN_MILLISECONDS)) + extraTimeMs;
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus Task_MoveTo::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -124,16 +127,16 @@ EActionRunStatus Task_MoveTo::OnTick(STAI_TaskContext& baseContext, uint32 elaps
     Player* bot = context.bot;
 
     if (bot->IsBeingTeleported())
-        return EActionRunStatus::Running;
+        return LogStatus(baseContext, EActionRunStatus::Running);
 
     // went through a navlink: the node plans again on the new map
     if (bot->GetMapId() != context.mapId)
-        return EActionRunStatus::Succeeded;
+        return LogStatus(baseContext, EActionRunStatus::Succeeded);
 
     bool last;
     const NavPathSegment* leg = context.path.IsEmpty() ? nullptr : FindLeg(context.path, context.mapId, last);
     if (!leg)
-        return EActionRunStatus::Failed;
+        return LogStatus(baseContext, EActionRunStatus::Failed);
 
     const float radius = GetRadius(context);
     const Vector3 end = GetLegEnd(context.path, *leg, last);
@@ -146,7 +149,7 @@ EActionRunStatus Task_MoveTo::OnTick(STAI_TaskContext& baseContext, uint32 elaps
             if (context.moving && IsMoving(bot))
                 ai->StopMoving();
             context.moving = false;
-            return EActionRunStatus::Succeeded;
+            return LogStatus(baseContext, EActionRunStatus::Succeeded);
         }
 
         // the target moved away from where the path leads: plan again, walking on meanwhile
@@ -154,16 +157,16 @@ EActionRunStatus Task_MoveTo::OnTick(STAI_TaskContext& baseContext, uint32 elaps
         if (location.valid && (location.mapId != context.mapId || (Vector3(location.x, location.y, location.z) - end).length() > radius))
         {
             context.keepMoving = true;
-            return EActionRunStatus::Succeeded;
+            return LogStatus(baseContext, EActionRunStatus::Succeeded);
         }
     }
 
     if (!ai->CanMove())
-        return EActionRunStatus::Running;
+        return LogStatus(baseContext, EActionRunStatus::Running);
 
     context.elapsedMs += elapsed;
     if (context.elapsedMs > context.timeoutMs)
-        return EActionRunStatus::Failed;
+        return LogStatus(baseContext, EActionRunStatus::Failed);
 
     if (!context.moving)
     {
@@ -180,11 +183,11 @@ EActionRunStatus Task_MoveTo::OnTick(STAI_TaskContext& baseContext, uint32 elaps
 
         bot->GetMotionMaster()->MovePath(points, FORCED_MOVEMENT_RUN, false, false);
         context.moving = true;
-        return EActionRunStatus::Running;
+        return LogStatus(baseContext, EActionRunStatus::Running);
     }
 
     if (IsMoving(bot))
-        return EActionRunStatus::Running;
+        return LogStatus(baseContext, EActionRunStatus::Running);
 
     // the path ended
     if (!last)
@@ -196,17 +199,19 @@ EActionRunStatus Task_MoveTo::OnTick(STAI_TaskContext& baseContext, uint32 elaps
             bot->GetMotionMaster()->MovePoint(0, end.x, end.y, end.z, FORCED_MOVEMENT_RUN, false);
             context.pushed = true;
         }
-        return EActionRunStatus::Running;
+        return LogStatus(baseContext, EActionRunStatus::Running);
     }
 
     // cut short (length limit, incomplete navmesh path): plan again from here when it brought the bot closer
     context.moving = false;
-    return context.startDistance - distance > radius ? EActionRunStatus::Succeeded : EActionRunStatus::Failed;
+    return LogStatus(baseContext, context.startDistance - distance > radius ? EActionRunStatus::Succeeded : EActionRunStatus::Failed);
 }
 
 void Task_MoveTo::OnExit(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MoveTo::OnExit);
+    // left while running: the run did not get done
+    EndLog(baseContext, false);
     Task_MoveToContext& context = ContextAs<Task_MoveToContext>(baseContext);
     if (context.moving && !context.keepMoving && IsMoving(context.bot))
         context.ai->StopMoving();

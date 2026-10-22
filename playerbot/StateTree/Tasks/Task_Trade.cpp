@@ -17,9 +17,10 @@ namespace
     }
 }
 
-EActionRunStatus Task_OpenTrade::OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const
+EActionRunStatus Task_OpenTrade::OnEnter(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_OpenTrade::OnTick);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_OpenTrade::OnEnter);
+    StartLog(context);
     Player* bot = context.bot;
     Player* trader = bot->GetTrader();
     if (!trader || !bot->GetTradeData())
@@ -28,7 +29,7 @@ EActionRunStatus Task_OpenTrade::OnTick(STAI_TaskContext& context, uint32 elapse
     if (!STAI_CanTradeWith(context.ai, bot, trader))
     {
         CancelTrade(bot);
-        return EActionRunStatus::Failed;
+        return LogStatus(context, EActionRunStatus::Failed);
     }
 
     if (!sServerFacade.IsInFront(bot, trader, sPlayerbotAIConfig.sightDistance, CAST_ANGLE_IN_FRONT))
@@ -40,9 +41,10 @@ EActionRunStatus Task_OpenTrade::OnTick(STAI_TaskContext& context, uint32 elapse
     return EActionRunStatus::Succeeded;
 }
 
-EActionRunStatus Task_AcceptTrade::OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const
+EActionRunStatus Task_AcceptTrade::OnEnter(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_AcceptTrade::OnTick);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_AcceptTrade::OnEnter);
+    StartLog(context);
     Player* bot = context.bot;
     Player* trader = bot->GetTrader();
     TradeData* trade = bot->GetTradeData();
@@ -52,7 +54,7 @@ EActionRunStatus Task_AcceptTrade::OnTick(STAI_TaskContext& context, uint32 elap
     if (!STAI_CanTradeWith(context.ai, bot, trader))
     {
         CancelTrade(bot);
-        return EActionRunStatus::Failed;
+        return LogStatus(context, EActionRunStatus::Failed);
     }
 
     // TODO(strategy): random bots priced the trade (TradeStatusAction::CheckTrade: sell / buy prices, discount) and

@@ -22,12 +22,13 @@ bool ai::STAI_CanTradeWith(PlayerbotAI* ai, Player* bot, Player* trader)
     return ai->GetSecurity()->CheckLevelFor(PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, false, trader);
 }
 
-void UIInteractionProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus UIInteractionProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(UIInteractionProvider_GlobalTask::OnEnter);
     UIInteractionProvider_GlobalTaskContext& context = ContextAs<UIInteractionProvider_GlobalTaskContext>(baseContext);
     context.Subscribe();
     context.UpdateTrade();
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus UIInteractionProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const

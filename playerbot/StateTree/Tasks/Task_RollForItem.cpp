@@ -6,7 +6,7 @@
 
 using namespace ai;
 
-void Task_RollForItem::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_RollForItem::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RollForItem::OnEnter);
     Task_RollForItemContext& context = ContextAs<Task_RollForItemContext>(baseContext);
@@ -23,6 +23,7 @@ void Task_RollForItem::OnEnter(STAI_TaskContext& baseContext) const
             sLootMgr.PlayerVote(bot, roll->lootGuid, roll->itemSlot, vote);
         roll->done = true;
     }
+    return EActionRunStatus::Succeeded;
 }
 
 const std::vector<STAI_PropertyDef>& Task_RollForItem::GetProperties() const

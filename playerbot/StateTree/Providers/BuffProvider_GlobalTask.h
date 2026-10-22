@@ -66,11 +66,12 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
 
         virtual const char* GetTaskClass() const override { return "BuffProvider_GlobalTask"; }
+        inline static std::string task_name = "BuffProvider";
+        virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<BuffProvider_GlobalTaskContext>(); }
-        virtual void InitContext(STAI_TaskContext& context) const override;
 
-        virtual void OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
         virtual void OnExit(STAI_TaskContext& context) const override;
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;

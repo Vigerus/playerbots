@@ -20,7 +20,7 @@ namespace ai
     //     <Binding local="rolls" external="Root|UIInteractionProvider_GlobalTask::rolls"/>
     //   </Task>
     // For now always greed (pass when greed is not allowed). Marks each roll done, the provider drops it. Not
-    // tickable: Succeeded once entered.
+    // tickable: Succeeded in OnEnter.
     class Task_RollForItem : public STAI_Task
     {
     public:
@@ -28,11 +28,12 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<Task_RollForItem>(); }
 
         virtual const char* GetTaskClass() const override { return "Task_RollForItem"; }
+        inline static std::string task_name = "RollForItem";
+        virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_RollForItemContext>(); }
 
-        virtual void OnEnter(STAI_TaskContext& context) const override;
-        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override { return EActionRunStatus::Succeeded; }
+        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 

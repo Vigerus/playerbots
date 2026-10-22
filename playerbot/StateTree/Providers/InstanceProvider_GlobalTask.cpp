@@ -56,7 +56,7 @@ namespace
     }
 }
 
-void InstanceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus InstanceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(InstanceProvider_GlobalTask::OnEnter);
     InstanceProvider_GlobalTaskContext& context = ContextAs<InstanceProvider_GlobalTaskContext>(baseContext);
@@ -64,6 +64,7 @@ void InstanceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
     if (context.bot->IsInWorld())
         context.SetMap(context.bot->GetMap());
     context.UpdateStages();
+    return EActionRunStatus::Running;
 }
 
 void InstanceProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const

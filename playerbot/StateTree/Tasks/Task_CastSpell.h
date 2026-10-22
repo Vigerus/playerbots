@@ -17,7 +17,6 @@ namespace ai
         uint32 spellId = 0;                 // 0: nothing was cast
         ObjectGuid castTarget;
         uint32 castStartMs = 0;
-        bool failed = false;
         bool resultAtStart = false;         // instant / channeled: successful once started
         int8 result = -1;                   // the spell went off: -1 not known yet, 0 no, 1 yes
     };
@@ -30,8 +29,8 @@ namespace ai
     //   <Task class="Task_CastSpell" spellid="Frostbolt">
     //     <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     //   </Task>
-    // Succeeded once the cast and the GCD are over, or right away when there is no living target; Failed when the
-    // bot does not know the spell or can cast it on none of the living targets (range, sight, mana...).
+    // Succeeded once the cast and the GCD are over, or in OnEnter when there is no living target; Failed in OnEnter
+    // when the bot does not know the spell or can cast it on none of the living targets (range, sight, mana...).
     // Its History entries ("Cast <spell>") are successful when the spell went off: instant and channeled spells (Fire
     // Blast, Blizzard, Arcane Missiles: no cast time / channel attributes) as soon as they started, spells with a
     // cast time when the server sent their spell go; a failure, no spell go, or a cast left unfinished (the node
@@ -46,17 +45,18 @@ namespace ai
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
 
         virtual const char* GetTaskClass() const override { return "Task_CastSpell"; }
+        inline static std::string task_name = "CastSpell";
+        virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_CastSpellContext>(); }
 
-        virtual void OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
+        virtual void OnExit(STAI_TaskContext& context) const override;
         virtual bool IsTickable() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
-        // whether the spell went off (also when the run is left while the cast is still going: it did not)
-        virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const override;
         virtual std::string GetDebugInfo() const override { return "Cast " + STAI_SpellMarkup(spellId); }
         // every cast gets its own History entry
         virtual bool AreConsecutiveLogsStacked() const override { return false; }

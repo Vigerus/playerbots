@@ -125,17 +125,17 @@ void STAI_TreeInstance::ApplyBindings(const TaskSlot& slot)
         binding.property->assign(binding.local, binding.external);
 }
 
-void STAI_TreeInstance::EnterTask(const TaskSlot& slot)
+EActionRunStatus STAI_TreeInstance::EnterTask(const TaskSlot& slot)
 {
     ApplyBindings(slot);
-    slot.def->task->Enter(*slot.context);
+    slot.context->bFinishTree = false;
+    return slot.def->task->OnEnter(*slot.context);
 }
 
 EActionRunStatus STAI_TreeInstance::TickTask(const TaskSlot& slot, uint32 elapsed, bool minimal)
 {
-    if (slot.def->task->IsTickable())
-        ApplyBindings(slot);
-    return slot.def->task->Tick(*slot.context, elapsed, minimal);
+    ApplyBindings(slot);
+    return slot.def->task->OnTick(*slot.context, elapsed, minimal);
 }
 
 bool STAI_TreeInstance::TakeDelegateTransition(uint32 now)
@@ -206,14 +206,6 @@ void STAI_TreeInstance::CreateContexts()
     std::byte* memory = reinterpret_cast<std::byte*>(contextStorage.get());
     for (size_t i = 0; i < slots.size(); ++i)
         slots[i]->context = slots[i]->def->task->GetContextType().construct(memory + offsets[i], context);
-
-    // node tasks log their runs under the node's name
-    for (RuntimeNode& node : nodes)
-        for (TaskSlot& task : node.tasks)
-            task.context->nodeName = &node.def->name;
-
-    for (TaskSlot* slot : slots)
-        slot->def->task->InitContext(*slot->context);
 }
 
 bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now, bool ignoreFailedDelay)
@@ -241,6 +233,7 @@ void STAI_TreeInstance::EnterNode(int index)
 
     RuntimeNode& node = nodes[index];
     node.failed = false;
+    node.bTreeFinished = false;
     EnterNodeTask(node, NextEnabledTask(node, 0));
 }
 
@@ -255,7 +248,7 @@ int STAI_TreeInstance::NextEnabledTask(const RuntimeNode& node, int index)
 void STAI_TreeInstance::EnterNodeTask(RuntimeNode& node, int index)
 {
     node.current = index;
-    EnterTask(node.tasks[index]);
+    node.enterStatus = EnterTask(node.tasks[index]);
 }
 
 void STAI_TreeInstance::ExitActive()
@@ -266,7 +259,7 @@ void STAI_TreeInstance::ExitActive()
     // only the running task was entered, the earlier ones are exited already
     RuntimeNode& node = nodes[active];
     if (node.current >= 0)
-        node.tasks[node.current].def->task->Exit(*node.tasks[node.current].context);
+        node.tasks[node.current].def->task->OnExit(*node.tasks[node.current].context);
     node.current = -1;
     active = -1;
 }
@@ -288,7 +281,7 @@ void STAI_TreeInstance::ExitGlobals()
 
     // opposite to the order they were entered
     for (auto global = globals.rbegin(); global != globals.rend(); ++global)
-        global->def->task->Exit(*global->context);
+        global->def->task->OnExit(*global->context);
     running = false;
 }
 
@@ -322,7 +315,12 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
 
     // scopeless: ticked whichever node runs, the result does not end anything
     for (TaskSlot& global : globals)
-        TickTask(global, elapsed, minimal);
+    {
+        if (global.def->task->IsTickable())
+        {
+            TickTask(global, elapsed, minimal);
+        }
+    }
 
     // the running node keeps the results it was entered with, the others show only what this update checked
     for (int i = 0; i < int(nodes.size()); ++i)
@@ -369,7 +367,7 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
         if (node.current < 0 || node.tasks[node.current].context->bDisabled)
         {
             if (node.current >= 0)
-                node.tasks[node.current].def->task->Exit(*node.tasks[node.current].context);
+                node.tasks[node.current].def->task->OnExit(*node.tasks[node.current].context);
             const int next = NextEnabledTask(node, node.current + 1);
             if (next >= 0)
             {
@@ -382,10 +380,20 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
         }
 
         TaskSlot& task = node.tasks[node.current];
-        // the update's time is passed once, the tasks handed over to in the same update get 0
-        const EActionRunStatus status = TickTask(task, step == 0 ? elapsed : 0, minimal);
+        // a task that finished in OnEnter is not ticked; a running one that is not tickable runs until a transition
+        // leaves the node
+        EActionRunStatus status = node.enterStatus;
+        node.enterStatus = EActionRunStatus::Running;
         if (status == EActionRunStatus::Running)
-            return status;
+        {
+            if (!task.def->task->IsTickable())
+                return status;
+
+            // the update's time is passed once, the tasks handed over to in the same update get 0
+            status = TickTask(task, step == 0 ? elapsed : 0, minimal);
+            if (status == EActionRunStatus::Running)
+                return status;
+        }
 
         // a failed task fails the node: its transition, or the selection from the first node
         if (status == EActionRunStatus::Failed)
@@ -396,7 +404,10 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
             continue;
         }
 
-        if (task.def->task->FinishesTree())
+        // the task asked through its context to finish the tree
+        if (task.context->bFinishTree)
+            node.bTreeFinished = true;
+        if (node.bTreeFinished)
         {
             OnFinish();
             return EActionRunStatus::Succeeded;
@@ -406,7 +417,7 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
         const int next = NextEnabledTask(node, node.current + 1);
         if (next >= 0)
         {
-            task.def->task->Exit(*task.context);
+            task.def->task->OnExit(*task.context);
             EnterNodeTask(node, next);
             continue;
         }

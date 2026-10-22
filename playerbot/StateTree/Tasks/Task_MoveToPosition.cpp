@@ -36,14 +36,16 @@ std::unique_ptr<STAI_Task> Task_MoveToPosition::Create(const STAI_TaskConfig& co
     return std::make_unique<Task_MoveToPosition>(ParseRadius(config), STAI_TaskFactory::GetBindingSource(config, "position"));
 }
 
-void Task_MoveToPosition::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_MoveToPosition::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MoveToPosition::OnEnter);
+    StartLog(baseContext);
     Task_MoveToPositionContext& context = ContextAs<Task_MoveToPositionContext>(baseContext);
     context.moving = false;
     context.destination = STAI_Position();
     context.elapsedMs = 0;
     context.lastDistance = -1.0f;
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus Task_MoveToPosition::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -54,19 +56,19 @@ EActionRunStatus Task_MoveToPosition::OnTick(STAI_TaskContext& baseContext, uint
     Player* bot = context.bot;
 
     if (!context.position.valid)
-        return EActionRunStatus::Succeeded;
+        return LogStatus(baseContext, EActionRunStatus::Succeeded);
 
     const STAI_Position& position = context.position;
     context.lastDistance = bot->GetDistance(position.x, position.y, position.z);
     if (context.lastDistance <= acceptableRadius)
-        return EActionRunStatus::Succeeded;
+        return LogStatus(baseContext, EActionRunStatus::Succeeded);
 
     context.elapsedMs += elapsed;
     if (context.elapsedMs > timeoutMs)
-        return EActionRunStatus::Failed;
+        return LogStatus(baseContext, EActionRunStatus::Failed);
 
     if (!ai->CanMove())
-        return EActionRunStatus::Running;
+        return LogStatus(baseContext, EActionRunStatus::Running);
 
     const bool stopped = bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != POINT_MOTION_TYPE;
     if (context.destination != position || stopped)
@@ -80,12 +82,14 @@ EActionRunStatus Task_MoveToPosition::OnTick(STAI_TaskContext& baseContext, uint
         context.moving = true;
     }
 
-    return EActionRunStatus::Running;
+    return LogStatus(baseContext, EActionRunStatus::Running);
 }
 
 void Task_MoveToPosition::OnExit(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MoveToPosition::OnExit);
+    // left while running: the run did not get done
+    EndLog(baseContext, false);
     Task_MoveToPositionContext& context = ContextAs<Task_MoveToPositionContext>(baseContext);
     if (context.moving && context.bot->GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE)
         context.ai->StopMoving();

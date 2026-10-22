@@ -32,21 +32,30 @@ std::unique_ptr<STAI_Task> Task_Wait::Create(const STAI_TaskConfig& config)
     return std::make_unique<Task_Wait>(ParseDelay(config));
 }
 
-void Task_Wait::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_Wait::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Wait::OnEnter);
     ContextAs<Task_WaitContext>(baseContext).waited = 0;
+    StartLog(baseContext);
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus Task_Wait::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Wait::OnTick);
     if (!delay)
-        return EActionRunStatus::Running;
+        return LogStatus(baseContext, EActionRunStatus::Running);
 
     Task_WaitContext& context = ContextAs<Task_WaitContext>(baseContext);
     context.waited += elapsed;
-    return context.waited >= delay ? EActionRunStatus::Succeeded : EActionRunStatus::Running;
+    return LogStatus(baseContext, context.waited >= delay ? EActionRunStatus::Succeeded : EActionRunStatus::Running);
+}
+
+void Task_Wait::OnExit(STAI_TaskContext& context) const
+{
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Wait::OnExit);
+    // left by a transition: waiting went as planned
+    EndLog(context, true);
 }
 
 std::string Task_Wait::GetDebugInfo() const

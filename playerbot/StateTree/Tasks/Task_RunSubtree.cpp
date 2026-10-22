@@ -21,6 +21,7 @@ Task_RunSubtreeContext::~Task_RunSubtreeContext() = default;
 Task_RunSubtree::Task_RunSubtree(const std::string& file)
     : file(file)
 {
+    bShowLog = false;
 }
 
 void Task_RunSubtree::Validate(const STAI_TaskConfig& config)
@@ -40,35 +41,35 @@ const STAI_TaskContextType& Task_RunSubtree::GetContextType() const
     return STAI_TaskContextType::Of<Task_RunSubtreeContext>();
 }
 
-void Task_RunSubtree::InitContext(STAI_TaskContext& baseContext) const
-{
-    Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-
-    std::shared_ptr<const STAI_TreeAsset> asset = sSTAITreeLibrary.Find(file);
-    if (!asset)
-    {
-        sLog.outError("StateTree: subtree %s is not loaded, the node of %s always fails", file.c_str(), context.bot->GetName());
-        return;
-    }
-
-    // the subtree's contexts share the bot and state of this node
-    context.subtree = std::make_unique<STAI_TreeInstance>(context, std::move(asset));
-}
-
-void Task_RunSubtree::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_RunSubtree::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnEnter);
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    if (context.subtree)
-        context.subtree->OnStart();
+    if (!context.created)
+    {
+        context.created = true;
+        std::shared_ptr<const STAI_TreeAsset> asset = sSTAITreeLibrary.Find(file);
+        if (!asset)
+            sLog.outError("StateTree: subtree %s is not loaded, the node of %s always fails", file.c_str(), context.bot->GetName());
+        else
+        {
+            // the subtree's contexts share the bot, state and activity log of this node
+            const STAI_TaskContext base(context.ai, context.bot, context.state, context.activity);
+            context.subtree = std::make_unique<STAI_TreeInstance>(base, std::move(asset));
+        }
+    }
+
+    if (!context.subtree)
+        return EActionRunStatus::Failed;
+
+    context.subtree->OnStart();
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus Task_RunSubtree::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnTick);
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    if (!context.subtree)
-        return EActionRunStatus::Failed;
 
     // Succeeded once the subtree finished itself, it never fails
     return context.subtree->OnTick(elapsed, minimal) == EActionRunStatus::Succeeded ? EActionRunStatus::Succeeded : EActionRunStatus::Running;

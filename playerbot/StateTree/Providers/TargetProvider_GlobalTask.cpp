@@ -222,7 +222,7 @@ void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context
     SetChosen(context, FindAssistTarget(context, ccMarks), false);
 }
 
-void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnEnter);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
@@ -232,6 +232,7 @@ void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
     context.marked = false;
     context.sinceCheckMs = 0;
     Update(context, true);
+    return EActionRunStatus::Running;
 }
 
 void TargetProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const

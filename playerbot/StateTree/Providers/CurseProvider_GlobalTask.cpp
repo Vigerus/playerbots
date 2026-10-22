@@ -44,17 +44,14 @@ std::unique_ptr<STAI_Task> CurseProvider_GlobalTask::Create(const STAI_TaskConfi
     return std::make_unique<CurseProvider_GlobalTask>(ParseAuras(config));
 }
 
-void CurseProvider_GlobalTask::InitContext(STAI_TaskContext& baseContext) const
-{
-    ContextAs<CurseProvider_GlobalTaskContext>(baseContext).task = this;
-}
-
-void CurseProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus CurseProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(CurseProvider_GlobalTask::OnEnter);
     CurseProvider_GlobalTaskContext& context = ContextAs<CurseProvider_GlobalTaskContext>(baseContext);
+    context.task = this;
     context.Subscribe();
     context.Evaluate();
+    return EActionRunStatus::Running;
 }
 
 void CurseProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const

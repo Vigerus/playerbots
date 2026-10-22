@@ -77,9 +77,10 @@ std::unique_ptr<STAI_Task> Task_MakePath::Create(const STAI_TaskConfig& config)
     return std::make_unique<Task_MakePath>(location, STAI_TaskFactory::GetBindingSource(config, "location"));
 }
 
-void Task_MakePath::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_MakePath::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MakePath::OnEnter);
+    StartLog(baseContext);
     Task_MakePathContext& context = ContextAs<Task_MakePathContext>(baseContext);
     Player* bot = context.bot;
 
@@ -95,11 +96,12 @@ void Task_MakePath::OnEnter(STAI_TaskContext& baseContext) const
     }
 
     if (!context.location.valid || !bot->IsInWorld() || bot->IsBeingTeleported())
-        return;
+        return LogStatus(baseContext, EActionRunStatus::Failed);
 
     const STAI_Location& location = context.location;
     context.request = sPathfindingWorker.Request(bot->GetMapId(), Vector3(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()),
         location.mapId, Vector3(location.x, location.y, location.z));
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus Task_MakePath::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -108,24 +110,26 @@ EActionRunStatus Task_MakePath::OnTick(STAI_TaskContext& baseContext, uint32 ela
     Task_MakePathContext& context = ContextAs<Task_MakePathContext>(baseContext);
 
     if (!context.request)
-        return EActionRunStatus::Failed;
+        return LogStatus(baseContext, EActionRunStatus::Failed);
 
     if (!context.request->IsDone())
     {
         context.elapsedMs += elapsed;
-        return context.elapsedMs > timeoutMs ? EActionRunStatus::Failed : EActionRunStatus::Running;
+        return LogStatus(baseContext, context.elapsedMs > timeoutMs ? EActionRunStatus::Failed : EActionRunStatus::Running);
     }
 
     if (!context.request->IsReady())
-        return EActionRunStatus::Failed;
+        return LogStatus(baseContext, EActionRunStatus::Failed);
 
     context.path.request = context.request;
-    return EActionRunStatus::Succeeded;
+    return LogStatus(baseContext, EActionRunStatus::Succeeded);
 }
 
 void Task_MakePath::OnExit(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_MakePath::OnExit);
+    // left while running: the run did not get done
+    EndLog(baseContext, false);
     // a request nobody holds is skipped by the worker; the path stays for Task_MoveTo
     ContextAs<Task_MakePathContext>(baseContext).request.reset();
 }

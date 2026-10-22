@@ -13,13 +13,14 @@ namespace
     constexpr uint32 minFireIntervalMs = 1000;
 }
 
-void ResourceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus ResourceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(ResourceProvider_GlobalTask::OnEnter);
     ResourceProvider_GlobalTaskContext& context = ContextAs<ResourceProvider_GlobalTaskContext>(baseContext);
     context.percent = ReadPercent(context.bot);
     // the first update fires, so transitions see the value the tree starts with
     context.lastWholePercent = -1;
+    return EActionRunStatus::Running;
 }
 
 EActionRunStatus ResourceProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
