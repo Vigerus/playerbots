@@ -379,6 +379,9 @@ public:
     void HandleMasterIncomingPacket(const WorldPacket& packet);
     void HandleMasterOutgoingPacket(const WorldPacket& packet);
 	void HandleTeleportAck();
+    // what the client does for a player: entering a teleport area trigger (dungeon portal) sends CMSG_AREATRIGGER,
+    // the core checks the requirements and teleports the bot like a player
+    void UpdateAreaTriggers();
     void Reset(bool full = false);
     bool IsTank(Player* player, bool inGroup = true);
     bool IsHeal(Player* player, bool inGroup = true);
@@ -741,6 +744,7 @@ protected:
     bool inCombat = false;
     bool isMoving = false;
     bool isWaiting = false;
+    uint32 insideAreaTrigger = 0;   // the teleport area trigger the bot stands in (fires once when entered)
     BotCheatMask cheatMask = BotCheatMask::none;
     WorldPosition jumpDestination;
     uint32 jumpTime = 0;

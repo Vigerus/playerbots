@@ -18,6 +18,7 @@ the live versions are in `playerbot/`).
 | `playerbot/PlayerbotLegacyStrategies.*` | runtime strategy edits from the BotStateTree addon, per brain and map |
 | `playerbot/StateTree/Tasks/StateNode_Legacy.*`, `LegacyBrain.*` | STAI task running a legacy engine as a tree node; the brains were the `statetree/Legacy_*.json` strategy lists (deleted) |
 | `playerbot/StateTree/Tasks/StateTreeTask*.h`, `StateTree/StateNode.*` | first utility-AI prototype of a state node wrapping legacy actions |
+| `playerbot/StateTree/Tasks/Task_Follow.*` | STAI follow task: kept a side of the master (relative angle, `GetNearPoint`) and repathed synchronously when the master moved; replaced by `Task_MakePath` + `Task_MoveTo` (async paths across maps) |
 | `playerbot/TravelMgr.*` | quest / rpg / grind / boss / gather / explore travel destinations, the bots' travel targets, fishing spots; the geography part (map transfers, area levels, bad mmaps, mob avoid areas) was kept in `playerbot/TravelMgr.*` |
 | `playerbot/PlayerbotHelpMgr.*` | generated in-game help of strategies / triggers / actions / values |
 | `playerbot/BotTests.*` | log based self tests of legacy behaviour |

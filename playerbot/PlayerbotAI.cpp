@@ -179,6 +179,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         }
     }
 
+    UpdateAreaTriggers();
+
     // Leontiesh - fix movement desync
     bool botMoving = false;
     if (!bot->IsStopped() || bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != IDLE_MOTION_TYPE)
@@ -564,6 +566,45 @@ void PlayerbotAI::UpdateTalentSpec(PlayerTalentSpec spec)
     }
 
     talentSpec = spec;
+}
+
+void PlayerbotAI::UpdateAreaTriggers()
+{
+    if (IsRealPlayer() || !bot->IsInWorld() || bot->IsBeingTeleported() || bot->IsTaxiFlying())
+        return;
+
+    // the teleport area triggers of each map, built once
+    static const std::unordered_map<uint32, std::vector<AreaTriggerEntry const*>> triggersByMap = []
+    {
+        std::unordered_map<uint32, std::vector<AreaTriggerEntry const*>> result;
+        for (auto const& itr : sObjectMgr.GetAreaTriggers())
+            if (AreaTriggerEntry const* entry = sAreaTriggerStore.LookupEntry(itr.first))
+                result[entry->mapid].push_back(entry);
+        return result;
+    }();
+
+    uint32 inside = 0;
+    auto itr = triggersByMap.find(bot->GetMapId());
+    if (itr != triggersByMap.end())
+        for (AreaTriggerEntry const* entry : itr->second)
+            if (IsPointInAreaTriggerZone(entry, bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()))
+            {
+                inside = entry->id;
+                break;
+            }
+
+    // like the client: once when the bot enters it
+    if (inside && inside != insideAreaTrigger)
+    {
+        insideAreaTrigger = inside;
+        WorldPacket packet(CMSG_AREATRIGGER, 4);
+        packet << inside;
+        packet.rpos(0);
+        bot->GetSession()->HandleAreaTriggerOpcode(packet);
+        return;
+    }
+
+    insideAreaTrigger = inside;
 }
 
 bool PlayerbotAI::CanEnterArea(const AreaTrigger* area)

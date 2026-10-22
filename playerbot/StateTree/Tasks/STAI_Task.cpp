@@ -19,7 +19,7 @@ namespace
                 return;
             const std::string info = task.GetDebugInfo();
             context.activityId = context.activity->BeginAt("task", info.empty() ? task.GetName() : info,
-                context.nodeName ? *context.nodeName : task.GetName(), context.activityStartMs);
+                context.nodeName ? *context.nodeName : task.GetName(), context.activityStartMs, task.AreConsecutiveLogsStacked());
         }
         context.activity->End(context.activityId, successful ? 1 : 0);
         context.activityId = 0;
@@ -49,7 +49,7 @@ EActionRunStatus STAI_Task::Tick(STAI_TaskContext& context, uint32 elapsed, bool
     {
         const std::string info = GetDebugInfo();
         context.activityId = context.activity->BeginAt("task", info.empty() ? GetName() : info,
-            context.nodeName ? *context.nodeName : GetName(), context.activityStartMs);
+            context.nodeName ? *context.nodeName : GetName(), context.activityStartMs, AreConsecutiveLogsStacked());
     }
     return status;
 }

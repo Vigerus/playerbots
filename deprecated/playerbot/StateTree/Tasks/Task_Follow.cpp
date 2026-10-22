@@ -114,6 +114,22 @@ EActionRunStatus Task_Follow::OnTick(STAI_TaskContext& baseContext, uint32 elaps
     PlayerbotAI* ai = context.ai;
     Player* bot = context.bot;
 
+    // the master entered or left a dungeon: the bot is teleported next to it (the map change restarts the tree)
+    if (bot->IsBeingTeleported())
+        return EActionRunStatus::Running;
+
+    Player* master = ai->GetMaster();
+    if (master && master != bot && master->IsInWorld() && master->IsAlive() && !bot->IsBeingTeleported() && !master->IsBeingTeleported() &&
+        (master->GetMapId() != bot->GetMapId() || master->GetInstanceId() != bot->GetInstanceId()))
+    {
+        if (bot->IsSitState())
+            bot->SetStandState(UNIT_STAND_STATE_STAND);
+        ai->StopMoving();
+        ai->Unmount();
+        return bot->TeleportTo(master->GetMapId(), master->GetPositionX(), master->GetPositionY(), master->GetPositionZ(), master->GetOrientation())
+            ? EActionRunStatus::Running : EActionRunStatus::Failed;
+    }
+
     Unit* target = GetTarget(context);
     if (!target || target->IsTaxiFlying() || bot->GetTransport() != target->GetTransport())
         return EActionRunStatus::Failed;

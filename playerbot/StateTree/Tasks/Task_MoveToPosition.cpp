@@ -74,7 +74,8 @@ EActionRunStatus Task_MoveToPosition::OnTick(STAI_TaskContext& baseContext, uint
         if (bot->IsSitState())
             bot->SetStandState(UNIT_STAND_STATE_STAND);
 
-        bot->GetMotionMaster()->MovePoint(0, position.x, position.y, position.z, FORCED_MOVEMENT_RUN, true);
+        // the path is calculated on the PathfindingWorker, the bot stands until it is there
+        bot->GetMotionMaster()->MovePointAsync(0, position.x, position.y, position.z, FORCED_MOVEMENT_RUN);
         context.destination = position;
         context.moving = true;
     }

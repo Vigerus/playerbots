@@ -45,6 +45,7 @@ void MasterDistance_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(MasterDistance_GlobalTask::OnEnter);
     ContextAs<MasterDistance_GlobalTaskContext>(baseContext).masterFar = false;
+    ContextAs<MasterDistance_GlobalTaskContext>(baseContext).location = STAI_Location();
 }
 
 EActionRunStatus MasterDistance_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -55,10 +56,20 @@ EActionRunStatus MasterDistance_GlobalTask::OnTick(STAI_TaskContext& baseContext
     Player* master = context.ai->GetMaster();
 
     context.masterFar = false;
-    if (master && master != bot && master->IsInWorld() && master->GetMapId() == bot->GetMapId() && master->GetInstanceId() == bot->GetInstanceId())
+    context.location = STAI_Location();
+    if (master && master != bot && master->IsInWorld() && !bot->IsBeingTeleported() && !master->IsBeingTeleported())
     {
-        const float yards = std::regex_match(range, numberPattern) ? std::stof(range) : context.ai->GetRange(range);
-        context.masterFar = sServerFacade.GetDistance2d(bot, master) > yards;
+        context.location = { master->GetMapId(), master->GetPositionX(), master->GetPositionY(), master->GetPositionZ(), true };
+
+        // on another map or instance (the master entered or left a dungeon) the master is far as long as it lives:
+        // the path to it goes through the portals; a released ghost is not followed to its graveyard
+        if (master->GetMapId() != bot->GetMapId() || master->GetInstanceId() != bot->GetInstanceId())
+            context.masterFar = master->IsAlive();
+        else
+        {
+            const float yards = std::regex_match(range, numberPattern) ? std::stof(range) : context.ai->GetRange(range);
+            context.masterFar = sServerFacade.GetDistance2d(bot, master) > yards;
+        }
     }
 
     if (context.masterFar)
@@ -69,7 +80,11 @@ EActionRunStatus MasterDistance_GlobalTask::OnTick(STAI_TaskContext& baseContext
 
 const std::vector<STAI_PropertyDef>& MasterDistance_GlobalTask::GetProperties() const
 {
-    static const std::vector<STAI_PropertyDef> properties = { STAI_PropertyDef::Of("masterFar", &MasterDistance_GlobalTaskContext::masterFar) };
+    static const std::vector<STAI_PropertyDef> properties =
+    {
+        STAI_PropertyDef::Of("masterFar", &MasterDistance_GlobalTaskContext::masterFar),
+        STAI_PropertyDef::Of("location", &MasterDistance_GlobalTaskContext::location),
+    };
     return properties;
 }
 

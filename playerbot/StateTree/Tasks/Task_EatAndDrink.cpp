@@ -4,12 +4,16 @@
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/ServerFacade.h"
 
+#include "Globals/ObjectMgr.h"
 #include "Spells/SpellAuras.h"
 
+#include <array>
 #include <cstdlib>
 #include <initializer_list>
 #include <sstream>
 #include <stdexcept>
+#include <tuple>
+#include <vector>
 
 using namespace ai;
 
@@ -43,9 +47,52 @@ namespace
     bool IsEating(const Player* bot) { return HasSeatedAura(bot, { SPELL_AURA_MOD_REGEN, SPELL_AURA_OBS_MOD_HEALTH }); }
     bool IsDrinking(const Player* bot) { return HasSeatedAura(bot, { SPELL_AURA_MOD_POWER_REGEN, SPELL_AURA_OBS_MOD_MANA }); }
 
-    // starts eating (food) or drinking: the bots' item cheat casts the eat / drink spell, otherwise a food / drink
-    // item of the bags is used (was the legacy "food" / "drink" action); false when it could not start (moving,
-    // casting, nothing to eat or drink)
+    bool SpellAppliesAura(const SpellEntry* spellInfo, AuraType type)
+    {
+        for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+            if (spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AURA && spellInfo->EffectApplyAuraName[i] == type)
+                return true;
+        return false;
+    }
+
+    // the use spell of the best conjured food (MOD_REGEN) / drink (MOD_POWER_REGEN) the bot's level may use, 0 when
+    // there is none; built once from the item templates
+    uint32 GetConjuredSpell(uint32 level, bool food)
+    {
+        struct Conjured { uint32 requiredLevel; uint32 itemLevel; uint32 spellId; };
+        static const auto conjured = []
+        {
+            std::array<std::vector<Conjured>, 2> lists; // [0] drink, [1] food
+            for (uint32 itemId = 0; itemId < sItemStorage.GetMaxEntry(); ++itemId)
+            {
+                const ItemPrototype* proto = sObjectMgr.GetItemPrototype(itemId);
+                if (!proto || !proto->IsConjuredConsumable())
+                    continue;
+
+                const uint32 spellId = proto->Spells[0].SpellId;
+                const SpellEntry* spellInfo = spellId ? sServerFacade.LookupSpellInfo(spellId) : nullptr;
+                if (!spellInfo || !(spellInfo->AuraInterruptFlags & AURA_INTERRUPT_FLAG_STANDING_CANCELS))
+                    continue;
+
+                if (SpellAppliesAura(spellInfo, SPELL_AURA_MOD_REGEN))
+                    lists[1].push_back({ proto->RequiredLevel, proto->ItemLevel, spellId });
+                if (SpellAppliesAura(spellInfo, SPELL_AURA_MOD_POWER_REGEN))
+                    lists[0].push_back({ proto->RequiredLevel, proto->ItemLevel, spellId });
+            }
+            return lists;
+        }();
+
+        const Conjured* best = nullptr;
+        for (const Conjured& entry : conjured[food ? 1 : 0])
+            if (entry.requiredLevel <= level && (!best || std::tie(entry.requiredLevel, entry.itemLevel) > std::tie(best->requiredLevel, best->itemLevel)))
+                best = &entry;
+        return best ? best->spellId : 0;
+    }
+
+    // starts eating (food) or drinking: the bots' item cheat casts the use spell of the conjured food / drink of the
+    // bot's level (the plain eat / drink cheat spell when there is none), otherwise a food / drink item of the bags
+    // is used (was the legacy "food" / "drink" action); false when it could not start (moving, casting, nothing to
+    // eat or drink)
     bool StartConsuming(PlayerbotAI* ai, Player* bot, bool food)
     {
         if (sServerFacade.IsInCombat(bot) || bot->IsNonMeleeSpellCasted(true))
@@ -59,7 +106,9 @@ namespace
 
         if (ai->HasCheat(BotCheatMask::item))
         {
-            const uint32 spellId = food ? 24005 : 24355;
+            uint32 spellId = GetConjuredSpell(bot->GetLevel(), food);
+            if (!spellId)
+                spellId = food ? 24005 : 24355;
             const SpellEntry* pSpellInfo = sServerFacade.LookupSpellInfo(spellId);
             if (!pSpellInfo)
                 return false;
@@ -106,19 +155,25 @@ void Task_EatAndDrink::Start(Task_EatAndDrinkContext& context) const
 {
     Player* bot = context.bot;
 
-    // a successful action used an item (or cast the cheat): it is not run again in this meal, even when its aura
-    // shows up a moment later; a refused one (the bot was still moving) is retried
-    if (!context.eatStarted && NeedsHealth(bot) && !IsEating(bot))
-        context.eatStarted = StartConsuming(context.ai, bot, true);
-    if (!context.drinkStarted && NeedsMana(bot) && !IsDrinking(bot))
-        context.drinkStarted = StartConsuming(context.ai, bot, false);
+    // a started food / drink is not started again until its aura shows up (OnTick clears the flag then), so one item
+    // is used per bite; a refused start (the bot was still moving) is retried
+    if (!context.eatStarted && NeedsHealth(bot) && !IsEating(bot) && StartConsuming(context.ai, bot, true))
+    {
+        context.eatStarted = true;
+        context.startMs = WorldTimer::getMSTime();
+    }
+    if (!context.drinkStarted && NeedsMana(bot) && !IsDrinking(bot) && StartConsuming(context.ai, bot, false))
+    {
+        context.drinkStarted = true;
+        context.startMs = WorldTimer::getMSTime();
+    }
 }
 
 void Task_EatAndDrink::OnEnter(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnEnter);
     Task_EatAndDrinkContext& context = ContextAs<Task_EatAndDrinkContext>(baseContext);
-    context.enterMs = WorldTimer::getMSTime();
+    context.startMs = WorldTimer::getMSTime();
     context.eatStarted = false;
     context.drinkStarted = false;
     context.consumed = false;
@@ -134,27 +189,26 @@ EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 
     if (!NeedsHealth(bot) && !NeedsMana(bot))
         return EActionRunStatus::Succeeded;
 
-    // the meal runs while a food / drink aura restores something still below its target
+    // the meal runs while a food / drink aura restores something still below its target; an aura that ends before
+    // its target is followed by the next food / drink
     const bool eating = NeedsHealth(bot) && IsEating(bot);
     const bool drinking = NeedsMana(bot) && IsDrinking(bot);
+    if (eating)
+        context.eatStarted = false;
+    if (drinking)
+        context.drinkStarted = false;
     if (eating || drinking)
-    {
         context.consumed = true;
+
+    Start(context);
+
+    // running: an aura is up, or a food / drink just started and its aura is not applied yet (or the bot was still
+    // moving at the start)
+    if (eating || drinking || WorldTimer::getMSTimeDiff(context.startMs, WorldTimer::getMSTime()) < startTimeoutMs)
         return EActionRunStatus::Running;
-    }
 
-    // the food / drink ran out before the targets: the meal is over, the next selection decides on another one
-    if (context.consumed)
-        return EActionRunStatus::Succeeded;
-
-    // nothing started yet (the bot was moving, the aura is not applied yet): retry for a moment
-    if (WorldTimer::getMSTimeDiff(context.enterMs, WorldTimer::getMSTime()) < startTimeoutMs)
-    {
-        Start(context);
-        return EActionRunStatus::Running;
-    }
-
-    return EActionRunStatus::Failed;
+    // nothing left to eat or drink
+    return context.consumed ? EActionRunStatus::Succeeded : EActionRunStatus::Failed;
 }
 
 void Task_EatAndDrink::OnExit(STAI_TaskContext& baseContext) const

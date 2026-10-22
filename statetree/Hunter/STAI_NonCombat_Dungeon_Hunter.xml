@@ -23,9 +23,14 @@
       <!-- in a cleared room with a spot for the bot it goes there instead (Position Yourself) -->
       <Condition binding="Root|InstanceProvider_GlobalTask::stagePosition" negate="true"/>
     </Conditions>
-    <Task class="Task_Follow">
-      <Target value="player"/>
+    <!-- the path to the master on the PathfindingWorker (across the dungeon portals), then walk it -->
+    <Task class="Task_MakePath">
+      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
+    </Task>
+    <Task class="Task_MoveTo">
       <AcceptableRadius value="follow"/>
+      <Binding local="path" external="Root|Follow player|Task_MakePath::path"/>
+      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
     </Task>
     <Transitions>
       <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->

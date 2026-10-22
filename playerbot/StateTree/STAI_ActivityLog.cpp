@@ -9,11 +9,11 @@ uint64 STAI_ActivityLog::Begin(const std::string& kind, const std::string& name,
     return BeginAt(kind, name, source, WorldTimer::getMSTime());
 }
 
-uint64 STAI_ActivityLog::BeginAt(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs)
+uint64 STAI_ActivityLog::BeginAt(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs, bool stacked)
 {
     Prune(WorldTimer::getMSTime());
 
-    if (Entry* merged = MergeRun(kind, name, source, startMs))
+    if (Entry* merged = stacked ? MergeRun(kind, name, source, startMs) : nullptr)
     {
         merged->open = true;
         merged->result = -1;

@@ -12,7 +12,8 @@ namespace ai
     //   </Task>
     // OnEnter picks the side to stand on; OnTick recomputes the destination next to the target and moves there
     // (again when the target moved), finishing with Succeeded once inside the radius while the target stands
-    // still (Failed when the target is gone, flying, on another map or transport, or not reached in time);
+    // still (Failed when the target is gone, flying, on another transport, or not reached in time); a living master
+    // on another map or instance (it entered or left a dungeon) gets the bot teleported next to it.
     // OnExit stops the movement the task started.
     struct Task_FollowContext : public STAI_TaskContext
     {

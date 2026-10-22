@@ -56,6 +56,8 @@ namespace ai
         // a buff was cast and is not being cast any more (a run left during the GCD)
         virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const override;
         virtual std::string GetDebugInfo() const override { return "Cast " + needsSource; }
+        // every cast gets its own History entry
+        virtual bool AreConsecutiveLogsStacked() const override { return false; }
 
     private:
         std::string needsSource;    // what needs is bound to, for the debug info

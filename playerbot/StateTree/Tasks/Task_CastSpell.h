@@ -58,6 +58,8 @@ namespace ai
         // whether the spell went off (also when the run is left while the cast is still going: it did not)
         virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const override;
         virtual std::string GetDebugInfo() const override { return "Cast " + STAI_SpellMarkup(spellId); }
+        // every cast gets its own History entry
+        virtual bool AreConsecutiveLogsStacked() const override { return false; }
 
     private:
         // the spell the bot casts: the configured id when it knows it, else its highest rank of the configured name

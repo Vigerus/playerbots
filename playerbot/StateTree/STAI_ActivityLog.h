@@ -32,8 +32,9 @@ namespace ai
 
         // starts an entry that is ended with End(id); returns its id
         uint64 Begin(const std::string& kind, const std::string& name, const std::string& source);
-        // the same, started at startMs (a task logged once it is still running after its first update)
-        uint64 BeginAt(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs);
+        // the same, started at startMs (a task logged once it is still running after its first update); stacked
+        // false: always a new entry, never merged into the newest one (STAI_Task::AreConsecutiveLogsStacked)
+        uint64 BeginAt(const std::string& kind, const std::string& name, const std::string& source, uint32 startMs, bool stacked = true);
         // result: -1 none, 0 failed, 1 successful (a task's run)
         void End(uint64 id, int8 result = -1);
 

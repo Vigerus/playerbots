@@ -40,9 +40,13 @@ The StateTree debug addon shows each state's tree nodes, the active one highligh
     <Conditions>
       <Condition binding="Root|MasterDistance_GlobalTask::masterFar"/>
     </Conditions>
-    <Task class="Task_Follow">
-      <Target value="player"/>
+    <Task class="Task_MakePath">
+      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
+    </Task>
+    <Task class="Task_MoveTo">
       <AcceptableRadius value="follow"/>
+      <Binding local="path" external="Root|Follow player|Task_MakePath::path"/>
+      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
     </Task>
   </Node>
   <Node name="Idle">
@@ -83,19 +87,20 @@ Tasks:
 
 | class                | settings | does |
 |----------------------|----------|------|
-| `Task_Follow`        | `<Target value="player"/>`, `<AcceptableRadius value="follow"/>` (yards or a range name, default `follow`) | the only owner of follow movement: `Update` recomputes the spot next to the master and moves there again when it moved; Succeeded inside the radius once the master stands still; Failed when the master is gone, flying, on another map or transport, or after 30s outside the radius; `OnExit` stops its movement |
-| `MasterDistance_GlobalTask` | `<Range value="follow"/>` (yards or a range name, default `follow`) | global task: property `masterFar`, delegate `onMasterFar` fired every update while the master is beyond the range |
+| `Task_MakePath`      | `<Binding local="location" .../>`, or a fixed `<Location map="..." x="..." y="..." z="..."/>` (map optional: the bot's map) | calculates the path from the bot to the location on the core `PathfindingWorker` threads (see Paths below); Running until it is there, Succeeded with property `path` set, Failed without a location, without a way there (no portal route, no navmesh way from the bot) or after 10s |
+| `Task_MoveTo`        | `<AcceptableRadius value="follow"/>` (yards or a range name, default `follow`), `<Binding local="path" external="Root\|<node>\|Task_MakePath::path"/>`, optional `<Binding local="location" .../>` | walks the leg of the path on the bot's map; a leg ending in a portal walks into its area trigger and succeeds once the bot is on the other side; Succeeded inside the radius of the destination, when the bound `location` moved further than the radius from the destination (the node plans again while the bot keeps walking) or when a path cut short brought the bot closer; Failed without a path, when it ended without bringing the bot closer, or after the path's walking time plus 10s; `OnExit` stops its movement unless it finished to plan again |
+| `MasterDistance_GlobalTask` | `<Range value="follow"/>` (yards or a range name, default `follow`) | global task: property `masterFar` (a living master on another map or instance is always far), property `location` (where the master is, for `Task_MakePath`), delegate `onMasterFar` fired every update while the master is beyond the range |
 | `BuffProvider_GlobalTask` | `<Buff spellid="..." scope="self\|single\|group"/>` per spell (any rank; scope optional, read from the spell's targets) | global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any; spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance) |
 | `CurseProvider_GlobalTask` | `<Aura spellid="..."/>` per aura (any rank), optional | global task, not ticked: watches the bot and its group for the listed auras, or every dispellable curse when none is listed; property `whoNeeds` (the cursed members, the bot first), delegate `onNeedsHelp` fired when an evaluation finds any |
 | `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="target" .../>` and / or `<Binding local="whoNeeds" .../>` | casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot does not know the spell or reaches no living target |
 | `HealthProvider_GlobalTask` / `ManaProvider_GlobalTask` | none | global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second |
 | `InstanceProvider_GlobalTask` | none | global task: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again. On maps with stages (see below) ticked every 500ms: properties `stage` / `masterStage` (the stage the bot / master stands in, -1 none), `masterStageCleared` (the master is in no stage or a cleared one), `pathBlocked` (the way to `stagePosition`, else to the master out of follow range, crosses a stage that is not cleared other than the bot's), `stagePosition` (the bot's spot in the master's cleared stage, unset without one), `stagePositionFar`; delegates `onStageBlocked` (`masterStageCleared` turned false or `pathBlocked` true), `onStageCleared` (the master's stage got cleared), `onStagePositionFar` (every check while away from `stagePosition` and not blocked) |
-| `Task_MoveToPosition` | `<AcceptableRadius value="2"/>` (yards, default 2), `<Binding local="position" .../>` | moves to the bound position (again when it changes); Succeeded inside the radius or without a position, Failed after 30s; `OnExit` stops its movement |
+| `Task_MoveToPosition` | `<AcceptableRadius value="2"/>` (yards, default 2), `<Binding local="position" .../>` | moves to the bound position (again when it changes; `MovePointAsync`, the path comes from the `PathfindingWorker`); Succeeded inside the radius or without a position, Failed after 30s; `OnExit` stops its movement |
 | `CCProvider_GlobalTask` | `<Aura spellid="..."/>` per aura, optional | global task, ticked (every 250ms): the first unit marked with one of the bot's `rti cc` icons (default moon) that is alive, hostile, in sight, not crowd-controlled yet (polymorph, frost, sap, ... or a listed aura) and not the group's kill target (the first living `rti` mark, default skull); property `whoNeeds` (that unit), delegate `onCCNeeded` (a new target, and every second while it still needs crowd control) |
 | `TargetProvider_GlobalTask` | `<WithThreat value="false"/>`, `<ThreatAmount value="90"/>` (percent, default 90) | global task, ticked: the unit to attack, the first living, hostile, in-sight mark of the bot's `rti` icons, else the least-health non-player unit on the threat lists of the bot and its group (kept while it stays valid); crowd-controlled units and the bot's `rti cc` marks are skipped; property `target` (a guid), delegate `onTargetChanged`. With `WithThreat` true and a living tank in the group, `target` is empty (property `threatHigh`, `onTargetChanged` fires) while the bot's threat on the creature is at `ThreatAmount` or more of the highest other threat on it (also before anybody else has threat), and is set again once it drops below |
 | `Task_GetInRange`    | `<Range value="spell"/>` (yards or a range name), `<Binding local="target" .../>` | chases the target into range and line of sight, then stops the bot; Succeeded there (or without a living target), Failed after 10s |
 | `Task_Wait`          | `<Delay value="0"/>` (ms, default 0) | waits: Succeeded once its updates add up to the delay; with 0 it never finishes, the node is left through its transitions (an idle node) |
-| `Task_EatAndDrink`   | `<Health until="100"/>`, `<Mana until="100"/>` (percent, default 100) | one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or the bots' eat / drink cheat spell), each once; Succeeded when both targets are reached or the food / drink auras ended (the node's conditions decide on another meal), Failed when nothing could be started within 3s; `OnExit` stands the bot up |
+| `Task_EatAndDrink`   | `<Health until="100"/>`, `<Mana until="100"/>` (percent, default 100) | one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or with the item cheat the spell of the conjured food / drink of the bot's level); a food / drink that ends before its target is followed by the next one; Succeeded when both targets are reached or nothing is left to eat or drink after the bot ate or drank, Failed when nothing could be started within 3s; `OnExit` stands the bot up |
 | `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`; global tasks that publish properties and delegates for
@@ -136,7 +141,8 @@ task.
 - `node="Root"` selects again from the first node, `Root|<name>` enters that node (its conditions still have to pass).
 
 Unknown paths, properties of different types and delegates that do not exist stop the server when the trees load.
-The class NonCombat trees follow the master through `MasterDistance_GlobalTask`. Each `<Class>/STAI_NonCombat_<Class>.xml`
+The class NonCombat trees follow the master through `MasterDistance_GlobalTask`: Follow player runs `Task_MakePath` to
+its `location`, then `Task_MoveTo` along the path, also when the master entered or left a dungeon. Each `<Class>/STAI_NonCombat_<Class>.xml`
 only picks a subtree by the bot's map (`InstanceProvider_GlobalTask`): `STAI_NonCombat_Dungeon_<Class>.xml` in dungeon
 and raid instances (`inDungeon`), `STAI_NonCombat_Outdoors_<Class>.xml` everywhere else; Mage also has
 `STAI_NonCombat_Scholomance_Mage.xml` (map 289, above Dungeon, for now the same as the Mage Dungeon tree).
@@ -181,6 +187,16 @@ The Dungeon (and Scholomance) subtrees use them:
 Every NonCombat tree eats and drinks through Eat and Drink (above Idle, below the buff / decurse nodes): Idle goes
 there when health changed below 80% or mana below 90%, the node is also selected while one of them is that low, and
 `Task_EatAndDrink` restores both to 100%.
+
+Paths: the core `PathfindingWorker` (`src/game/MotionGenerators/PathfindingWorker.*`) calculates paths on its own
+threads (detour queries of their own, `MMapManager::GetThreadNavMeshQuery`, under the mmap lock while tiles load or
+unload), so map updates do not wait for them; requests are polled. The maps are one graph: each map's navmesh,
+joined by the teleport area triggers (`areatrigger_teleport`, dungeon portals) as navlinks from the trigger to its
+target. A path to another map is a leg per map, each ending in the portal to the next (legs on maps without a loaded
+navmesh are straight lines; the bot plans again once it is there). Bots enter area triggers like a client does:
+`PlayerbotAI::UpdateAreaTriggers` sends `CMSG_AREATRIGGER` when a bot walks into a teleport trigger, and the core
+checks the requirements and teleports it as it would a player. `MotionMaster::MovePointAsync` is `MovePoint` with
+its path from the worker (the unit stands until it is there).
 
 Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
 `STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. Tasks log their own runs: the tree calls

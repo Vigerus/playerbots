@@ -1,5 +1,6 @@
 #pragma once
 
+#include "playerbot/StateTree/STAI_Navigation.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 
 #include <string>
@@ -14,9 +15,13 @@ namespace ai
         //   <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
         FSTAI_Delegate onMasterFar;
         bool masterFar = false;     // property "masterFar"
+        // property "location": where the master is (unset without one or while it is being teleported), for
+        // <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/> of Task_MakePath
+        STAI_Location location;
     };
 
-    // Global task that watches the 2D distance to the master (same check as the "distance from master" trigger):
+    // Global task that watches the 2D distance to the master (same check as the "distance from master" trigger); a
+    // living master on another map or instance is always far (none of them while one is being teleported):
     //   <Global>
     //     <Task class="MasterDistance_GlobalTask">
     //       <Range value="follow"/>     yards or a range name (default follow)
