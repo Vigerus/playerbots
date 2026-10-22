@@ -1,6 +1,7 @@
 #include "Config/Config.h"
 
 #include "playerbot/playerbot.h"
+#include "playerbot/GuidPosition.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/PlayerbotFactory.h"
 #include "Accounts/AccountMgr.h"
@@ -8,14 +9,13 @@
 #include "Database/DatabaseEnv.h"
 #include "PlayerbotAI.h"
 #include "Entities/Player.h"
-#include "playerbot/AiFactory.h"
+#include "playerbot/PlayerSpec.h"
 #include "PlayerbotCommandServer.h"
 #include "MemoryMonitor.h"
 
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
 #include "Grids/CellImpl.h"
-#include "FleeManager.h"
 #include "playerbot/ServerFacade.h"
 
 #include "BattleGround/BattleGround.h"
@@ -34,7 +34,6 @@
 #endif
 #endif
 
-#include "playerbot/TravelMgr.h"
 #include <iomanip>
 #include <float.h>
 
@@ -400,10 +399,7 @@ void RandomPlayerbotMgr::LogPlayerLocation()
                         out << (bot->GetPlayerbotAI()->AllowActivity(ALL_ACTIVITY) ? "active" : "inactive") << ",";
                         out << (bot->GetPlayerbotAI()->IsActive() ? "active" : "delay") << ",";
                         out << bot->GetPlayerbotAI()->HandleRemoteCommand("state") << ",";
-                        PlayerbotAI* ai = bot->GetPlayerbotAI();
-                        AiObjectContext* context = ai->GetAiObjectContext();
-
-                        out << (AI_VALUE(bool, "should get money") ? "should get money" : "has enough money") << ",";
+                        out << "-,"; // TODO(strategy): was the legacy "should get money" value
 
                         if (bot->GetPlayerbotAI()->AllowActivity(ALL_ACTIVITY))
                             activeBots++;
@@ -477,10 +473,7 @@ void RandomPlayerbotMgr::LogPlayerLocation()
                     out << (bot->GetPlayerbotAI()->AllowActivity(ALL_ACTIVITY) ? "active" : "inactive") << ",";
                     out << (bot->GetPlayerbotAI()->IsActive() ? "active" : "delay") << ",";
                     out << bot->GetPlayerbotAI()->HandleRemoteCommand("state") << ",";
-                    PlayerbotAI* ai = bot->GetPlayerbotAI();
-                    AiObjectContext* context = ai->GetAiObjectContext();
-
-                    out << (AI_VALUE(bool, "should get money") ? "should get money" : "has enough money") << ",";
+                    out << "-,"; // TODO(strategy): was the legacy "should get money" value
 
                     if (bot->GetPlayerbotAI()->AllowActivity(ALL_ACTIVITY))
                         activeBots++;
@@ -2033,10 +2026,6 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
     //Update the bot
     if (!update)
     {
-        //Clean up expired values
-        if (ai && !ai->HasStrategy("debug", BotState::BOT_STATE_NON_COMBAT))
-            ai->GetAiObjectContext()->ClearExpiredValues();
-
         //Randomize/teleport bot
         if (!sPlayerbotAIConfig.disableRandomLevels)
         {
@@ -2081,15 +2070,8 @@ bool RandomPlayerbotMgr::ProcessBot(Player* player)
         return false;
 
     // only teleport idle bots
-    bool idleBot = false;
-    TravelTarget* target = player->GetPlayerbotAI()->GetAiObjectContext()->GetValue<TravelTarget*>("travel target")->Get();
-    if (target)
-    {
-        if (target->GetTravelState() == TravelState::TRAVEL_STATE_IDLE)
-            idleBot = true;
-    }
-    else
-        idleBot = true;
+    // TODO(strategy): idle was a legacy travel target in TRAVEL_STATE_IDLE (or none)
+    bool idleBot = true;
 
     if (idleBot)
     {
@@ -2782,14 +2764,9 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot)
         for (std::list<Unit *>::iterator i = targets.begin(); i != targets.end(); ++i)
         {
             Unit* unit = *i;
-            bot->SetPosition(unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ(), 0);
-            FleeManager manager(bot, sPlayerbotAIConfig.sightDistance, 0, true);
-            float rx, ry, rz;
-            if (manager.CalculateDestination(&rx, &ry, &rz))
-            {
-                WorldLocation loc(bot->GetMapId(), rx, ry, rz);
-                locs.push_back(loc);
-            }
+            // TODO(strategy): the legacy FleeManager picked a spot near the unit away from enemies, see deprecated/
+            WorldLocation loc(bot->GetMapId(), unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
+            locs.push_back(loc);
         }
     }
     else
@@ -2962,7 +2939,6 @@ void RandomPlayerbotMgr::Refresh(Player* bot)
     {
         bot->ResurrectPlayer(1.0f);
         bot->SpawnCorpseBones();
-        bot->GetPlayerbotAI()->ResetStrategies();
     }
 
     if (sPlayerbotAIConfig.disableRandomLevels)
@@ -3439,10 +3415,6 @@ void RandomPlayerbotMgr::OnPlayerLogout(Player* player)
         if (player == ai->GetMaster())
         {
             ai->SetMaster(NULL);
-            if (!bot->InBattleGround())
-            {
-                ai->ResetStrategies();
-            }
         }
     });
 
@@ -3483,7 +3455,6 @@ void RandomPlayerbotMgr::OnPlayerLogin(Player* player)
                 if (!bot->InBattleGround())
                 {
                     ai->SetMaster(player);
-                    ai->ResetStrategies();
                     ai->TellPlayer(ai->GetMaster(), BOT_TEXT("hello"));
                 }
                 break;
@@ -3551,10 +3522,9 @@ void RandomPlayerbotMgr::PrintStats(uint32 requesterGuid)
     }
 
     uint32 dps = 0, heal = 0, tank = 0, active = 0, update = 0, randomize = 0, teleport = 0, changeStrategy = 0, dead = 0, combat = 0, revive = 0, taxi = 0, moving = 0, mounted = 0, afk = 0;
-    int stateCount[(uint8)TravelState::MAX_TRAVEL_STATE + 1] = { 0 };
     std::vector<std::pair<Quest const*, int32>> questCount;
 
-    ForEachPlayerbot([this, &dps, &heal, &tank, &active, &update, &randomize, &teleport, &changeStrategy, &dead, &combat, &revive, &taxi, &moving, &mounted, &afk, &alliance, &horde, &perRace, &perClass, &stateCount, &questCount](Player* bot)
+    ForEachPlayerbot([this, &dps, &heal, &tank, &active, &update, &randomize, &teleport, &changeStrategy, &dead, &combat, &revive, &taxi, &moving, &mounted, &afk, &alliance, &horde, &perRace, &perClass, &questCount](Player* bot)
     {
         if (IsAlliance(bot->getRace()))
             alliance[bot->GetLevel() / 10]++;
@@ -3567,8 +3537,7 @@ void RandomPlayerbotMgr::PrintStats(uint32 requesterGuid)
         if (bot->GetPlayerbotAI()->AllowActivity())
             active++;
 
-        if (bot->GetPlayerbotAI()->GetAiObjectContext()->GetValue<bool>("random bot update")->Get())
-            update++;
+        // TODO(strategy): counted the bots with the legacy "random bot update" value
 
         uint32 botId = bot->GetGUIDLow();
         if (!GetEventValue(botId, "randomize"))
@@ -3602,7 +3571,7 @@ void RandomPlayerbotMgr::PrintStats(uint32 requesterGuid)
             //    revive++;
         }
 
-        int spec = AiFactory::GetPlayerSpecTab(bot);
+        int spec = PlayerSpec::GetPlayerSpecTab(bot);
         switch (bot->getClass())
         {
         case CLASS_DRUID:
@@ -3650,12 +3619,7 @@ void RandomPlayerbotMgr::PrintStats(uint32 requesterGuid)
             break;
         }
 
-        TravelTarget* target = bot->GetPlayerbotAI()->GetAiObjectContext()->GetValue<TravelTarget*>("travel target")->Get();
-        if (target)
-        {
-            TravelState state = target->GetTravelState();
-            stateCount[(uint8)state]++;            
-        }
+        // TODO(strategy): counted the bots per legacy travel state (the "Bots questing" statistics)
     });
 
     ss.str(""); ss << "Bots level:";
@@ -3749,26 +3713,6 @@ void RandomPlayerbotMgr::PrintStats(uint32 requesterGuid)
     if (requester) { requester->SendMessageToPlayer(ss.str()); }
 
     ss.str(""); ss << "    AFK: " << afk;
-    sLog.outString("%s", ss.str().c_str());
-    if (requester) { requester->SendMessageToPlayer(ss.str()); }
-
-    ss.str(""); ss << "Bots questing:";
-    sLog.outString("%s", ss.str().c_str());
-    if (requester) { requester->SendMessageToPlayer(ss.str()); }
-
-    ss.str(""); ss << "    Picking quests: " << stateCount[(uint8)TravelState::TRAVEL_STATE_TRAVEL_PICK_UP_QUEST] + stateCount[(uint8)TravelState::TRAVEL_STATE_WORK_PICK_UP_QUEST];
-    sLog.outString("%s", ss.str().c_str());
-    if (requester) { requester->SendMessageToPlayer(ss.str()); }
-
-    ss.str(""); ss << "    Doing quests: " << stateCount[(uint8)TravelState::TRAVEL_STATE_TRAVEL_DO_QUEST] + stateCount[(uint8)TravelState::TRAVEL_STATE_WORK_DO_QUEST];
-    sLog.outString("%s", ss.str().c_str());
-    if (requester) { requester->SendMessageToPlayer(ss.str()); }
-
-    ss.str(""); ss << "    Completing quests: " << stateCount[(uint8)TravelState::TRAVEL_STATE_TRAVEL_HAND_IN_QUEST] + stateCount[(uint8)TravelState::TRAVEL_STATE_WORK_HAND_IN_QUEST];
-    sLog.outString("%s", ss.str().c_str());
-    if (requester) { requester->SendMessageToPlayer(ss.str()); }
-
-    ss.str(""); ss << "    Idling: " << stateCount[(uint8)TravelState::TRAVEL_STATE_IDLE];
     sLog.outString("%s", ss.str().c_str());
     if (requester) { requester->SendMessageToPlayer(ss.str()); }
 }
@@ -3878,16 +3822,7 @@ void RandomPlayerbotMgr::RandomTeleportForRpg(Player* bot, bool activeOnly)
     RandomTeleport(bot, rpgLocsCacheLevel[race][level], true, activeOnly);
     Refresh(bot);
 
-    //Travel cooldown for 10 minutes.
-    if (bot->GetPlayerbotAI())
-    {
-        AiObjectContext* context = bot->GetPlayerbotAI()->GetAiObjectContext();
-        TravelTarget* travelTarget = AI_VALUE(TravelTarget*, "travel target");
-
-        sTravelMgr.SetNullTravelTarget(travelTarget);
-        travelTarget->SetStatus(TravelStatus::TRAVEL_STATUS_COOLDOWN);
-        travelTarget->SetExpireIn(10 * MINUTE * IN_MILLISECONDS);
-    }
+    // TODO(strategy): put the legacy travel target on a 10 minute cooldown
 }
 
 void RandomPlayerbotMgr::Remove(Player* bot)

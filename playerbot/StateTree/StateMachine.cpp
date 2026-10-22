@@ -9,34 +9,35 @@ StateMachine::StateMachine() :
 {
 }
 
-void StateMachine::RegisterNode(std::unique_ptr<IStateNode> node, bool bInitial)
+void StateMachine::RegisterNode(std::unique_ptr<IStateNode> node)
 {
     HLSStateType type = node->GetStateType();
 
-    if (nodes.find(type) == nodes.end())
-    {
-        auto inserted = nodes.emplace(type, std::move(node));
-
-        if (type == HLSStateType::Reaction)
-        {
-            reactionNode = inserted.first->second.get();
-            reactionChecker = dynamic_cast<IReactionChecker*>(reactionNode);
-        }
-
-        if (bInitial)
-        {
-            initial = inserted.first->second.get();
-            active = initial;
-        }
-    }
-    else
+    if (nodes.find(type) != nodes.end())
     {
         throw std::runtime_error("StateMachine::RegisterNode: Node for state type already registered");
+    }
+
+    IStateNode* registered = nodes.emplace(type, std::move(node)).first->second.get();
+
+    if (type == HLSStateType::Reaction)
+    {
+        reaction = registered;
+    }
+    else if (type == HLSStateType::NonCombat)
+    {
+        initial = registered;
+        active = initial;
     }
 }
 
 void StateMachine::TransitionTo(HLSStateType type)
 {
+    if (!IsMainState(type))
+    {
+        return;
+    }
+
     auto it = nodes.find(type);
 
     if (it == nodes.end())
@@ -46,15 +47,6 @@ void StateMachine::TransitionTo(HLSStateType type)
 
     IStateNode* next = it->second.get();
 
-    // a reaction preempted the state: the transition (death, resurrection, combat start / end) changes the state
-    // the reaction resumes to, the reaction itself finishes first
-    if (active && previous && active != next && active->GetStateType() == HLSStateType::Reaction && next->GetStateType() != HLSStateType::Reaction)
-    {
-        CCLOG_TRACE(m_logger) << "[TRANSITION] " << active->GetName() << " resumes to " << next->GetName();
-        previous = next;
-        return;
-    }
-
     // already there: the state keeps running (its tree is not restarted)
     if (active == next)
     {
@@ -63,41 +55,13 @@ void StateMachine::TransitionTo(HLSStateType type)
 
     CCLOG_TRACE(m_logger) << "[TRANSITION] " << (active ? active->GetName() : "-") << " >> " << next->GetName();
 
-    if (active)
+    // not entered yet: the first Update enters the state it ends up in
+    if (bInitialized && active)
         active->OnExit();
-    active = it->second.get();
+    active = next;
     activeSinceMs = WorldTimer::getMSTime();
-    if (active)
+    if (bInitialized)
         active->OnEnter();
-}
-
-IStateNode* StateMachine::FindNode(HLSStateType type) const
-{
-    auto it = nodes.find(type);
-    return it == nodes.end() ? nullptr : it->second.get();
-}
-
-void StateMachine::PreemptTo(HLSStateType next)
-{
-    // TransitionTo exits the preempted state
-    IStateNode* preempted = active;
-    previous = nullptr;
-    TransitionTo(next);
-    previous = preempted;
-}
-
-void StateMachine::ResumePrevious()
-{
-    if (!previous) { return; }
-
-    if (active)
-    {
-        active->OnExit();
-    }
-
-    active = previous;
-    previous = nullptr;
-    activeSinceMs = WorldTimer::getMSTime();
 }
 
 bool StateMachine::GetStateType(HLSStateType& type) const
@@ -105,7 +69,7 @@ bool StateMachine::GetStateType(HLSStateType& type) const
     if (!active)
         return false;
 
-    type = (previous && active->GetStateType() == HLSStateType::Reaction) ? previous->GetStateType() : active->GetStateType();
+    type = active->GetStateType();
     return true;
 }
 
@@ -113,72 +77,40 @@ void StateMachine::Update(uint32 elapsed, bool minimal)
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(StateMachine::Update);
 
-    if (!active)
-    {
-        return;
-    }
-
     if (!bInitialized)
     {
-        active->OnEnter();
+        if (active)
+            active->OnEnter();
+        if (reaction)
+            reaction->OnEnter();
+        activeSinceMs = WorldTimer::getMSTime();
         bInitialized = true;
     }
 
-    if (reactionChecker)
+    // no per tick trace: with TRACE on (root logger) it was a log file write per bot and tick; transitions are logged
+    if (active)
     {
-        TRACE_CPU_PROFILER_ENTRY_SCOPE(StateMachine::Update::Reaction);
-        if (active != reactionNode)
-        {
-            if (reactionChecker->ShouldEnterReaction())
-            {
-                PreemptTo(HLSStateType::Reaction);
-            }
-        }
-        else
-        {
-            if (!reactionChecker->IsReacting())
-            {
-                ResumePrevious();
-            }
-        }
+        active->Update(elapsed, minimal);
     }
 
-    // no per tick trace: with TRACE on (root logger) it was a log file write per bot and tick; transitions are logged
-    active->Update(elapsed, minimal);
+    if (reaction)
+    {
+        TRACE_CPU_PROFILER_ENTRY_SCOPE(StateMachine::Update::Reaction);
+        reaction->Update(elapsed, minimal);
+    }
 }
 
 void StateMachine::Reset()
 {
-    if (active)
+    if (bInitialized)
     {
-        active->OnExit();
+        if (active)
+            active->OnExit();
+        if (reaction)
+            reaction->OnExit();
     }
     active = initial;
     bInitialized = false;
-}
-
-void StateMachine::ReInitCurrentEngine()
-{
-    if (active)
-    {
-        active->ReInit();
-    }
-}
-
-void StateMachine::UpdateStrategies(const std::string& name, BotState botState)
-{
-    for (auto& [type, node] : nodes)
-    {
-        node->UpdateStrategies(name, botState);
-    }
-}
-
-void StateMachine::ResetStrategies()
-{
-    for (auto& [type, node] : nodes)
-    {
-        node->ResetStrategies();
-    }
 }
 
 static const char* GetHLSStateTypeName(HLSStateType type)
@@ -214,8 +146,9 @@ static std::string SanitizeTransition(const std::string& text)
 }
 
 // Snapshot format (records separated by '~', fields by '^'):
-//   H^<active type>^<ms in active state>^<previous type or ->
-//   N^<type>^<node name>^<active 0|1>^<last action>^<last relevance>^<last status>^<strategy,strategy,...>
+//   H^<active type>^<ms in active state>^-             (the last field was the preempted state, always - now)
+//   N^<type>^<node name>^<active 0|1>^^0.0^-^          (the empty fields were the legacy engine's last action,
+//                                                       relevance, status and strategies; Reaction is always active)
 //   K^<type>^<depth>^<tree name>^<running 0|1>       tree stack of the state above, bottom (depth 0) to top
 //   G^<type>^<depth>^<task name>^<spell id,...>        global task of the tree K^<type>^<depth>, the spells it works with
 //   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>^<running task index or -1>^<task;task;...>
@@ -226,9 +159,9 @@ static std::string SanitizeTransition(const std::string& text)
 //       ^<override 0|1|2,...> (per condition: 0 checked, 1 forced to pass, 2 forced to fail in the addon)
 //       nodes of the top tree; task class / info of the running task (the first one while inactive), every task
 //       of the node in the order they run, its transitions "<type> Root/<node>" in the order they are checked
-//       conditions: [ANY:]<result><trigger>&&<result><trigger>..., result + passed, - failed, ? not checked;
+//       conditions: [ANY:]<result><condition>&&<result><condition>..., result + passed, - failed, ? not checked;
 //       ANY: one of them has to pass (<Conditions match="any">), else all
-//   T^<from type or *>^<to type or <prev>>^<condition label>
+//   T^<from type or *>^<to type>^<condition label>
 // a task's debug info inside the ';' separated list of a node's tasks
 static std::string SanitizeTaskInfo(const std::string& info)
 {
@@ -245,48 +178,13 @@ std::string StateMachine::BuildDebugSnapshot() const
 
     out << "H^" << (active ? GetHLSStateTypeName(active->GetStateType()) : "-")
         << "^" << (active ? WorldTimer::getMSTimeDiff(activeSinceMs, WorldTimer::getMSTime()) : 0)
-        << "^" << (previous && active && active->GetStateType() == HLSStateType::Reaction ? GetHLSStateTypeName(previous->GetStateType()) : "-");
+        << "^-";
 
     for (const auto& [type, node] : nodes)
     {
-        std::string nodeName = node->GetName();
-        if (Engine* engine = node->GetDebugEngine())
-            if (!engine->GetBrainName().empty())
-                nodeName += "  [" + engine->GetBrainName() + "]";
-
-        out << "~N^" << GetHLSStateTypeName(type) << "^" << SanitizeDebugField(nodeName) << "^" << (node.get() == active ? 1 : 0);
-
-        std::string lastAction;
-        float relevance = 0.0f;
-        const char* status = "-";
-        std::string strategies;
-
-        if (Engine* engine = node->GetDebugEngine())
-        {
-            if (const ActionRunContext* context = engine->GetLastActionContext())
-            {
-                lastAction = SanitizeDebugField(context->name);
-                relevance = context->relevance;
-
-                switch (engine->GetLastExecutedActionStatus())
-                {
-                    case EActionRunStatus::Running: status = "Running"; break;
-                    case EActionRunStatus::Succeeded: status = "Succeeded"; break;
-                    case EActionRunStatus::Failed: status = "Failed"; break;
-                }
-            }
-
-            for (std::string_view strategy : engine->GetStrategies())
-            {
-                if (!strategies.empty())
-                    strategies += ",";
-                strategies += SanitizeDebugField(strategy);
-                if (engine->IsPassiveStrategy(std::string(strategy)))
-                    strategies += " (passive)";
-            }
-        }
-
-        out << "^" << lastAction << "^" << relevance << "^" << status << "^" << strategies;
+        const bool running = node.get() == active || node.get() == reaction;
+        out << "~N^" << GetHLSStateTypeName(type) << "^" << SanitizeDebugField(node->GetName()) << "^" << (running ? 1 : 0)
+            << "^^" << 0.0f << "^-^";
 
         const std::vector<StateNodeDebugTree> stack = node->GetDebugTreeStack();
         for (size_t depth = 0; depth < stack.size(); ++depth)
@@ -337,13 +235,12 @@ std::string StateMachine::BuildDebugSnapshot() const
         }
     }
 
-    // transitions are triggered from PlayerbotAI (OnCombatStarted, OnDeath, ...) and from Update() (reaction preempt)
+    // transitions are triggered from PlayerbotAI (OnCombatStarted, OnDeath, ...); Reaction runs next to every state
     out << "~T^NonCombat^Combat^OnCombatStarted"
         << "~T^Combat^NonCombat^OnCombatEnded"
         << "~T^*^Dead^OnDeath"
         << "~T^Dead^NonCombat^OnResurrected"
-        << "~T^*^Reaction^ShouldEnterReaction (preempt)"
-        << "~T^Reaction^<prev>^!IsReacting (resume)";
+        << "~T^*^Reaction^always (additive)";
 
     return out.str();
 }
@@ -354,14 +251,6 @@ bool StateMachine::SetDebugSwitch(const std::string& state, StateTreeSwitch what
         if (state == GetHLSStateTypeName(type))
             return stateNode->SetDebugSwitch(what, tree, node, index, value);
     return false;
-}
-
-Engine* StateMachine::FindDebugEngine(const std::string& state) const
-{
-    for (const auto& [type, stateNode] : nodes)
-        if (state == GetHLSStateTypeName(type))
-            return stateNode->GetDebugEngine();
-    return nullptr;
 }
 
 // History format (records separated by '~', fields by '^'), newest first:

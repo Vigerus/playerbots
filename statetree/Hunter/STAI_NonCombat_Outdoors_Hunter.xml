@@ -12,9 +12,7 @@
   </Global>
   <Node name="Follow player">
     <Conditions>
-      <Condition trigger="has strategy::follow"/>
-      <Condition trigger="has strategy::stay" negate="true"/>
-      <Condition trigger="distance from master::greater::follow"/>
+      <Condition binding="Root|MasterDistance_GlobalTask::masterFar"/>
     </Conditions>
     <Task class="Task_Follow">
       <Target value="player"/>
@@ -34,10 +32,11 @@
       <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
     </Transitions>
   </Node>
-  <Node name="UtilityAI">
+  <Node name="Idle">
     <Conditions/>
-    <Task class="StateNode_Legacy">
-      <Config filename="statetree/Legacy_NonCombat_Hunter.json"/>
+    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
+    <Task class="Task_Wait">
+      <Delay value="0"/>
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>

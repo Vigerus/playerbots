@@ -2,7 +2,7 @@
 #include "playerbot/playerbot.h"
 #include "BroadcastHelper.h"
 #include "playerbot/ServerFacade.h"
-#include "playerbot/AiFactory.h"
+#include "playerbot/PlayerSpec.h"
 #include "Chat/Channel.h"
 
 using namespace ai;
@@ -797,7 +797,7 @@ bool BroadcastHelper::BroadcastSuggestInstance(
     if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceSuggestInstance)
     {
         std::map<std::string, std::string> placeholders;
-        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, AiFactory::GetPlayerSpecTab(bot));
+        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, PlayerSpec::GetPlayerSpecTab(bot));
 
         std::ostringstream itemout;
         //itemout << "|c00b000b0" << allowedInstances[urand(0, allowedInstances.size() - 1)] << "|r";
@@ -832,7 +832,7 @@ bool BroadcastHelper::BroadcastSuggestQuest(
         Quest const* quest = sObjectMgr.GetQuestTemplate(quests[index]);
 
         std::map<std::string, std::string> placeholders;
-        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, AiFactory::GetPlayerSpecTab(bot));
+        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, PlayerSpec::GetPlayerSpecTab(bot));
         placeholders["%quest_link"] = ai->GetChatHelper()->formatQuest(quest);
         placeholders["%quest_level"] = std::to_string(quest->GetQuestLevel());
         placeholders["%my_class"] = ai->GetChatHelper()->formatClass(bot->getClass());
@@ -859,7 +859,7 @@ bool BroadcastHelper::BroadcastSuggestGrindMaterials(
     {
 
         std::map<std::string, std::string> placeholders;
-        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, AiFactory::GetPlayerSpecTab(bot));
+        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, PlayerSpec::GetPlayerSpecTab(bot));
         placeholders["%category"] = item;
 
         placeholders["%my_class"] = ai->GetChatHelper()->formatClass(bot->getClass());
@@ -887,7 +887,7 @@ bool BroadcastHelper::BroadcastSuggestGrindReputation(
     {
 
         std::map<std::string, std::string> placeholders;
-        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, AiFactory::GetPlayerSpecTab(bot));
+        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, PlayerSpec::GetPlayerSpecTab(bot));
         placeholders["%rep_level"] = levels[urand(0, 2)];
         std::ostringstream rnd; rnd << urand(1, 5) << "K";
         placeholders["%rndK"] = rnd.str();
@@ -950,7 +950,7 @@ bool BroadcastHelper::BroadcastSuggestSomething(
     if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceSuggestSomething)
     {
         std::map<std::string, std::string> placeholders;
-        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, AiFactory::GetPlayerSpecTab(bot));
+        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, PlayerSpec::GetPlayerSpecTab(bot));
 
         AreaTableEntry const* current_area = ai->GetCurrentArea();
         AreaTableEntry const* current_zone = ai->GetCurrentZone();
@@ -984,7 +984,7 @@ bool BroadcastHelper::BroadcastSuggestSomethingToxic(
 
         placeholders["%random_inventory_item_link"] = botItems.size() > 0 ? ai->GetChatHelper()->formatItem(botItems[rand() % botItems.size()]) : BOT_TEXT("string_empty_link");
 
-        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, AiFactory::GetPlayerSpecTab(bot));
+        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, PlayerSpec::GetPlayerSpecTab(bot));
         AreaTableEntry const* current_area = ai->GetCurrentArea();
         AreaTableEntry const* current_zone = ai->GetCurrentZone();
         placeholders["%area_name"] = current_area ? ai->GetLocalizedAreaName(current_area) : BOT_TEXT("string_unknown_area");
@@ -1044,7 +1044,7 @@ bool BroadcastHelper::BroadcastSuggestToxicLinks(
             placeholders["%random_taken_quest_or_item_link"] = placeholders["%random_inventory_item_link"];
         }
 
-        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, AiFactory::GetPlayerSpecTab(bot));
+        placeholders["%my_role"] = ai->GetChatHelper()->formatClass(bot, PlayerSpec::GetPlayerSpecTab(bot));
         AreaTableEntry const* current_area = ai->GetCurrentArea();
         AreaTableEntry const* current_zone = ai->GetCurrentZone();
         placeholders["%area_name"] = current_area ? ai->GetLocalizedAreaName(current_area) : BOT_TEXT("string_unknown_area");

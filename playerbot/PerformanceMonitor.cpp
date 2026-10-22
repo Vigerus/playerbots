@@ -58,10 +58,7 @@ std::unique_ptr<PerformanceMonitorOperation> PerformanceMonitor::start(Performan
 {
     if (!sPlayerbotAIConfig.perfMonEnabled) return NULL;
 
-    if (ai->GetAiObjectContext())
-        return start(metric, name, &ai->GetAiObjectContext()->performanceStack);
-    else
-        return start(metric, name);
+    return start(metric, name, ai->GetPerformanceStack());
 }
 
 void PerformanceMonitor::PrintStats(bool perTick, bool fullStack)

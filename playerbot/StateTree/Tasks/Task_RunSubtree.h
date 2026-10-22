@@ -46,14 +46,6 @@ namespace ai
         virtual bool HoldsActiveTree(const STAI_TaskContext& context) const override;
         virtual std::vector<std::string> GetReferencedTrees() const override { return { file }; }
 
-        // temporary, for compatibility: forwarded to the subtree's tasks
-        virtual void UpdateStrategies(STAI_TaskContext& context, const std::string& name, BotState type) const override;
-        virtual void ResetStrategies(STAI_TaskContext& context) const override;
-        virtual void ReInit(STAI_TaskContext& context) const override;
-
-        virtual IReactionChecker* GetReactionChecker(STAI_TaskContext& context) const override;
-
-        virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const override;
         virtual std::string GetDebugInfo() const override { return "Run " + file; }
         // the subtree's tasks log their runs
         virtual bool LogsActivity() const override { return false; }

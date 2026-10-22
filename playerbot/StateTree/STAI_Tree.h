@@ -21,9 +21,6 @@ namespace ai
         std::string member;
     };
 
-    // <Condition trigger="distance from master::greater::10" negate="false"/>: passes while the bot's trigger of
-    // that name (same names and "::" qualifiers as in strategies and custom strategies) is active, or inactive
-    // with negate="true".
     // <Condition binding="Root|BuffProvider_GlobalTask::needs"/>: passes while that property is set (a container
     // not empty, otherwise its bool value), or not set with negate="true".
     // <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>: compares a number
@@ -32,8 +29,7 @@ namespace ai
     {
         enum class Compare : uint8 { None, Equal, Lesser, LesserOrEqual, Greater, GreaterOrEqual };
 
-        std::string trigger;
-        STAI_MemberRef binding;                         // used when trigger is empty
+        STAI_MemberRef binding;
         const STAI_PropertyDef* property = nullptr;     // the bound property, resolved when the tree is loaded
         Compare compare = Compare::None;
         std::string compareText;
@@ -129,7 +125,7 @@ namespace ai
     //       ...
     //     </Global>
     //     <Node name="...">
-    //       <Conditions match="all|any"> <Condition trigger="..."/> <Condition binding="Root|..."/> ... </Conditions>
+    //       <Conditions match="all|any"> <Condition binding="Root|..."/> ... </Conditions>
     //       <Task class="..."> task settings, <Binding local="..." external="Root|..."/> </Task>
     //       ...                                   more tasks, run one after another
     //       <Transitions>                         optional
@@ -157,8 +153,8 @@ namespace ai
         // two nodes have the same name or a transition is invalid.
         static std::shared_ptr<const STAI_TreeAsset> Load(const std::string& file);
 
-        // tree with one unconditional node running the given task class without settings
-        static std::shared_ptr<const STAI_TreeAsset> MakeSingleTask(const std::string& name, const std::string& taskClass);
+        // tree with one unconditional "Idle" node waiting forever (Task_Wait, Delay 0)
+        static std::shared_ptr<const STAI_TreeAsset> MakeIdle(const std::string& name);
     };
 
     // Every STAI_*.xml of the statetree directory, preloaded and kept by file, plus the trees configured in
@@ -182,7 +178,7 @@ namespace ai
         std::shared_ptr<const STAI_TreeAsset> Get(HLSStateType state, uint8 classId) const;
         // loaded tree file (path relative to the config directory, e.g. statetree/STAI_NonCombat.xml), nullptr when not loaded
         std::shared_ptr<const STAI_TreeAsset> Find(const std::string& file) const;
-        // one legacy engine node, used when no tree is configured for the state
+        // one idle node (MakeIdle), used when no tree is configured for the state
         static std::shared_ptr<const STAI_TreeAsset> GetBuiltin(HLSStateType state);
 
     private:

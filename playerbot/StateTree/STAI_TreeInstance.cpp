@@ -1,8 +1,7 @@
 #include "STAI_TreeInstance.h"
 
 #include "playerbot/PlayerbotAI.h"
-#include "playerbot/strategy/AiObjectContext.h"
-#include "playerbot/strategy/Trigger.h"
+#include "playerbot/StateTree/Tasks/STAI_DebugSpells.h"
 #include "playerbot/StateTree/STAI_ActivityLog.h"
 #include "World/ProfilingSubsystem.h"
 
@@ -50,17 +49,8 @@ void STAI_TreeInstance::ResolveConditions(RuntimeConditions& conditions, const S
     conditions.def = &def;
     for (const STAI_ConditionDef& condition : def.list)
     {
-        // triggers are the bot's (class contexts included), bound conditions read the property in its context
-        Trigger* trigger = nullptr;
-        if (!condition.trigger.empty())
-        {
-            trigger = context.ai->GetAiObjectContext()->GetTrigger(condition.trigger);
-            if (!trigger)
-                sLog.outError("StateTree: %s node '%s': unknown trigger '%s' for %s, the condition never passes",
-                    asset->file.c_str(), nodeName.c_str(), condition.trigger.c_str(), context.bot->GetName());
-        }
-        conditions.triggers.push_back(trigger);
-        conditions.boundValues.push_back(condition.trigger.empty() ? condition.property->get(*GetContext(condition.binding)) : nullptr);
+        // bound conditions read the property in its context
+        conditions.boundValues.push_back(condition.property->get(*GetContext(condition.binding)));
     }
 }
 
@@ -76,10 +66,7 @@ bool STAI_TreeInstance::CheckConditions(const RuntimeConditions& conditions, std
     {
         const STAI_ConditionDef& condition = def.list[i];
         const uint8 forced = overrides ? (*overrides)[i] : 0;
-        const bool passed = forced ? forced == 1
-            : condition.trigger.empty()
-            ? condition.Passes(conditions.boundValues[i])
-            : conditions.triggers[i] && conditions.triggers[i]->IsActive() != condition.negate;
+        const bool passed = forced ? forced == 1 : condition.Passes(conditions.boundValues[i]);
         if (results)
             (*results)[i] = passed ? StateNodeConditionResult::Passed : StateNodeConditionResult::Failed;
         if (passed == def.any)
@@ -227,33 +214,6 @@ void STAI_TreeInstance::CreateContexts()
 
     for (TaskSlot* slot : slots)
         slot->def->task->InitContext(*slot->context);
-}
-
-void STAI_TreeInstance::UpdateStrategies(const std::string& name, BotState type)
-{
-    for (TaskSlot& global : globals)
-        global.def->task->UpdateStrategies(*global.context, name, type);
-    for (RuntimeNode& node : nodes)
-        for (TaskSlot& task : node.tasks)
-            task.def->task->UpdateStrategies(*task.context, name, type);
-}
-
-void STAI_TreeInstance::ResetStrategies()
-{
-    for (TaskSlot& global : globals)
-        global.def->task->ResetStrategies(*global.context);
-    for (RuntimeNode& node : nodes)
-        for (TaskSlot& task : node.tasks)
-            task.def->task->ResetStrategies(*task.context);
-}
-
-void STAI_TreeInstance::ReInit()
-{
-    for (TaskSlot& global : globals)
-        global.def->task->ReInit(*global.context);
-    for (RuntimeNode& node : nodes)
-        for (TaskSlot& task : node.tasks)
-            task.def->task->ReInit(*task.context);
 }
 
 bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now, bool ignoreFailedDelay)
@@ -473,35 +433,6 @@ void STAI_TreeInstance::FinishNode(RuntimeNode& node, EActionRunStatus status)
     ExitActive();
 }
 
-IReactionChecker* STAI_TreeInstance::FindReactionChecker() const
-{
-    for (const TaskSlot& global : globals)
-        if (IReactionChecker* checker = global.def->task->GetReactionChecker(*global.context))
-            return checker;
-    for (const RuntimeNode& node : nodes)
-        for (const TaskSlot& task : node.tasks)
-            if (IReactionChecker* checker = task.def->task->GetReactionChecker(*task.context))
-                return checker;
-    return nullptr;
-}
-
-Engine* STAI_TreeInstance::GetDebugEngine() const
-{
-    if (active >= 0)
-    {
-        const TaskSlot& task = nodes[active].tasks[nodes[active].current];
-        if (Engine* engine = task.def->task->GetDebugEngine(*task.context))
-            return engine;
-    }
-
-    for (const RuntimeNode& node : nodes)
-        for (const TaskSlot& task : node.tasks)
-            if (Engine* engine = task.def->task->GetDebugEngine(*task.context))
-                return engine;
-
-    return nullptr;
-}
-
 void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& stack) const
 {
     StateNodeDebugTree tree;
@@ -511,7 +442,8 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
     for (const TaskSlot& global : globals)
     {
         tree.globalTasks.push_back(global.def->task->GetName());
-        tree.globalSpells.push_back(global.def->task->GetDebugSpells(*global.context));
+        const ISTAI_DebugSpells* spells = dynamic_cast<const ISTAI_DebugSpells*>(global.def->task.get());
+        tree.globalSpells.push_back(spells ? spells->GetDebugSpells(*global.context) : std::vector<uint32>());
     }
 
     for (size_t i = 0; i < nodes.size(); ++i)
@@ -523,7 +455,8 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
         child.name = node.def->name;
         child.active = int(i) == active;
         child.taskClass = shown.def->task->GetName();
-        child.spells = shown.def->task->GetDebugSpells(*shown.context);
+        if (const ISTAI_DebugSpells* spells = dynamic_cast<const ISTAI_DebugSpells*>(shown.def->task.get()))
+            child.spells = spells->GetDebugSpells(*shown.context);
         child.info = shown.def->task->GetDebugInfo();
         child.currentTask = node.current;
         for (const STAI_TransitionDef& transition : node.def->transitions)

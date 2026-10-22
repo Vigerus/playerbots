@@ -1,6 +1,6 @@
 #include "InstanceProvider_GlobalTask.h"
 
-#include "playerbot/AiFactory.h"
+#include "playerbot/PlayerSpec.h"
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/ServerFacade.h"
 
@@ -205,7 +205,7 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
         PlayerbotDungeonPositions::Position position;
         if (ai->GetDungeonPositions().Get(bot, map->GetId(), uint32(masterStage), position))
             stagePosition = { position.x, position.y, position.z, true };
-        else if (instances->GetStagePosition(map->GetId(), uint32(masterStage), bot->getClass(), AiFactory::GetPlayerSpecTab(bot), position.x, position.y, position.z))
+        else if (instances->GetStagePosition(map->GetId(), uint32(masterStage), bot->getClass(), PlayerSpec::GetPlayerSpecTab(bot), position.x, position.y, position.z))
             stagePosition = { position.x, position.y, position.z, true };
     }
 

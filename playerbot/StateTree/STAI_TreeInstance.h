@@ -8,8 +8,6 @@
 
 namespace ai
 {
-    class Trigger;
-
     // One bot running a shared STAI tree: the bot's contexts of the nodes (constructed in one buffer, one after
     // another like a stack frame) and its resolved conditions, bindings and delegates; the tree and its tasks stay
     // shared.
@@ -35,8 +33,8 @@ namespace ai
     //             the tree finished (STAI_FinishTreeTask), otherwise Running
     //   OnFinish  the tree stops, opposite to the activation order: the running node gets OnExit (a running subtree
     //             of it is finished the same way first), then the global tasks get OnExit (last entered first),
-    //             then the tree is finished. Also when the bot leaves the state (combat starts, death, reaction
-    //             preempt): every tree on the stack is unwound from the top tree down to the initial tree.
+    //             then the tree is finished. Also when the bot leaves the state (combat starts, death,
+    //             resurrection): every tree on the stack is unwound from the top tree down to the initial tree.
     class STAI_TreeInstance
     {
     public:
@@ -53,14 +51,6 @@ namespace ai
         void OnFinish();
         bool IsRunning() const { return running; }
 
-        // temporary, for compatibility: forwarded to every task
-        void UpdateStrategies(const std::string& name, BotState type);
-        void ResetStrategies();
-        void ReInit();
-
-        IReactionChecker* FindReactionChecker() const;
-
-        Engine* GetDebugEngine() const;
         // adds this tree and the trees stacked on its running node (bottom to top)
         void AppendDebugTreeStack(std::vector<StateNodeDebugTree>& stack) const;
         const char* GetActiveNodeName() const;
@@ -90,8 +80,7 @@ namespace ai
         struct RuntimeConditions
         {
             const STAI_ConditionsDef* def = nullptr;
-            std::vector<Trigger*> triggers;                       // per condition, nullptr = unknown trigger or bound condition
-            std::vector<const void*> boundValues;                 // per condition, the bound property (bound conditions)
+            std::vector<const void*> boundValues;                 // per condition, the bound property
         };
 
         struct RuntimeNode

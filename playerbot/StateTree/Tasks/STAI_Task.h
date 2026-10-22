@@ -1,8 +1,6 @@
 #pragma once
 
-#include "playerbot/BotState.h"
 #include "playerbot/StateTree/HLS.h"
-#include "playerbot/StateTree/Tasks/StateTreeTask.h"
 #include "delegates/Delegates.h"
 #include "World/ProfilingSubsystem.h"
 
@@ -19,10 +17,16 @@ class PlayerbotAI;
 
 namespace ai
 {
-    class Engine;
-    class IReactionChecker;
     class STAI_ActivityLog;
     struct STAI_TaskContext;
+
+    // result of a task's update: Running keeps it running, Succeeded / Failed finish it
+    enum class EActionRunStatus : uint8_t
+    {
+        Running = 0,
+        Succeeded = 1,
+        Failed = 2
+    };
 
     // delegate of a task context that a node's <Transition type="OnDelegate" source="..."> waits for (GetDelegates)
     DECLARE_MULTICAST_DELEGATE(FSTAI_Delegate);
@@ -206,14 +210,6 @@ namespace ai
         // tree files this task runs (relative to the config directory), checked when the trees are loaded
         virtual std::vector<std::string> GetReferencedTrees() const { return {}; }
 
-        // temporary, for compatibility with the legacy engines (forwarded by the tree to every task)
-        virtual void UpdateStrategies(STAI_TaskContext& context, const std::string& name, BotState type) const {}
-        virtual void ResetStrategies(STAI_TaskContext& context) const {}
-        virtual void ReInit(STAI_TaskContext& context) const {}
-
-        // reaction tasks let the Reaction state preempt other states
-        virtual IReactionChecker* GetReactionChecker(STAI_TaskContext& context) const { return nullptr; }
-
         // What the tree calls: OnEnter / OnTick / OnExit, and the task's History entry (activity log): one per run,
         // its GetDebugInfo and whether it succeeded, made once the task keeps running after its first update or
         // fails (a task that succeeds at once leaves none). A task left while it runs (a transition, the tree
@@ -226,16 +222,13 @@ namespace ai
         // when it is left while running (status Running: interrupted, unsuccessful unless the task knows better,
         // e.g. a spell that already went off)
         virtual bool IsSuccessful(const STAI_TaskContext& context, EActionRunStatus status) const { return status == EActionRunStatus::Succeeded; }
-        // tasks that log their own entries (legacy engines) or none (subtrees, global tasks) return false
+        // tasks that log their own entries or none (subtrees, global tasks) return false
         virtual bool LogsActivity() const { return true; }
 
         // debug visualization
-        virtual Engine* GetDebugEngine(const STAI_TaskContext& context) const { return nullptr; }
         // what the task does, from its configuration only (it never changes while the bot runs): shown in the debug
         // view and as its History entries; {spell:<id>} is shown as the spell's icon and name (STAI_SpellMarkup)
         virtual std::string GetDebugInfo() const { return ""; }
-        // spells the task works with (configured or being cast), shown as icons by the debug addon
-        virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const { return {}; }
         // adds the trees this task stacked on its node's tree (a running subtree)
         virtual void AppendDebugTreeStack(const STAI_TaskContext& context, std::vector<StateNodeDebugTree>& stack) const {}
         // the tree the task runs on top of this one (Task_RunSubtree), nullptr when none

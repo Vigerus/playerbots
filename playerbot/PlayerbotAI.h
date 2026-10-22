@@ -1,21 +1,21 @@
 #pragma once
 #include "PlayerbotMgr.h"
 #include "PlayerbotAIBase.h"
-#include "strategy/AiObjectContext.h"
-#include "strategy/ReactionEngine.h"
-#include "strategy/ExternalEventHelper.h"
+#include "PlayerbotAIAware.h"
+#include "ChatHelper.h"
+#include "WorldPosition.h"
 #include "ChatFilter.h"
 #include "PlayerbotSecurity.h"
 #include "PlayerbotTextMgr.h"
-#include "BotState.h"
 #include "PlayerTalentSpec.h"
 #include "PlayerbotDungeonPositions.h"
-#include "PlayerbotLegacyStrategies.h"
 
 #include <atomic>
 #include <mutex>
 #include <stack>
-#include "strategy/IterateItemsMask.h"
+#include "IterateItemsMask.h"
+#include "PerformanceMonitor.h"
+#include "Qualified.h"
 #include "RandomPlayerbotMgr.h"
 
 #include "StateTree/StateMachine.h"
@@ -328,20 +328,6 @@ enum BotRoles
     BOT_ROLE_DPS = 0x04
 };
 
-class PacketHandlingHelper
-{
-public:
-    void AddHandler(uint16 opcode, std::string handler, bool shouldDelay = false);
-    void Handle(ExternalEventHelper &helper);
-    void AddPacket(const WorldPacket& packet);
-
-private:
-    std::map<uint16, std::string> handlers;
-    std::map<uint16, bool> delay;
-    std::stack<WorldPacket> queue;
-    std::mutex m_botPacketMutex;
-};
-
 class ChatCommandHolder
 {
 public:
@@ -383,33 +369,16 @@ public:
     virtual bool UpdateAIInternal(uint32 elapsed, bool minimal = false) override;
 
 public:
-    static std::string BotStateToString(BotState state);
 	std::string HandleRemoteCommand(std::string command);
     void SendStateTreeDebug();
     // applies the addon's switches (StateMachine::SetDebugSwitch)
     void ApplyStateTreeToggles();
-    void ApplyStateTreeStrategyEdits();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
     void HandleMasterIncomingPacket(const WorldPacket& packet);
     void HandleMasterOutgoingPacket(const WorldPacket& packet);
 	void HandleTeleportAck();
-    void ChangeEngine(BotState type);
-    void DoNextAction(bool minimal = false, Engine* CustomEngine = nullptr);
-    bool CanDoSpecificAction(const std::string& name, bool isUseful = true, bool isPossible = true);
-    virtual bool DoSpecificAction(const std::string& name, Event event = Event(), bool silent = false);
-    void ChangeStrategy(const std::string& name, BotState type);
-    void PrintStrategies(Player* requester, BotState type);
-    void ClearStrategies(BotState type);
-    std::list<std::string_view> GetStrategies(BotState type);
-    bool ContainsStrategy(StrategyType type);
-    bool HasStrategy(const std::string& name, BotState type);
-    template<class T>
-    T* GetStrategy(const std::string& name, BotState type);
-    BotState GetState() { return currentState; };
-    void ResetStrategies(bool autoLoad = true);
-    void ReInitCurrentEngine();
     void Reset(bool full = false);
     bool IsTank(Player* player, bool inGroup = true);
     bool IsHeal(Player* player, bool inGroup = true);
@@ -452,7 +421,6 @@ public:
     bool TellPlayer(Player* player, std::string text, PlayerbotSecurityLevel securityLevel = PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, bool isPrivate = true, bool ignoreSilent = false);
     bool TellPlayerNoFacing(Player* player, std::ostringstream& stream, PlayerbotSecurityLevel securityLevel = PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, bool isPrivate = true, bool noRepeat = true, bool ignoreSilent = false) { return TellPlayerNoFacing(player, stream.str(), securityLevel, isPrivate, noRepeat, ignoreSilent); }
     bool TellPlayerNoFacing(Player* player, std::string text, PlayerbotSecurityLevel securityLevel = PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, bool isPrivate = true, bool noRepeat = true, bool ignoreSilent = false);
-    bool TellDebug(Player* player, std::string text, std::string strategy = "debug", BotState state = BotState::BOT_STATE_NON_COMBAT){ if (HasStrategy(strategy, state)) return TellPlayerNoFacing(player, text, PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, true, false); return false;}
     bool TellError(Player* player, std::string text, PlayerbotSecurityLevel securityLevel = PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, bool ignoreSilent = false);
     void SpellInterrupted(uint32 spellid);
 
@@ -512,6 +480,12 @@ public:
 
     bool HasSpell(std::string name) const;
     bool HasSpell(uint32 spellid) const;
+    // the bot's (or its pet's) highest rank of the spell: a name, a spell link or a chat spell name (was the legacy
+    // "spell id" value), 0 when it has none
+    uint32 GetSpellIdByName(const std::string& name) const;
+    // the item a spell is cast on (enchants, poisons, ...: trade slot, equipped, bags), nullptr when none (was the
+    // legacy "item for spell" value)
+    Item* GetItemForSpell(uint32 spellId) const;
     bool HasAura(uint32 spellId, Unit* player, bool checkOwner = false);
     Aura* GetAura(uint32 spellId, Unit* player, bool checkOwner = false);
     Aura* GetAura(std::string spellName, Unit* player, bool checkOwner = false);
@@ -565,8 +539,6 @@ public:
     std::list<Unit*> GetAllHostileUnitsAroundWO(WorldObject* wo, float distanceAround);
     std::list<Unit*> GetAllHostileNPCNonPetUnitsAroundWO(WorldObject* wo, float distanceAround);
 
-    static void SendDelayedPacket(WorldSession* session, std::future<std::vector<std::pair<WorldPacket, uint32>>> futurePacket);
-    void ReceiveDelayedPacket(std::future<std::vector<std::pair<WorldPacket, uint32>>> futurePacket);
 public:
     std::vector<Bag*> GetEquippedAnyBags();
     std::vector<Bag*> GetEquippedQuivers();
@@ -638,16 +610,13 @@ public:
     void SetCheat(BotCheatMask mask) { cheatMask = mask; }
 
     void SetMaster(Player* master) { this->master = master; }
-    AiObjectContext* GetAiObjectContext() { return aiObjectContext; }
-    void SetAiObjectContext(AiObjectContext* aiObjectContext) { this->aiObjectContext = aiObjectContext; }
     ChatHelper* GetChatHelper() { return &chatHelper; }
+    PerformanceStack* GetPerformanceStack() { return &performanceStack; }
     bool IsOpposing(Player* player);
     static bool IsOpposing(uint8 race1, uint8 race2);
     PlayerbotSecurity* GetSecurity() { return &security; }
     // where the bot stands in dungeon stages (rtsc overrides, ai_playerbot_dungeon_positions)
     ai::PlayerbotDungeonPositions& GetDungeonPositions() { return dungeonPositions; }
-    // the bot's runtime changes to the legacy brains' strategy lists (BotStateTree addon, not stored)
-    ai::PlayerbotLegacyStrategies& GetLegacyStrategies() { return legacyStrategies; }
 
     WorldPosition GetJumpDestination() { return jumpDestination; }
     void SetJumpDestination(const WorldPosition& pos) { jumpDestination = pos; }
@@ -663,8 +632,9 @@ public:
     bool IsPlayerFriend() { return isPlayerFriend; }
     bool HasPlayerRelation();
 
-    bool IsStateActive(BotState state) const;
-    time_t GetCombatStartTime() const;
+    // the state machine's main state is type (NonCombat, Combat or Dead)
+    bool IsInStateType(HLSStateType type) const;
+    time_t GetCombatStartTime() const { return combatStartTime; }
 
     void OnCombatStarted();
     void OnCombatEnded();
@@ -701,8 +671,6 @@ private:
     void HandleMemberTeamChanged(Group* /*group*/, ObjectGuid /*self*/, ObjectGuid /*member*/) { teamChanged = true; }
     // a teleport leaves the members' map: their attacker events stop reaching the bot
     void HandleEnterMap(Player* /*player*/, Map* /*map*/) { teamChanged = true; }
-    // the state machine is in NonCombat (Combat), possibly preempted by a reaction
-    bool IsInStateType(HLSStateType type) const;
     // member is alive and within sight distance of the bot (whose combat starts / ends count for the bot)
     bool IsNearbyMember(Player* member) const;
     // the bot or a nearby group member is in combat
@@ -716,10 +684,10 @@ private:
     void UpdateCombatState();
 public:
     
-    void SetActionDuration(const Action* action);
     void SetActionDuration(uint32 duration);
 
-    const Action* GetLastExecutedAction(BotState state) const;
+    // afk, master / group upkeep and stand state, every update after the state machine
+    void UpdateUpkeep();
 
     bool IsImmuneToSpell(uint32 spellId) const;
 
@@ -754,32 +722,15 @@ public:
 #endif
 
 //private:
-    bool UpdateAIReaction(uint32 elapsed, bool minimal, bool isStunned);
-    void UpdateFaceTarget(uint32 elapsed, bool minimal);
 
 protected:
 	Player* bot = nullptr;
 	Player* master = nullptr;
 	uint32 accountId = 0;
-    AiObjectContext* aiObjectContext = nullptr;
-public:
-
-// #ifdef HLS
-// #else
-    Engine* currentEngine = nullptr;
-    Engine& GetCurrentEngine() { return *engines[(uint8)currentState].get(); };
-    //ReactionEngine* reactionEngine = nullptr;
-    //ReactionEngine& GetReactionEngine() { return *(ReactionEngine*)(engines[(uint8)BotState::BOT_STATE_REACTION].get());};
-    std::unique_ptr<Engine> engines[(uint8)BotState::BOT_STATE_ALL];
-    BotState currentState = BotState::BOT_STATE_NON_COMBAT;
-//#endif
 protected:
     ChatHelper chatHelper;
     std::queue<ChatCommandHolder> chatCommands;
     std::queue<ChatQueuedReply> chatReplies;
-    PacketHandlingHelper botOutgoingPacketHandlers;
-    PacketHandlingHelper masterIncomingPacketHandlers;
-    PacketHandlingHelper masterOutgoingPacketHandlers;
     CompositeChatFilter chatFilter;
     PlayerbotSecurity security;
     std::map<std::string, time_t> whispers;
@@ -798,6 +749,11 @@ protected:
     bool isPlayerFriend = false;
     bool isMovingToTransport = false;
     bool shouldLogOut = false;
+    // the performance monitor's operations of this bot (PerformanceMonitor::start)
+    PerformanceStack performanceStack;
+    // when the combat started (0 out of combat)
+    time_t combatStartTime = 0;
+    PlayerTalentSpec talentSpec = PlayerTalentSpec::TALENT_SPEC_INVALID;
 
     StateMachine StateMachine;
 
@@ -825,18 +781,8 @@ protected:
     };
     std::mutex stateTreeToggleLock;
     std::vector<StateTreeToggle> stateTreeToggles;
-    // strategy changes of the BotStateTree addon ("BOT\tstatetree strategy <state> +name|-name|reset"): set from
-    // chat, applied in UpdateAI (same lock as the toggles)
-    struct StateTreeStrategyEdit
-    {
-        std::string state, change;
-    };
-    std::vector<StateTreeStrategyEdit> stateTreeStrategyEdits;
-    // the addon asked for the strategy names it can add ("BOT\tstatetree strategies"), answered with the next snapshot
-    std::atomic<bool> stateTreeStrategyListRequested{ false };
     uint8 stateTreeDebugSeq = 0;
     ai::PlayerbotDungeonPositions dungeonPositions;
-    ai::PlayerbotLegacyStrategies legacyStrategies;
 
 #ifdef BUILD_ELUNA
     MaNGOS::unique_weak_ptr<PlayerbotAI> m_weakRef;
@@ -845,9 +791,3 @@ private:
     SpellCastEvent lastSpellGo;
     SpellCastEvent lastSpellFailure;
 };
-
-template<typename T>
-T* PlayerbotAI::GetStrategy(const std::string& name, BotState type)
-{
-    return  dynamic_cast<T*>(engines[(uint8)type]->GetStrategy(name));
-}

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "playerbot/StateTree/Providers/STAI_TargetIcons.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 
 #include "Entities/ObjectGuid.h"
@@ -32,9 +33,9 @@ namespace ai
 
         uint32 sinceCheckMs = 0;
 
-        // the bot's "rti" / "rti cc" values, looked up once on enter
-        Value<std::vector<std::string>>* rtiValue = nullptr;
-        Value<std::vector<std::string>>* rtiCcValue = nullptr;
+        // the bot's kill order / crowd control icons (TODO(strategy): were its "rti" / "rti cc" values)
+        std::vector<std::string> rtiIcons = STAI_DefaultRtiIcons();
+        std::vector<std::string> rtiCcIcons = STAI_DefaultRtiCcIcons();
     };
 
     // Global task that picks the unit the bot attacks:

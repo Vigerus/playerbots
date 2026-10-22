@@ -1,5 +1,6 @@
 
 #include "playerbot/playerbot.h"
+#include "playerbot/PlayerSpec.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "RandomItemMgr.h"
 #include "playerbot/PlayerbotAI.h"
@@ -9,11 +10,10 @@
 #include "PlayerbotAI.h"
 
 #include "playerbot/ServerFacade.h"
-#include "strategy/values/LootValues.h"
+#include "LootAccess.h"
 
 #include "Entities/ItemEnchantmentMgr.h"
 
-#include "strategy/values/SharedValueContext.h"
 
 char * strstri (const char* str1, const char* str2);
 
@@ -948,7 +948,7 @@ void RandomItemMgr::BuildItemInfoCache()
     {
         sEntry = entry;
 
-        LootTemplateAccess const* lTemplateA = DropMapValue::GetLootTemplate(ObjectGuid(HIGHGUID_UNIT, entry, uint32(1)), LOOT_CORPSE);
+        LootTemplateAccess const* lTemplateA = GetLootTemplate(ObjectGuid(HIGHGUID_UNIT, entry, uint32(1)), LOOT_CORPSE);
 
         if (lTemplateA)
             for (LootStoreItem const& lItem : lTemplateA->Entries)
@@ -959,7 +959,7 @@ void RandomItemMgr::BuildItemInfoCache()
     {
         sEntry = entry;
 
-        LootTemplateAccess const* lTemplateA = DropMapValue::GetLootTemplate(ObjectGuid(HIGHGUID_GAMEOBJECT, entry, uint32(1)), LOOT_CORPSE);
+        LootTemplateAccess const* lTemplateA = GetLootTemplate(ObjectGuid(HIGHGUID_GAMEOBJECT, entry, uint32(1)), LOOT_CORPSE);
 
         if (lTemplateA)
             for (LootStoreItem const& lItem : lTemplateA->Entries)
@@ -1189,8 +1189,11 @@ void RandomItemMgr::BuildItemInfoCache()
         {
             bool isAlly = false;
             bool isHorde = false;
-            for (auto& vendor : GAI_VALUE2(std::list<int32>, "item vendor list", itemId))
+            static const VendorMap* vendorMap = CalculateVendorMap();
+            auto vendors = vendorMap->equal_range(itemId);
+            for (auto vendorItr = vendors.first; vendorItr != vendors.second; ++vendorItr)
             {
+                const int32 vendor = vendorItr->second;
                 CreatureInfo const* cInfo = sObjectMgr.GetCreatureTemplate(vendor);
                 if (!cInfo)
                     continue;
@@ -2643,7 +2646,7 @@ std::vector<uint32> RandomItemMgr::GetQuestIdsForItem(uint32 itemId)
 std::string RandomItemMgr::GetPlayerSpecName(Player* player)
 {
     std::string specName;
-    int tab = AiFactory::GetPlayerSpecTab(player);
+    int tab = PlayerSpec::GetPlayerSpecTab(player);
     switch (player->getClass())
     {
     case CLASS_PRIEST:

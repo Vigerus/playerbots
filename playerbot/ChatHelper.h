@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include "Tools/Language.h"
+#include "WorldPosition.h"
 
 typedef std::set<uint32> ItemIds;
 typedef std::set<uint32> SpellIds;

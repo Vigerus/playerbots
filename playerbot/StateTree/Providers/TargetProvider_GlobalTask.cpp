@@ -4,9 +4,6 @@
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/StateTree/STAI_TaskFactory.h"
-#include "playerbot/strategy/AiObjectContext.h"
-#include "playerbot/strategy/values/PossibleAttackTargetsValue.h"
-#include "playerbot/strategy/values/RtiTargetValue.h"
 
 #include "Combat/ThreatManager.h"
 #include "Groups/Group.h"
@@ -26,17 +23,17 @@ namespace
     constexpr uint32 chooseIntervalMs = 250;
 
     // the living units marked with the icons of the bot's rti value, in the value's order
-    std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, Value<std::vector<std::string>>* rtiValue)
+    std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, const std::vector<std::string>& icons)
     {
         std::vector<Unit*> units;
         Player* bot = context.bot;
         Group* group = bot->GetGroup();
-        if (!group || !rtiValue)
+        if (!group)
             return units;
 
-        for (const std::string& icon : rtiValue->Get())
+        for (const std::string& icon : icons)
         {
-            const int index = RtiTargetValue::GetRtiIndex(icon);
+            const int index = STAI_GetRtiIndex(icon);
             if (index < 0)
                 continue;
 
@@ -92,7 +89,7 @@ bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, U
         return false;
     if (!sServerFacade.IsHostileTo(bot, unit) || !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance))
         return false;
-    if (PossibleAttackTargetsValue::HasBreakableCC(unit, bot) || PossibleAttackTargetsValue::HasUnBreakableCC(unit, bot))
+    if (STAI_HasBreakableCC(unit, bot) || STAI_HasUnBreakableCC(unit, bot))
         return false;
 
     // the bot's own crowd-control mark is left for CC
@@ -101,7 +98,7 @@ bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, U
 
 Unit* TargetProvider_GlobalTask::FindMarkedTarget(const TargetProvider_GlobalTaskContext& context, const std::vector<Unit*>& ccMarks)
 {
-    for (Unit* unit : GetMarkedUnits(context, context.rtiValue))
+    for (Unit* unit : GetMarkedUnits(context, context.rtiIcons))
         if (IsValidTarget(context, unit, ccMarks))
             return unit;
     return nullptr;
@@ -109,11 +106,10 @@ Unit* TargetProvider_GlobalTask::FindMarkedTarget(const TargetProvider_GlobalTas
 
 Unit* TargetProvider_GlobalTask::FindAssistTarget(const STAI_TaskContext& context, const std::vector<Unit*>& ccMarks)
 {
-    // the value caches its list (the expensive part: units around the bot, its group and master)
-    const std::list<ObjectGuid> attackers = context.ai->GetAiObjectContext()->GetValue<std::list<ObjectGuid>>("possible attack targets")->Get();
-
+    // the units on the threat lists of the bot and its group (TODO(strategy): was the legacy "possible attack
+    // targets" value: units around the bot, its group and master)
     Unit* best = nullptr;
-    for (const ObjectGuid& guid : attackers)
+    for (const auto& [guid, victims] : context.ai->GetTeamAttackers())
     {
         Unit* unit = context.ai->GetUnit(guid);
         if (!unit || unit->IsPlayer() || !IsValidTarget(context, unit, ccMarks))
@@ -163,8 +159,6 @@ void TargetProvider_GlobalTask::SetChosen(TargetProvider_GlobalTaskContext& cont
         return;
 
     context.chosen = guid;
-    // the legacy values (reaction engine, chat commands) see the same target
-    context.ai->GetAiObjectContext()->GetValue<Unit*>("current target")->Set(unit);
 }
 
 void TargetProvider_GlobalTask::Publish(TargetProvider_GlobalTaskContext& context, bool checkThreat) const
@@ -201,7 +195,7 @@ void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context
     }
 
     // the bot's crowd-control marks, once per update (no group: none)
-    const std::vector<Unit*> ccMarks = GetMarkedUnits(context, context.rtiCcValue);
+    const std::vector<Unit*> ccMarks = GetMarkedUnits(context, context.rtiCcIcons);
 
     Unit* current = context.chosen.IsEmpty() ? nullptr : bot->GetMap()->GetUnit(context.chosen);
     const bool currentValid = current && IsValidTarget(context, current, ccMarks);
@@ -237,9 +231,6 @@ void TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
     context.threatHigh = false;
     context.marked = false;
     context.sinceCheckMs = 0;
-    AiObjectContext* aiObjectContext = context.ai->GetAiObjectContext();
-    context.rtiValue = aiObjectContext->GetValue<std::vector<std::string>>("rti");
-    context.rtiCcValue = aiObjectContext->GetValue<std::vector<std::string>>("rti cc");
     Update(context, true);
 }
 

@@ -88,39 +88,6 @@ bool Task_RunSubtree::HoldsActiveTree(const STAI_TaskContext& baseContext) const
     return context.subtree && context.subtree->IsRunning();
 }
 
-void Task_RunSubtree::UpdateStrategies(STAI_TaskContext& baseContext, const std::string& name, BotState type) const
-{
-    Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    if (context.subtree)
-        context.subtree->UpdateStrategies(name, type);
-}
-
-void Task_RunSubtree::ResetStrategies(STAI_TaskContext& baseContext) const
-{
-    Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    if (context.subtree)
-        context.subtree->ResetStrategies();
-}
-
-void Task_RunSubtree::ReInit(STAI_TaskContext& baseContext) const
-{
-    Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    if (context.subtree)
-        context.subtree->ReInit();
-}
-
-IReactionChecker* Task_RunSubtree::GetReactionChecker(STAI_TaskContext& baseContext) const
-{
-    Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    return context.subtree ? context.subtree->FindReactionChecker() : nullptr;
-}
-
-Engine* Task_RunSubtree::GetDebugEngine(const STAI_TaskContext& baseContext) const
-{
-    const Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
-    return context.subtree ? context.subtree->GetDebugEngine() : nullptr;
-}
-
 STAI_TreeInstance* Task_RunSubtree::GetRunningSubtree(STAI_TaskContext& baseContext) const
 {
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);

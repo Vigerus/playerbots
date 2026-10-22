@@ -6,12 +6,9 @@
 #include "playerbot/PlayerbotFactory.h"
 #include "RandomItemMgr.h"
 #include "World/WorldState.h"
-#include "playerbot/PlayerbotHelpMgr.h"
-#include "playerbot/strategy/actions/CheatAction.h"
 
 #include "playerbot/TravelMgr.h"
 #include "playerbot/StateTree/STAI_Tree.h"
-#include "playerbot/StateTree/Tasks/LegacyBrain.h"
 
 #include "instancebot/GuildProgressSubsystem.h"
 
@@ -34,6 +31,24 @@ std::vector<std::string> ConfigAccess::GetValues(const std::string& name) const
 };
 
 INSTANTIATE_SINGLETON_1(PlayerbotAIConfig);
+
+// the cheats of a comma separated list of names (BotCheatMaskName), was the legacy CheatAction::GetCheatMask
+static BotCheatMask GetCheatMask(std::string cheat)
+{
+    BotCheatMask cheatMask = BotCheatMask::none;
+    std::vector<std::string> cheats = Qualified::getMultiQualifiers(cheat, ",");
+
+    for (auto cheat : cheats)
+    {
+        for (int i = 0; i < log2((uint32)BotCheatMask::maxMask); i++)
+        {
+            if (sPlayerbotAIConfig.BotCheatMaskName[i] == cheat)
+                cheatMask = BotCheatMask(uint32(cheatMask) | uint32(BotCheatMask(1 << i)));
+        }
+    }
+
+    return cheatMask;
+}
 
 PlayerbotAIConfig::PlayerbotAIConfig()
 : enabled(false)
@@ -399,9 +414,9 @@ bool PlayerbotAIConfig::Initialize()
         }
     }
 
-    botCheatMask = uint32(CheatAction::GetCheatMask(config.GetStringDefault("AiPlayerbot.BotCheats", "taxi,item,breath")));
+    botCheatMask = uint32(GetCheatMask(config.GetStringDefault("AiPlayerbot.BotCheats", "taxi,item,breath")));
 
-    rndBotCheatMask = uint32(CheatAction::GetCheatMask(config.GetStringDefault("AiPlayerbot.RndBotCheats", "taxi,item,breath")));    
+    rndBotCheatMask = uint32(GetCheatMask(config.GetStringDefault("AiPlayerbot.RndBotCheats", "taxi,item,breath")));    
 
     LoadListString<std::list<std::string>>(config.GetStringDefault("AiPlayerbot.AllowedLogFiles", ""), allowedLogFiles);
     LoadListString<std::list<std::string>>(config.GetStringDefault("AiPlayerbot.DebugFilter", "add gathering loot,check values,emote,check mount state,jump"), debugFilter);
@@ -734,24 +749,16 @@ bool PlayerbotAIConfig::Initialize()
     sTravelMgr.LoadAreaLevels();
     sLog.outString("Loading spellIds.");
     ChatHelper::PopulateSpellNameList();
-    ItemUsageValue::PopulateProfessionReagentIds();
-    ItemUsageValue::PopulateSoldByVendorItemIds();
-    ItemUsageValue::PopulateReagentItemIdsForCraftableItemIds();
 
     RandomPlayerbotFactory::CreateRandomBots();
     PlayerbotFactory::Init();
     sRandomItemMgr.Init();
     sPlayerbotTextMgr.LoadBotTexts();
     sPlayerbotTextMgr.LoadBotTextChance();
-    sPlayerbotHelpMgr.LoadBotHelpTexts();
 
     LoadTalentSpecs();
 
-    if (sPlayerbotAIConfig.autoDoQuests)
-    {
-        sLog.outString("Loading Quest Detail Data...");
-        sTravelMgr.LoadQuestTravelTable();
-    }
+    // TODO(strategy): with autoDoQuests the quest travel destinations were loaded here (legacy TravelMgr)
 
     sLog.outString("Loading named locations...");
     sRandomPlayerbotMgr.LoadNamedLocations();
@@ -759,11 +766,10 @@ bool PlayerbotAIConfig::Initialize()
     if (sPlayerbotAIConfig.randomBotJoinBG)
         sRandomPlayerbotMgr.LoadBattleMastersCache();
 
-    // state trees (and the legacy strategy lists they use) are loaded once, a config reload keeps them
+    // state trees are loaded once, a config reload keeps them
     if (!sSTAITreeLibrary.IsLoaded())
     {
         sLog.outString("Loading state trees...");
-        sLegacyBrainLibrary.Clear();
         sSTAITreeLibrary.LoadFromConfig();
     }
 
@@ -1047,27 +1053,6 @@ void PlayerbotAIConfig::logEvent(PlayerbotAI* ai, std::string eventName, ObjectG
 
     logEvent(ai, eventName, info1, info2);
 };
-
-bool PlayerbotAIConfig::CanLogAction(PlayerbotAI* ai, std::string actionName, bool isExecute, std::string lastActionName)
-{
-    bool forRpg = (actionName.find("rpg") == 0) && ai->HasStrategy("debug rpg", BotState::BOT_STATE_NON_COMBAT);
-
-    if (!forRpg)
-    {
-        if (isExecute && !ai->HasStrategy("debug", BotState::BOT_STATE_NON_COMBAT))
-            return false;
-
-        if (!isExecute && !ai->HasStrategy("debug action", BotState::BOT_STATE_NON_COMBAT))
-            return false;
-
-        if ((lastActionName == actionName) && (actionName == "melee"))
-        {
-            return false;
-        }
-    }
-
-    return std::find(debugFilter.begin(), debugFilter.end(), actionName) == debugFilter.end();
-}
 
 void PlayerbotAIConfig::LoadTalentSpecs()
 {

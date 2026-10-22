@@ -4,9 +4,6 @@
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/StateTree/STAI_TaskFactory.h"
-#include "playerbot/strategy/AiObjectContext.h"
-#include "playerbot/strategy/values/PossibleAttackTargetsValue.h"
-#include "playerbot/strategy/values/RtiTargetValue.h"
 
 #include "Groups/Group.h"
 #include "Maps/Map.h"
@@ -59,17 +56,17 @@ std::unique_ptr<STAI_Task> CCProvider_GlobalTask::Create(const STAI_TaskConfig& 
     return std::make_unique<CCProvider_GlobalTask>(ParseAuras(config));
 }
 
-std::vector<Unit*> CCProvider_GlobalTask::GetMarkedUnits(const STAI_TaskContext& context, Value<std::vector<std::string>>* rtiValue)
+std::vector<Unit*> CCProvider_GlobalTask::GetMarkedUnits(const STAI_TaskContext& context, const std::vector<std::string>& icons)
 {
     std::vector<Unit*> units;
     Player* bot = context.bot;
     Group* group = bot->GetGroup();
-    if (!group || !bot->IsInWorld() || !rtiValue)
+    if (!group || !bot->IsInWorld())
         return units;
 
-    for (const std::string& icon : rtiValue->Get())
+    for (const std::string& icon : icons)
     {
-        const int index = RtiTargetValue::GetRtiIndex(icon);
+        const int index = STAI_GetRtiIndex(icon);
         if (index < 0)
             continue;
 
@@ -86,7 +83,7 @@ std::vector<Unit*> CCProvider_GlobalTask::GetMarkedUnits(const STAI_TaskContext&
 
 bool CCProvider_GlobalTask::IsCrowdControlled(Unit* unit, Player* bot) const
 {
-    if (PossibleAttackTargetsValue::HasBreakableCC(unit, bot) || PossibleAttackTargetsValue::HasUnBreakableCC(unit, bot))
+    if (STAI_HasBreakableCC(unit, bot) || STAI_HasUnBreakableCC(unit, bot))
         return true;
 
     for (const auto& [spellId, holder] : unit->GetSpellAuraHolderMap())
@@ -102,10 +99,10 @@ ObjectGuid CCProvider_GlobalTask::FindTarget(const CCProvider_GlobalTaskContext&
         return ObjectGuid();
 
     // the group kills the first living rti target first: that one is never crowd-controlled
-    const std::vector<Unit*> killOrder = GetMarkedUnits(context, context.rtiValue);
+    const std::vector<Unit*> killOrder = GetMarkedUnits(context, context.rtiIcons);
     Unit* killFirst = killOrder.empty() ? nullptr : killOrder.front();
 
-    for (Unit* unit : GetMarkedUnits(context, context.rtiCcValue))
+    for (Unit* unit : GetMarkedUnits(context, context.rtiCcIcons))
     {
         if (unit == killFirst || unit->IsPlayer())
             continue;
@@ -144,9 +141,6 @@ void CCProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
     context.whoNeeds.clear();
     context.sinceCheckMs = 0;
     context.sinceFireMs = 0;
-    AiObjectContext* aiObjectContext = context.ai->GetAiObjectContext();
-    context.rtiValue = aiObjectContext->GetValue<std::vector<std::string>>("rti");
-    context.rtiCcValue = aiObjectContext->GetValue<std::vector<std::string>>("rti cc");
     Update(context);
 }
 

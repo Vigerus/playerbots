@@ -2,15 +2,13 @@
 
 #define USE_HLS 1
 
-#include "playerbot/BotState.h"
+#include "Platform/Define.h"
 
 #include <string>
 #include <vector>
 
 namespace ai
 {
-
-class Engine;
 
 // result of a node condition in the last update, as shown by the StateTree debug view
 enum class StateNodeConditionResult : uint8
@@ -57,6 +55,8 @@ struct StateNodeDebugTree
     std::vector<StateNodeDebugChild> nodes;
 };
 
+// NonCombat, Combat and Dead are the main states, one of them is active (StateMachine::TransitionTo);
+// Reaction is additive: it ticks on every update next to the active main state
 enum class HLSStateType : uint8_t
 {
     NonCombat,
@@ -70,19 +70,13 @@ class IStateNode
 public:
     virtual ~IStateNode() = default;
 
-    // temporary, for compatibility
-    virtual void ReInit() {}
-    virtual void UpdateStrategies(const std::string& name, BotState type) {};
-    virtual void ResetStrategies() {};
-
     virtual void OnEnter() {}
     virtual void OnExit() {}
     virtual void Update(uint32 elapsed, bool minimal) {}
     virtual HLSStateType GetStateType() const = 0;
     virtual const char* GetName() const = 0;
 
-    // debug visualization: engine whose strategies / last action are shown for this node
-    virtual Engine* GetDebugEngine() const { return nullptr; }
+    // debug visualization
     // trees the state runs, bottom (its initial tree) to top (the tree selecting nodes)
     virtual std::vector<StateNodeDebugTree> GetDebugTreeStack() const { return {}; }
     // an addon switch of the tree named tree on its tree stack (BotStateTree addon): a task (index), the node or

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "playerbot/StateTree/Providers/STAI_TargetIcons.h"
+#include "playerbot/StateTree/Tasks/STAI_DebugSpells.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 
 #include "Entities/ObjectGuid.h"
@@ -29,9 +31,9 @@ namespace ai
         uint32 sinceCheckMs = 0;
         uint32 sinceFireMs = 0;
 
-        // the bot's "rti" / "rti cc" values, looked up once on enter
-        Value<std::vector<std::string>>* rtiValue = nullptr;
-        Value<std::vector<std::string>>* rtiCcValue = nullptr;
+        // the bot's kill order / crowd control icons (TODO(strategy): were its "rti" / "rti cc" values)
+        std::vector<std::string> rtiIcons = STAI_DefaultRtiIcons();
+        std::vector<std::string> rtiCcIcons = STAI_DefaultRtiCcIcons();
     };
 
     // Global task that watches the bot's crowd-control marks (its "rti cc" icons, default moon) in the bot's group:
@@ -47,7 +49,7 @@ namespace ai
     // Ticked (nothing broadcasts mark changes or deaths): checks every 250ms; onCCNeeded fires when the target
     // changes to another unit (a new mark, the old crowd control broke) and again every second while it still needs
     // crowd control (a cast that could not be done, out of range or sight, is retried).
-    class CCProvider_GlobalTask : public STAI_GlobalTask
+    class CCProvider_GlobalTask : public STAI_GlobalTask, public ISTAI_DebugSpells
     {
     public:
         explicit CCProvider_GlobalTask(std::vector<uint32> auras) : auras(std::move(auras)) {}
@@ -70,8 +72,8 @@ namespace ai
 
     private:
         static std::vector<uint32> ParseAuras(const STAI_TaskConfig& config);
-        // the living units marked with the icons of the bot's rti value (rti / rti cc), in the value's order
-        static std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, Value<std::vector<std::string>>* rtiValue);
+        // the living units marked with the icons (rti / rti cc), in the icons' order
+        static std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, const std::vector<std::string>& icons);
         bool IsCrowdControlled(Unit* unit, Player* bot) const;
         ObjectGuid FindTarget(const CCProvider_GlobalTaskContext& context) const;
         void Update(CCProvider_GlobalTaskContext& context) const;

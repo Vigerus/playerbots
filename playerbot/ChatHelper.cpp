@@ -1,8 +1,9 @@
 
 #include "playerbot/playerbot.h"
+#include "playerbot/GuidPosition.h"
 #include "ChatHelper.h"
-#include "playerbot/AiFactory.h"
-#include "strategy/values/ItemUsageValue.h"
+#include "playerbot/PlayerSpec.h"
+#include "ItemQualifier.h"
 #include <numeric>
 #include <iomanip>
 #include <regex>
@@ -930,7 +931,7 @@ bool ChatHelper::parseable(const std::string& text)
 
 std::string ChatHelper::specName(const Player* player)
 {
-    return specs[player->getClass()][AiFactory::GetPlayerSpecTab(player)];
+    return specs[player->getClass()][PlayerSpec::GetPlayerSpecTab(player)];
 }
 
 std::string ChatHelper::formatClass(const Player* player, int spec)
@@ -940,7 +941,7 @@ std::string ChatHelper::formatClass(const Player* player, int spec)
     std::ostringstream out;
     out << specs[cls][spec] << " (";
 
-    std::map<uint32, int32> tabs = AiFactory::GetPlayerSpecTabs(player);
+    std::map<uint32, int32> tabs = PlayerSpec::GetPlayerSpecTabs(player);
     int c0 = (int)tabs[0];
     int c1 = (int)tabs[1];
     int c2 = (int)tabs[2];

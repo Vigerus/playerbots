@@ -21,8 +21,8 @@ namespace ai
     //     <Health until="100"/>     percent, default 100
     //     <Mana until="100"/>       percent, default 100; ignored for bots without mana
     //   </Task>
-    // Eating is for everyone, drinking for mana users. Uses the legacy food / drink actions (an item from the bags, or
-    // the bot's eat / drink cheat; both sit the bot down and apply the food / drink aura), not their thresholds.
+    // Eating is for everyone, drinking for mana users. Uses a food / drink item from the bags, or the bot's eat / drink
+    // cheat spell; both sit the bot down and apply the food / drink aura.
     // Succeeded when both targets are reached or every food / drink aura of the meal ended (weak food: the node's
     // conditions decide on the next selection whether to eat again); Failed when nothing could be eaten or drunk
     // within 3s (nothing in the bags, the bot kept moving). OnExit stands the bot up, which ends the food and drink.

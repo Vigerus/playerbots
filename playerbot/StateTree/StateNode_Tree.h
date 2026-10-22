@@ -11,7 +11,7 @@ namespace ai
     // HLS state running a STAI tree (the initial tree of the state, bottom of the tree stack): OnEnter starts it,
     // Update ticks it, OnExit finishes it. When the tree finished itself (STAI_FinishTreeTask) the next update
     // starts it again.
-    class StateNode_Tree : public IStateNode, public IReactionChecker
+    class StateNode_Tree : public IStateNode
     {
     public:
         StateNode_Tree(const STAI_TaskContext& context, std::shared_ptr<const STAI_TreeAsset> asset);
@@ -19,19 +19,10 @@ namespace ai
         virtual const char* GetName() const override { return tree.GetAsset().name.c_str(); }
         virtual HLSStateType GetStateType() const override { return state; }
 
-        // temporary, for compatibility: forwarded to every task
-        virtual void UpdateStrategies(const std::string& name, BotState type) override { tree.UpdateStrategies(name, type); }
-        virtual void ResetStrategies() override { tree.ResetStrategies(); }
-        virtual void ReInit() override { tree.ReInit(); }
-
         virtual void OnEnter() override { tree.OnStart(); }
         virtual void OnExit() override { tree.OnFinish(); }
         virtual void Update(uint32 elapsed, bool minimal) override { tree.OnTick(elapsed, minimal); }
 
-        virtual bool ShouldEnterReaction() override;
-        virtual bool IsReacting() override;
-
-        virtual Engine* GetDebugEngine() const override { return tree.GetDebugEngine(); }
         virtual std::vector<StateNodeDebugTree> GetDebugTreeStack() const override
         {
             std::vector<StateNodeDebugTree> stack;
@@ -46,7 +37,5 @@ namespace ai
     private:
         HLSStateType state;
         STAI_TreeInstance tree;
-        // the reaction checker of a task of the tree (its context lives as long as the tree), nullptr when none
-        IReactionChecker* reactionChecker = nullptr;
     };
 }

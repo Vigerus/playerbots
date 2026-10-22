@@ -1,6 +1,5 @@
 #include "playerbot/playerbot.h"
 #include "playerbot/PlayerbotAIConfig.h"
-#include "PlayerbotDbStore.h"
 #include "playerbot/PlayerbotFactory.h"
 #include "playerbot/RandomPlayerbotMgr.h"
 #include "playerbot/ServerFacade.h"
@@ -147,14 +146,7 @@ void PlayerbotHolder::LogoutPlayerBot(uint32 guid)
         if (!ai)
             return;
 
-        if (!sPlayerbotAIConfig.bExplicitDbStoreSave)
-        {
-           Group* group = bot->GetGroup();
-           if (group && !bot->InBattleGround() && !bot->InBattleGroundQueue() && ai->HasActivePlayerMaster())
-           {
-              sPlayerbotDbStore.Save(ai);
-           }
-        }
+        // TODO(strategy): the bot's legacy values were saved to ai_playerbot_db_store here (PlayerbotDbStore)
         sLog.outDebug("Bot %s logging out", bot->GetName());
         bot->SaveToDB();
 
@@ -242,14 +234,7 @@ void PlayerbotHolder::DisablePlayerBot(uint32 guid, bool logOutPlayer)
         MotionMaster& mm = *bot->GetMotionMaster();
         mm.Clear();
 
-        if (!sPlayerbotAIConfig.bExplicitDbStoreSave)
-        {
-           Group* group = bot->GetGroup();
-           if (group && !bot->InBattleGround() && !bot->InBattleGroundQueue() && bot->GetPlayerbotAI()->HasActivePlayerMaster())
-           {
-              sPlayerbotDbStore.Save(bot->GetPlayerbotAI());
-           }
-        }
+        // TODO(strategy): the bot's legacy values were saved to ai_playerbot_db_store here (PlayerbotDbStore)
 
         sLog.outDebug("Bot %s logged out", bot->GetName());
         bot->SaveToDB();
@@ -421,8 +406,6 @@ void PlayerbotHolder::OnBotLogin(Player * const bot)
             bot->GetSession()->HandleGroupDisbandOpcode(p);
         }
     }
-
-    ai->ResetStrategies();
 
     if (master && !master->IsTaxiFlying())
     {
@@ -957,15 +940,12 @@ std::list<std::string> PlayerbotHolder::HandlePlayerbotCommand(char const* args,
             master->CreatePlayerbotAI();
             ai = master->GetPlayerbotAI();
             ai->SetMaster(master);
-            ai->ResetStrategies();
         }
 
         command = command.substr(6);
 
-        if(!ai->DoSpecificAction("cdebug", Event(".bot",command,master), true))
-        {
-            messages.push_back("debug failed");
-        }
+        // TODO(strategy): ran the legacy "cdebug" action
+        messages.push_back("debug failed");
 
         if (!hasBot)
         {
@@ -998,12 +978,11 @@ std::list<std::string> PlayerbotHolder::HandlePlayerbotCommand(char const* args,
             master->CreatePlayerbotAI();
             ai = master->GetPlayerbotAI();
             ai->SetMaster(master);
-            ai->ResetStrategies();
         }
 
         command = command.substr(2);
 
-        ai->DoSpecificAction("cdebug", Event(".bot", "monstertalk " + command, master), true);
+        // TODO(strategy): ran the legacy "cdebug" action with "monstertalk"
         
         if (!hasBot)
         {
@@ -1367,7 +1346,6 @@ void PlayerbotMgr::SaveToDB()
 void PlayerbotMgr::OnBotLoginInternal(Player * const bot)
 {
     bot->GetPlayerbotAI()->SetMaster(master);
-    bot->GetPlayerbotAI()->ResetStrategies();
     sLog.outDebug("Bot %s logged in", bot->GetName());
 }
 

@@ -410,7 +410,6 @@ public:
     void logEvent(PlayerbotAI* ai, std::string eventName, std::string info1 = "", std::string info2 = "");
     void logEvent(PlayerbotAI* ai, std::string eventName, ObjectGuid guid, std::string info2);
 
-    bool CanLogAction(PlayerbotAI* ai, std::string actionName, bool isExecute, std::string lastActionName);
 
     std::string GetConfigString(const std::string& name, const std::string& def = "") const { return config.GetStringDefault(name, def); }
 

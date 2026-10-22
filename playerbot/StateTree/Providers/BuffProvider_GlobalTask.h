@@ -1,6 +1,7 @@
 #pragma once
 
 #include "playerbot/StateTree/Providers/STAI_BuffTypes.h"
+#include "playerbot/StateTree/Tasks/STAI_DebugSpells.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 #include "playerbot/StateTree/Providers/STAI_GroupAuraWatch.h"
 
@@ -42,7 +43,7 @@ namespace ai
     // it when any rank of any of them is on it. Self spells are only checked on the bot. Otherwise a group spell is
     // cast when 2+ members of a subgroup miss the buff, a single target spell on a member missing it alone (a group
     // spell when the bot knows no single target one).
-    class BuffProvider_GlobalTask : public STAI_GlobalTask
+    class BuffProvider_GlobalTask : public STAI_GlobalTask, public ISTAI_DebugSpells
     {
     public:
         struct BuffSpell

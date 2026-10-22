@@ -15,9 +15,7 @@
   </Global>
   <Node name="Follow player">
     <Conditions>
-      <Condition trigger="has strategy::follow"/>
-      <Condition trigger="has strategy::stay" negate="true"/>
-      <Condition trigger="distance from master::greater::follow"/>
+      <Condition binding="Root|MasterDistance_GlobalTask::masterFar"/>
       <!-- the master is in no room or in a cleared one: the bot waits outside rooms that are not cleared -->
       <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
       <!-- the way to the master does not cross a room that is not cleared -->
@@ -31,7 +29,7 @@
     </Task>
     <Transitions>
       <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|UtilityAI">
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|Idle">
         <Conditions match="any">
           <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared" negate="true"/>
           <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked"/>
@@ -53,7 +51,7 @@
     </Task>
     <Transitions>
       <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|UtilityAI">
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|Idle">
         <Conditions match="any">
           <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared" negate="true"/>
           <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked"/>
@@ -76,10 +74,11 @@
       <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
     </Transitions>
   </Node>
-  <Node name="UtilityAI">
+  <Node name="Idle">
     <Conditions/>
-    <Task class="StateNode_Legacy">
-      <Config filename="statetree/Legacy_NonCombat_Shaman.json"/>
+    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
+    <Task class="Task_Wait">
+      <Delay value="0"/>
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>

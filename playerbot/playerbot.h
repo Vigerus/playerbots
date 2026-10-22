@@ -22,7 +22,6 @@
 #include "ChatHelper.h"
 #include "BroadcastHelper.h"
 #include "PlayerbotAI.h"
-#include "PlayerbotDbStore.h"
 
 #define MANGOSBOT_VERSION 2
 

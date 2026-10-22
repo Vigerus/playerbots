@@ -1,5 +1,6 @@
 #pragma once
 
+#include "playerbot/StateTree/Tasks/STAI_DebugSpells.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 #include "playerbot/StateTree/Providers/STAI_GroupAuraWatch.h"
 
@@ -35,7 +36,7 @@ namespace ai
     //     </Task>
     //   </Global>
     // Task_CastSpell casts on them (whoNeeds bound into it), e.g. Remove Lesser Curse.
-    class CurseProvider_GlobalTask : public STAI_GlobalTask
+    class CurseProvider_GlobalTask : public STAI_GlobalTask, public ISTAI_DebugSpells
     {
     public:
         explicit CurseProvider_GlobalTask(std::vector<uint32> auras) : auras(std::move(auras)) {}

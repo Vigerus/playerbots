@@ -1,0 +1,84 @@
+#pragma once
+
+#include "Entities/Item.h"
+#include "Loot/LootMgr.h"
+#include "AuctionHouse/AuctionHouseMgr.h"
+#include "Server/SQLStorages.h"
+
+#include <string>
+
+namespace ai
+{
+    // An item with its enchant, random property and gems, as in an item link ("<id>:<enchant>:...")
+    class ItemQualifier
+    {
+    public:
+        ItemQualifier() { itemId = 0; enchantId = 0; randomPropertyId = 0; gem1 = 0; gem2 = 0; gem3 = 0; gem4 = 0; proto = nullptr; };
+        ItemQualifier(uint32 itemId, int32 randomPropertyId = 0, uint32 enchantId = 0, uint32 gem1 = 0, uint32 gem2 = 0, uint32 gem3 = 0, uint32 gem4 = 0) : itemId(itemId), randomPropertyId(randomPropertyId), enchantId(enchantId), gem1(gem1), gem2(gem2), gem3(gem3), gem4(gem4) { proto = nullptr; };
+        ItemQualifier(Item* item) { itemId = item->GetProto()->ItemId; enchantId = item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT); randomPropertyId = item->GetItemRandomPropertyId(); gem1 = GemId(item, 0); gem2 = GemId(item, 1); gem3 = GemId(item, 2); gem4 = GemId(item, 3); proto = item->GetProto(); };
+        ItemQualifier(LootItem* item) { itemId = item->itemId; enchantId = 0; randomPropertyId = item->randomPropertyId; gem1 = 0; gem2 = 0; gem3 = 0; gem4 = 0; proto = nullptr; };
+        ItemQualifier(AuctionEntry* auction) { itemId = auction->itemTemplate; enchantId = 0; randomPropertyId = auction->itemRandomPropertyId; gem1 = 0; gem2 = 0; gem3 = 0; gem4 = 0; proto = nullptr; };
+        ItemQualifier(std::string qualifier, bool linkQualifier = true);
+
+        uint32 GetId() { return itemId; }
+        uint32 GetEnchantId() { return enchantId; }
+        int32 GetRandomPropertyId() { return randomPropertyId; }
+        uint32 GetGem1() { return gem1; }
+        uint32 GetGem2() { return gem2; }
+        uint32 GetGem3() { return gem3; }
+        uint32 GetGem4() { return gem4; }
+
+        operator bool() const { return itemId != 0; }
+
+        bool operator==(const ItemQualifier& qualifier) const { return itemId == qualifier.itemId && enchantId == qualifier.enchantId && randomPropertyId == qualifier.randomPropertyId && gem1 == qualifier.gem1 && gem2 == qualifier.gem2 && gem3 == qualifier.gem3 && gem4 == qualifier.gem4; }
+
+#ifdef MANGOSBOT_ZERO
+        std::string GetLinkQualifier() { return std::to_string(itemId) + ":" + std::to_string(enchantId) + ":" + std::to_string(randomPropertyId) + ":0"; }
+#else
+        std::string GetLinkQualifier() { return std::to_string(itemId) + ":" + std::to_string(enchantId) + ":" + std::to_string(gem1) + ":" + std::to_string(gem2) + ":" + std::to_string(gem3) + ":" + std::to_string(gem4) + ":" + std::to_string(randomPropertyId) + ":0"; }
+#endif
+        std::string GetQualifier() { return std::to_string(itemId) + ((enchantId || gem1 || gem2 || gem3 || gem4 || randomPropertyId) ? ":" + std::to_string(enchantId) + ":" + std::to_string(gem1) + ":" + std::to_string(gem2) + ":" + std::to_string(gem3) + ":" + std::to_string(gem4) + ":" + std::to_string(randomPropertyId) : ""); }
+
+        ItemPrototype const* GetProto() { if (!proto) proto = sItemStorage.LookupEntry<ItemPrototype>(itemId); return proto; };
+        static uint32 GemId(Item* item, uint8 gemSlot = 0);
+    private:
+        uint32 itemId;
+        uint32 enchantId;
+        int32 randomPropertyId;
+        uint32 gem1;
+        uint32 gem2;
+        uint32 gem3;
+        uint32 gem4;
+        ItemPrototype const* proto;
+    };
+
+    // why a bot finds an item useful (was computed by the legacy "item usage" value, see deprecated/)
+    enum class ItemUsage : uint8
+    {
+        ITEM_USAGE_NONE = 0,
+        ITEM_USAGE_EQUIP = 1,
+        ITEM_USAGE_BAD_EQUIP = 2,
+        ITEM_USAGE_BROKEN_EQUIP = 3,
+        ITEM_USAGE_QUEST = 4,
+        ITEM_USAGE_SKILL = 5,
+        ITEM_USAGE_USE = 6,
+        ITEM_USAGE_GUILD_TASK = 7,
+        ITEM_USAGE_DISENCHANT = 8,
+        ITEM_USAGE_AH = 9,
+        ITEM_USAGE_BROKEN_AH = 10,
+        ITEM_USAGE_KEEP = 11,
+        ITEM_USAGE_VENDOR = 12,
+        ITEM_USAGE_AMMO = 13,
+        ITEM_USAGE_FORCE_NEED = 14,
+        ITEM_USAGE_FORCE_GREED = 15
+    };
+
+    enum class ForceItemUsage : uint8
+    {
+        FORCE_USAGE_NONE = 0,  //Normal usage.
+        FORCE_USAGE_KEEP = 1,  //Do not sell item.
+        FORCE_USAGE_EQUIP = 2, //Equip item if no other forced equipped.
+        FORCE_USAGE_GREED = 3,  //Get more and greed for rolls.
+        FORCE_USAGE_NEED = 4    //Get more and need for rolls.
+    };
+}

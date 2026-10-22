@@ -829,9 +829,8 @@ AiPlayerbot.FleeingEnabled = 1
 #AiPlayerbot.DeadStrategies = 
 
 # State trees (STAI_*.xml) of the bot states. Each tree lists nodes with conditions and a task, checked top
-# to bottom; StateNode_Legacy / StateNode_Reaction tasks run the legacy strategy engine with the strategy
-# list of their Legacy_*.json config. The class entry wins over Default; an empty value (or a file that
-# fails to load, see the server log) uses a single legacy node with the built-in AiFactory strategies.
+# to bottom. The class entry wins over Default; an empty value (or a file that fails to load, see the
+# server log) uses a single Idle node.
 # Formats are described in statetree/README.md. Paths are relative to the directory of aiplayerbot.conf.
 # Class trees are in statetree/<Class>/; every class uses the Default Dead tree.
 

@@ -9,12 +9,26 @@
 #include "MotionGenerators/MoveMapSharedDefines.h"
 #include "MotionGenerators/PathFinder.h"
 #include "Entities/Transports.h"
-#include "strategy/values/BudgetValues.h"
 #include "playerbot/ServerFacade.h"
 #include "MotionGenerators/MoveMap.h"
 
 using namespace ai;
 using namespace MaNGOS;
+// TODO(strategy): was the legacy "action useful::hearthstone" value (hearthstone in the bags, off cooldown, see
+// deprecated/), no hearthstone in routes until the new AI decides it
+static bool CanUseHearthstone(Player* bot)
+{
+    return false;
+}
+
+static WorldPosition GetHomebind(Player* bot)
+{
+    float x, y, z;
+    uint32 mapId;
+    bot->GetHomebindLocation(x, y, z, mapId);
+    return WorldPosition(mapId, x, y, z);
+}
+
 
 //TravelNodePath(float distance = 0.1f, float extraCost = 0, TravelNodePathType pathType = TravelNodePathType::walk, uint64 pathObject = 0, bool calculated = false, std::vector<uint8> maxLevelCreature = { 0,0,0 }, float swimDistance = 0)
 std::string TravelNodePath::print()
@@ -1403,38 +1417,15 @@ TravelNodeRoute TravelNodeMap::getRoute(TravelNode* start, TravelNode* goal, Uni
         PlayerbotAI* ai = bot->GetPlayerbotAI();
         if (ai)
         {
-            AiObjectContext* context = ai->GetAiObjectContext();
-
+            // TODO(strategy): was the lowest "free money for" travel of the group members (budget values, see deprecated/)
             if (ai->HasCheat(BotCheatMask::gold))
                 startStub->currentGold = 10000000;
-            else {
-                startStub->currentGold = 9999999;
-                for (ObjectGuid guid : AI_VALUE(std::list<ObjectGuid>, "group members"))
-                {
-                    Player* player = sObjectMgr.GetPlayer(guid);
+            else
+                startStub->currentGold = bot->GetMoney();
 
-                    if (!player)
-                        continue;
-
-                    if (!ai->IsGroupLeader() && player != bot)
-                        continue;
-
-                    if (player->IsBeingTeleported())
-                    {
-                        startStub->currentGold = 0;
-                        continue;
-                    }
-
-                    if (!player->GetPlayerbotAI())
-                        continue;
-
-                    startStub->currentGold = std::min(startStub->currentGold, PAI_VALUE2(uint32, "free money for", (uint32)NeedMoneyFor::travel));
-                }
-            }
-
-            if (AI_VALUE2(bool, "action useful", "hearthstone") && bot->IsAlive())
+            if (CanUseHearthstone(bot) && bot->IsAlive())
             {
-                TravelNode* homeNode = sTravelNodeMap.getNode(AI_VALUE(WorldPosition, "home bind"), nullptr, 50.0f);
+                TravelNode* homeNode = sTravelNodeMap.getNode(GetHomebind(bot), nullptr, 50.0f);
                 if (homeNode)
                 {
                     PortalNode* portNode = new PortalNode(start);
@@ -1442,7 +1433,7 @@ TravelNodeRoute TravelNodeMap::getRoute(TravelNode* start, TravelNode* goal, Uni
 
                     childNode = &m_stubs.insert(std::make_pair(portNode, TravelNodeStub(portNode))).first->second;
 
-                    childNode->m_g = std::max((uint32)2, (10 - AI_VALUE(uint32, "death count")) * MINUTE); //If we can walk there in 10 minutes, walk instead.
+                    childNode->m_g = 10 * MINUTE; //If we can walk there in 10 minutes, walk instead.
                     childNode->m_h = childNode->dataNode->fDist(goal) / unitSpeed;
                     childNode->m_f = childNode->m_g + childNode->m_h;
 
@@ -1475,12 +1466,8 @@ TravelNodeRoute TravelNodeMap::getRoute(TravelNode* start, TravelNode* goal, Uni
             if (!sSpellMgr.GetSpellTargetPosition(spellId))
                 continue;
 
-            if (ai)
-            {
-                AiObjectContext* context = ai->GetAiObjectContext();
-                if (AI_VALUE2(uint32, "has reagents for", spellId) == 0)
-                    continue;
-            }
+            if (ai && !ai->HasSpellItems(spellId, nullptr))
+                continue;
 
             WorldPosition telePos(sSpellMgr.GetSpellTargetPosition(spellId));
 
@@ -1652,8 +1639,7 @@ TravelNodeRoute TravelNodeMap::getRoute(WorldPosition startPos, WorldPosition en
     Player* bot = dynamic_cast<Player*>(unit);
     if (bot)
     {
-        Player* player = bot;
-        if (PAI_VALUE2(bool, "action useful", "hearthstone"))
+        if (CanUseHearthstone(bot))
         {
             startPath.clear();
             TravelNode* botNode = new TravelNode(startPos, "Bot Pos", false);
@@ -1706,14 +1692,10 @@ TravelPath TravelNodeMap::getFullPath(WorldPosition startPos, WorldPosition endP
         Player* bot = dynamic_cast<Player*>(unit);
         if (bot)
         {
-            PlayerbotAI* ai = bot->GetPlayerbotAI();
-            if (ai)
+            if (bot->GetPlayerbotAI())
             {
-                if (ai->HasStrategy("debug move", BotState::BOT_STATE_NON_COMBAT))
-                {
-                    sPlayerbotAIConfig.openLog("bot_pathfinding.csv", "w");
-                    sPlayerbotAIConfig.log("bot_pathfinding.csv", route.print().str().c_str());
-                }
+                sPlayerbotAIConfig.openLog("bot_pathfinding.csv", "w");
+                sPlayerbotAIConfig.log("bot_pathfinding.csv", route.print().str().c_str());
             }
         }
     }
@@ -1729,14 +1711,10 @@ TravelPath TravelNodeMap::getFullPath(WorldPosition startPos, WorldPosition endP
         Player* bot = dynamic_cast<Player*>(unit);
         if (bot)
         {
-            PlayerbotAI* ai = bot->GetPlayerbotAI();
-            if (ai)
+            if (bot->GetPlayerbotAI())
             {
-                if (ai->HasStrategy("debug move", BotState::BOT_STATE_NON_COMBAT))
-                {
-                    sPlayerbotAIConfig.openLog("bot_pathfinding.csv", "w");
-                    sPlayerbotAIConfig.log("bot_pathfinding.csv", movePath.print().str().c_str());
-                }
+                sPlayerbotAIConfig.openLog("bot_pathfinding.csv", "w");
+                sPlayerbotAIConfig.log("bot_pathfinding.csv", movePath.print().str().c_str());
             }
         }
     }
@@ -2431,24 +2409,9 @@ void TravelNodeMap::generateTransportNodes()
 
 void TravelNodeMap::generateZoneMeanNodes()
 {
-    //Zone means   
-    for (auto& [entry, dests] :sTravelMgr.GetExploreLocs())
-    {
-        std::vector<WorldPosition*> points;
-        for (auto& dest : dests)
-        {
-            for (auto p : dest->GetPoints())
-                if (!p->isUnderWater())
-                    points.push_back(p);
-
-            if (points.empty())
-                points = dest->GetPoints();
-        }
-
-        WorldPosition  pos = WorldPosition(points, WP_MEAN_CENTROID);
-
-        TravelNode* node = sTravelNodeMap.addNode(pos, pos.getAreaName(), true, true, false);
-    }
+    // TODO(strategy): the zone means were the centroids of the explore destinations (one per area) that the legacy
+    // TravelMgr::LoadQuestTravelTable collected, see deprecated/playerbot/TravelMgr.cpp; no zone mean nodes until
+    // the new travel code provides the area points again
 }
 
 void TravelNodeMap::addManualNodes()

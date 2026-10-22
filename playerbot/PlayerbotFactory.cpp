@@ -11,7 +11,7 @@
 #include "RandomItemMgr.h"
 #include "RandomPlayerbotFactory.h"
 #include "playerbot/ServerFacade.h"
-#include "playerbot/AiFactory.h"
+#include "playerbot/PlayerSpec.h"
 #include "Guilds/GuildMgr.h"
 
 #ifndef MANGOSBOT_ZERO
@@ -22,7 +22,7 @@
         #include "ArenaTeam.h"
     #endif
 #endif
-#include "strategy/ItemVisitors.h"
+#include "ItemVisitors.h"
 
 using namespace ai;
 
@@ -223,14 +223,8 @@ void PlayerbotFactory::Randomize(bool incremental, bool syncWithMaster)
 
     pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Talents");
     sLog.outDetail("Initializing talents...");
-    //InitTalentsTree(incremental);
-    //sRandomPlayerbotMgr.SetValue(bot->GetGUIDLow(), "specNo", 0);
-    ai->DoSpecificAction("auto talents");
-
-    if (!incremental && isRandomBot)
-        sPlayerbotDbStore.Reset(ai);
-
-    ai->ResetStrategies(incremental); // fix wrong stored strategy
+    // TODO(strategy): talents came from the legacy "auto talents" action (premade specs of the config)
+    InitTalentsTree(incremental);
     pmo.reset();
 
     pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Spells2");
@@ -1300,7 +1294,7 @@ void PlayerbotFactory::AddItemSpellStats(uint32 smod, uint8& sp, uint8& ap, uint
 
 bool PlayerbotFactory::CanEquipWeapon(ItemPrototype const* proto)
 {
-   int tab = AiFactory::GetPlayerSpecTab(bot);
+   int tab = PlayerSpec::GetPlayerSpecTab(bot);
 
    switch (bot->getClass())
    {
@@ -2291,7 +2285,7 @@ void PlayerbotFactory::EnchantItem(Item* item)
     if (bot->GetLevel() < sPlayerbotAIConfig.minEnchantingBotLevel)
         return;
 
-    int tab = AiFactory::GetPlayerSpecTab(bot);
+    int tab = PlayerSpec::GetPlayerSpecTab(bot);
     uint32 tempId = uint32((uint32)bot->getClass() * (uint32)10);
     ApplyEnchantTemplate(tempId += (uint32)tab, item);
 }
@@ -3784,7 +3778,7 @@ void PlayerbotFactory::EnchantEquipment()
 
 void PlayerbotFactory::ApplyEnchantTemplate()
 {
-   int tab = AiFactory::GetPlayerSpecTab(bot);
+   int tab = PlayerSpec::GetPlayerSpecTab(bot);
 
    switch (bot->getClass())
    {

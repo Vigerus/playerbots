@@ -1,8 +1,8 @@
 #include "Task_EatAndDrink.h"
 
 #include "playerbot/PlayerbotAI.h"
-#include "playerbot/strategy/Action.h"
-#include "playerbot/strategy/AiObjectContext.h"
+#include "playerbot/PlayerbotAIConfig.h"
+#include "playerbot/ServerFacade.h"
 
 #include "Spells/SpellAuras.h"
 
@@ -43,15 +43,41 @@ namespace
     bool IsEating(const Player* bot) { return HasSeatedAura(bot, { SPELL_AURA_MOD_REGEN, SPELL_AURA_OBS_MOD_HEALTH }); }
     bool IsDrinking(const Player* bot) { return HasSeatedAura(bot, { SPELL_AURA_MOD_POWER_REGEN, SPELL_AURA_OBS_MOD_MANA }); }
 
-    // the legacy action without its own thresholds (isUseful)
-    bool RunLegacyAction(PlayerbotAI* ai, const std::string& name)
+    // starts eating (food) or drinking: the bots' item cheat casts the eat / drink spell, otherwise a food / drink
+    // item of the bags is used (was the legacy "food" / "drink" action); false when it could not start (moving,
+    // casting, nothing to eat or drink)
+    bool StartConsuming(PlayerbotAI* ai, Player* bot, bool food)
     {
-        Action* action = ai->GetAiObjectContext()->GetAction(name);
-        if (!action || !action->isPossible())
+        if (sServerFacade.IsInCombat(bot) || bot->IsNonMeleeSpellCasted(true))
             return false;
 
-        Event event;
-        return action->Execute(event);
+        if (sServerFacade.isMoving(bot))
+        {
+            ai->StopMoving();
+            return false;
+        }
+
+        if (ai->HasCheat(BotCheatMask::item))
+        {
+            const uint32 spellId = food ? 24005 : 24355;
+            const SpellEntry* pSpellInfo = sServerFacade.LookupSpellInfo(spellId);
+            if (!pSpellInfo)
+                return false;
+
+            ai->Unmount();
+            ai->InterruptSpell();
+            const bool cast = ai->CastSpell(spellId, bot);
+            bot->RemoveSpellCooldown(*pSpellInfo);
+            return cast;
+        }
+
+        const std::list<Item*> items = ai->InventoryParseItems(food ? "food" : "drink", IterateItemsMask::ITERATE_ITEMS_IN_BAGS);
+        if (items.empty())
+            return false;
+
+        ai->Unmount();
+        ai->ImbueItem(items.front());
+        return true;
     }
 }
 
@@ -83,9 +109,9 @@ void Task_EatAndDrink::Start(Task_EatAndDrinkContext& context) const
     // a successful action used an item (or cast the cheat): it is not run again in this meal, even when its aura
     // shows up a moment later; a refused one (the bot was still moving) is retried
     if (!context.eatStarted && NeedsHealth(bot) && !IsEating(bot))
-        context.eatStarted = RunLegacyAction(context.ai, "food");
+        context.eatStarted = StartConsuming(context.ai, bot, true);
     if (!context.drinkStarted && NeedsMana(bot) && !IsDrinking(bot))
-        context.drinkStarted = RunLegacyAction(context.ai, "drink");
+        context.drinkStarted = StartConsuming(context.ai, bot, false);
 }
 
 void Task_EatAndDrink::OnEnter(STAI_TaskContext& baseContext) const

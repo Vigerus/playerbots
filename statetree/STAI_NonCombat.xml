@@ -16,10 +16,11 @@
       <Mana until="100"/>
     </Task>
   </Node>
-  <Node name="UtilityAI">
+  <Node name="Idle">
     <Conditions/>
-    <Task class="StateNode_Legacy">
-      <Config filename="statetree/Legacy_NonCombat.json"/>
+    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
+    <Task class="Task_Wait">
+      <Delay value="0"/>
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Eat and Drink">

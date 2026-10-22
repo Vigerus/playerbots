@@ -49,10 +49,9 @@ namespace
     STAI_ConditionDef ParseCondition(const ptree& condition, const std::string& where)
     {
         STAI_ConditionDef def;
-        def.trigger = Attribute(condition, "trigger");
         def.binding.path = Attribute(condition, "binding");
-        if (def.trigger.empty() == def.binding.path.empty())
-            throw std::runtime_error(where + ": <Condition> needs either a trigger=\"...\" (a trigger name, e.g. \"critical health\" or \"has aura::spellid::23341::greater or equal::5\") or a binding=\"Root|...\" (a task property)");
+        if (def.binding.path.empty())
+            throw std::runtime_error(where + ": <Condition> needs a binding=\"Root|...\" (a task property)");
 
         const std::string negate = Attribute(condition, "negate");
         if (negate == "true" || negate == "1")
@@ -74,8 +73,6 @@ namespace
                     def.compare = compare;
             if (def.compare == Compare::None)
                 throw std::runtime_error(where + ": compare must be equal, lesser, lesser or equal, greater or greater or equal, got '" + def.compareText + "'");
-            if (!def.trigger.empty())
-                throw std::runtime_error(where + ": compare is only allowed on a binding condition");
 
             const std::string value = Attribute(condition, "value");
             char* end = nullptr;
@@ -103,7 +100,7 @@ namespace
             if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
                 continue;
             if (conditionKey != "Condition")
-                throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition trigger=\"...\"/>)");
+                throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition binding=\"...\"/>)");
             def.list.push_back(ParseCondition(condition, where));
         }
         return def;
@@ -364,8 +361,6 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
         {
             for (STAI_ConditionDef& condition : conditions.list)
             {
-                if (!condition.trigger.empty())
-                    continue;
                 condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
                 if (!condition.property)
                     throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
@@ -433,7 +428,7 @@ bool STAI_ConditionDef::Passes(const void* boundValue) const
 
 std::string STAI_ConditionDef::GetText() const
 {
-    std::string text = trigger.empty() ? binding.path : trigger;
+    std::string text = binding.path;
     if (compare != Compare::None)
     {
         std::ostringstream out;
@@ -457,21 +452,23 @@ std::string STAI_TransitionDef::GetText() const
     return text;
 }
 
-std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeSingleTask(const std::string& name, const std::string& taskClass)
+std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeIdle(const std::string& name)
 {
     auto asset = std::make_shared<STAI_TreeAsset>();
     asset->name = name;
 
+    const std::string taskClass = "Task_Wait";
     STAI_TaskDef task;
     task.taskClass = taskClass;
     task.taskConfig.put("<xmlattr>.class", taskClass);
+    task.taskConfig.put("Delay.<xmlattr>.value", "0");
     if (const STAI_TaskFactory::TaskClass* factoryClass = sSTAITaskFactory.FindTask(taskClass))
         task.task = factoryClass->create(task.taskConfig);
     if (!task.task)
         throw std::runtime_error("unknown task class '" + taskClass + "'");
 
     STAI_NodeDef def;
-    def.name = taskClass;
+    def.name = "Idle";
     def.tasks.push_back(std::move(task));
     asset->nodes.push_back(std::move(def));
 
@@ -698,10 +695,10 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeLibrary::GetBuiltin(HLSStateType 
 {
     static const std::shared_ptr<const STAI_TreeAsset> builtin[] =
     {
-        STAI_TreeAsset::MakeSingleTask("Legacy_NonCombat", "StateNode_Legacy"),
-        STAI_TreeAsset::MakeSingleTask("Legacy_Combat", "StateNode_Legacy"),
-        STAI_TreeAsset::MakeSingleTask("Legacy_Reaction", "StateNode_Reaction"),
-        STAI_TreeAsset::MakeSingleTask("Legacy_Dead", "StateNode_Legacy"),
+        STAI_TreeAsset::MakeIdle("Idle_NonCombat"),
+        STAI_TreeAsset::MakeIdle("Idle_Combat"),
+        STAI_TreeAsset::MakeIdle("Idle_Reaction"),
+        STAI_TreeAsset::MakeIdle("Idle_Dead"),
     };
     return builtin[(uint8)state];
 }

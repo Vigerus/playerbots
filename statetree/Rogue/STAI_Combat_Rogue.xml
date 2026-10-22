@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Rogue bots: AiPlayerbot.StateTree.Combat.Rogue -->
 <Root>
-  <Node name="UtilityAI">
+  <Node name="Idle">
     <Conditions/>
-    <Task class="StateNode_Legacy">
-      <Config filename="statetree/Legacy_Combat_Rogue.json"/>
+    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
+    <Task class="Task_Wait">
+      <Delay value="0"/>
     </Task>
   </Node>
 </Root>

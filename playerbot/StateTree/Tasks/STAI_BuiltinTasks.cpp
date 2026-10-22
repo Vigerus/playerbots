@@ -9,7 +9,6 @@
 #include "playerbot/StateTree/Providers/TargetProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
-#include "playerbot/StateTree/Tasks/StateNode_Legacy.h"
 #include "playerbot/StateTree/Tasks/Task_CastBuff.h"
 #include "playerbot/StateTree/Tasks/Task_CastSpell.h"
 #include "playerbot/StateTree/Tasks/Task_EatAndDrink.h"
@@ -23,8 +22,6 @@ namespace ai
 {
     void RegisterBuiltinStateTreeTasks(STAI_TaskFactory& factory)
     {
-        factory.RegisterTask("StateNode_Legacy", { &StateNode_Legacy::Validate, &StateNode_Legacy::Create });
-        factory.RegisterTask("StateNode_Reaction", { &StateNode_Legacy::Validate, &StateNode_Reaction::Create });
         factory.RegisterTask("Task_Follow", { &Task_Follow::Validate, &Task_Follow::Create });
         factory.RegisterTask("Task_MoveToPosition", { &Task_MoveToPosition::Validate, &Task_MoveToPosition::Create });
         factory.RegisterTask("STAI_FinishTreeTask", { &STAI_FinishTreeTask::Validate, &STAI_FinishTreeTask::Create });
