@@ -27,7 +27,7 @@ namespace ai
     //     <Task class="SpecProvider_GlobalTask"/>
     //   </Global>
     // specName is one of: "frost mage", "fire mage" (arcane counts as frost), "holy priest", "disc priest",
-    // "shadow priest", "warlock", "rogue", "hunter", "enh shaman" (elemental counts as enhancement), "resto shaman",
+    // "shadow priest", "warlock", "rogue", "hunter", "elem shaman", "enh shaman", "resto shaman",
     // "prot druid" (balance and feral), "resto druid", "holy paladin", "prot paladin", "retri paladin",
     // "arms warrior", "fury warrior", "prot warrior"; empty for other classes. Ticked: checks every 2s;
     // onSpecChanged fires when the name changed.

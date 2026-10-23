@@ -1,11 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for every class: AiPlayerbot.StateTree.Combat.Default -->
 <Root>
+  <Global>
+    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
+    <Task class="HazardProvider_GlobalTask">
+      <Margin value="2"/>
+    </Task>
+  </Global>
+  <!-- standing in a hostile area effect: walks out first, whatever the rest of the tree (or its subtree) does -->
+  <Node name="Escape Hazard">
+    <Conditions>
+      <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
+      <Condition binding="Root|HazardProvider_GlobalTask::safePosition"/>
+    </Conditions>
+    <Task class="Task_MoveToPosition">
+      <AcceptableRadius value="1"/>
+      <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
+    </Task>
+  </Node>
   <Node name="Idle">
     <Conditions/>
     <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
     <Task class="Task_Wait">
       <Delay value="0"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
+    </Transitions>
   </Node>
 </Root>

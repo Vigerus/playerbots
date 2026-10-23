@@ -23,7 +23,7 @@ std::string SpecProvider_GlobalTask::GetSpecName(const Player* player)
         case CLASS_WARLOCK: return "warlock";
         case CLASS_ROGUE:   return "rogue";
         case CLASS_HUNTER:  return "hunter";
-        case CLASS_SHAMAN:  return tab == 2 ? "resto shaman" : "enh shaman";                              // elemental, enhancement, restoration
+        case CLASS_SHAMAN:  return tab == 0 ? "elem shaman" : tab == 1 ? "enh shaman" : "resto shaman";    // elemental, enhancement, restoration
         case CLASS_DRUID:   return tab == 2 ? "resto druid" : "prot druid";                               // balance, feral, restoration
         case CLASS_PALADIN: return tab == 0 ? "holy paladin" : tab == 1 ? "prot paladin" : "retri paladin"; // holy, protection, retribution
         case CLASS_WARRIOR: return tab == 0 ? "arms warrior" : tab == 1 ? "fury warrior" : "prot warrior";  // arms, fury, protection

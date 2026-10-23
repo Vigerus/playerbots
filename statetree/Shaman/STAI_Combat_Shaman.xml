@@ -3,9 +3,36 @@
 <!-- picks the subtree for the bot's spec; a spec change (talents learned or reset) selects again -->
 <Root>
   <Global>
+    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
+    <Task class="HazardProvider_GlobalTask">
+      <Margin value="2"/>
+    </Task>
     <!-- the bot's spec: specName, onSpecChanged -->
     <Task class="SpecProvider_GlobalTask"/>
   </Global>
+  <!-- standing in a hostile area effect: walks out first, whatever the rest of the tree (or its subtree) does -->
+  <Node name="Escape Hazard">
+    <Conditions>
+      <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
+      <Condition binding="Root|HazardProvider_GlobalTask::safePosition"/>
+    </Conditions>
+    <Task class="Task_MoveToPosition">
+      <AcceptableRadius value="1"/>
+      <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
+    </Task>
+  </Node>
+  <Node name="Elem Shaman">
+    <Conditions>
+      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="elem shaman"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Shaman/STAI_Combat_Elem_Shaman.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+    </Transitions>
+  </Node>
   <Node name="Enh Shaman">
     <Conditions>
       <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="enh shaman"/>
@@ -14,6 +41,7 @@
       <Subtree filename="statetree/Shaman/STAI_Combat_Enh_Shaman.xml"/>
     </Task>
     <Transitions>
+      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
       <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
     </Transitions>
   </Node>
@@ -25,6 +53,7 @@
       <Subtree filename="statetree/Shaman/STAI_Combat_Resto_Shaman.xml"/>
     </Task>
     <Transitions>
+      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
       <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
     </Transitions>
   </Node>
@@ -35,6 +64,7 @@
       <Delay value="0"/>
     </Task>
     <Transitions>
+      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
       <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
     </Transitions>
   </Node>

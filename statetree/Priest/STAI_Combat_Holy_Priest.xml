@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat subtree for Holy Priest bots (run by STAI_Combat_Priest.xml) -->
 <Root>
+  <Global>
+    <!-- mana of the bot: manaPct, onManaChanged -->
+    <Task class="ManaProvider_GlobalTask"/>
+  </Global>
+  <!-- low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s) -->
+  <Node name="Mana Potion">
+    <Conditions>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+    </Conditions>
+    <Task class="Task_UseItem">
+      <Item id="13444"/>  <!-- Major Mana Potion -->
+      <Item id="13443"/>  <!-- Superior Mana Potion -->
+      <Item id="6149"/>   <!-- Greater Mana Potion -->
+      <Item id="3827"/>   <!-- Mana Potion -->
+      <Item id="3385"/>   <!-- Lesser Mana Potion -->
+      <Item id="2455"/>   <!-- Minor Mana Potion -->
+    </Task>
+  </Node>
   <Node name="Idle">
     <Conditions/>
-    <!-- placeholder until the spec's combat exists: waits forever, leaves only through a transition -->
+    <!-- placeholder until the rest of the combat exists: waits, leaves through its transitions -->
     <Task class="Task_Wait">
       <Delay value="0"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Mana Potion"/>
+    </Transitions>
   </Node>
 </Root>

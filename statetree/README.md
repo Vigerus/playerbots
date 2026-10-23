@@ -121,7 +121,7 @@ Tasks:
 | `InterruptProvider_GlobalTask` | `spellid="..."` on the `<Task>` (the bot's interrupt, id or name) | global task, ticked (every 100ms): the enemies on the threat lists of the bot and its group that cast or channel an interruptible spell and that the interrupt reaches now (known, off cooldown, range, sight, mana); property `whoNeeds` (healing casts first), delegate `onInterruptNeeded` fired when the first caster or its spell changes |
 | `HazardProvider_GlobalTask` | `<Margin value="2"/>` (yards, default 2) | global task, ticked (every 250ms): the area effects on the ground (dynamic objects) of units hostile to the bot with a harmful effect; property `inHazard` (the bot stands in one), property `safePosition` (the closest spot around the bot, 16 directions up to 20 yards, outside every hazard by the margin, in sight and walkable; kept while it stays safe; unset outside hazards), delegate `onHazard` fired when the bot got into one and every second while it is still in one |
 | `CooldownProvider_GlobalTask` | `<Spell id="..."/>` per spell (any rank) | global task, ticked (every 250ms): property `ready` (`std::map` spell id -> the bot knows the spell or another rank of it and its own and category cooldowns are over, the GCD not included), read with a keyed condition `<Condition binding="Root\|CooldownProvider_GlobalTask::ready" key="11958"/>`; delegate `onCooldownChanged` fired when an entry changed |
-| `SpecProvider_GlobalTask` | none | global task, ticked (every 2s): property `specName`, the bot's spec from its talent tab with the most points (`PlayerSpec`, a class default below level 10): "frost mage", "fire mage" (arcane counts as frost), "holy priest", "disc priest", "shadow priest", "warlock", "rogue", "hunter", "enh shaman" (elemental too), "resto shaman", "prot druid" (balance and feral), "resto druid", "holy paladin", "prot paladin", "retri paladin", "arms warrior", "fury warrior", "prot warrior"; delegate `onSpecChanged` fired when it changed |
+| `SpecProvider_GlobalTask` | none | global task, ticked (every 2s): property `specName`, the bot's spec from its talent tab with the most points (`PlayerSpec`, a class default below level 10): "frost mage", "fire mage" (arcane counts as frost), "holy priest", "disc priest", "shadow priest", "warlock", "rogue", "hunter", "elem shaman", "enh shaman", "resto shaman", "prot druid" (balance and feral), "resto druid", "holy paladin", "prot paladin", "retri paladin", "arms warrior", "fury warrior", "prot warrior"; delegate `onSpecChanged` fired when it changed |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`; global tasks that publish properties and delegates for
 the tree, the providers, in `playerbot/StateTree/Providers/`) and are registered in `STAI_BuiltinTasks.cpp`.
@@ -173,17 +173,25 @@ missing; each casts once per visit and is selected again while its `whoNeeds` / 
 The class Combat trees of Mage, Priest, Shaman, Druid, Paladin and Warrior only pick a subtree by
 `SpecProvider_GlobalTask::specName`, `<Class>/STAI_Combat_<Spec>_<Class>.xml` (e.g. `Mage/STAI_Combat_Frost_Mage.xml`,
 `Priest/STAI_Combat_Disc_Priest.xml`), and select again on `onSpecChanged`; Warlock, Rogue and Hunter have one spec and
-keep a single tree. `Mage/STAI_Combat_Frost_Mage.xml` (one tree for every map, PvE, no AoE yet) runs, in this order: Escape Hazard
-(`Task_MoveToPosition` to `HazardProvider_GlobalTask::safePosition` while `inHazard`), Ice Block (self, below 20%
+keep a single tree. Every class Combat tree and `STAI_Combat.xml` start with Escape Hazard (`Task_MoveToPosition` to
+`HazardProvider_GlobalTask::safePosition` while `inHazard`), and each of their other nodes goes there on `onHazard`:
+leaving a spec node finishes its subtree (whatever it was doing), entering it again starts the subtree again (the
+bot's instance is kept, its providers are entered again). `Mage/STAI_Combat_Frost_Mage.xml` (one tree for every map,
+PvE, no AoE yet) runs, in this order: Ice Block (self, below 20%
 health, while `CooldownProvider_GlobalTask::ready` has it), Interrupt (Counterspell on `InterruptProvider_GlobalTask::whoNeeds`), CC Target (`Task_CastSpell` Polymorph
 on `CCProvider_GlobalTask::whoNeeds`), Decurse (Remove Lesser Curse on `CurseProvider_GlobalTask::whoNeeds`), Mana
 Gem (`Task_UseItem`, below 30% mana), Evocation (self, below 15%, while ready), Mana Potion (`Task_UseItem`, below 15%), Wand
 (`Task_Shoot` below 10% mana, left once it is back at 20% or the target changed), Attack Target (`Task_GetInRange`,
 then `Task_CastSpell` Frostbolt on `TargetProvider_GlobalTask::target`, one cast per visit; `WithThreat` holds the
-target back at 90% of the tank's threat) and Idle. Attack Target, Wand, Evocation and Idle leave on `onHazard`,
+target back at 90% of the tank's threat) and Idle. Attack Target, Wand, Evocation and Idle leave on
 `onHealthChanged` (Ice Block, entered only below 20%), `onInterruptNeeded`, `onCCNeeded` (and the others as listed in
 the file). `Mage/STAI_Combat_Fire_Mage.xml` is the same with Fireball instead of Frostbolt and without Ice Block. The
-other spec subtrees, the Warlock, Rogue and Hunter Combat trees and every Dead tree are only Idle for now.
+Warlock Combat tree only has the Mage's Wand node (after Escape Hazard; below 10% mana on `TargetProvider_GlobalTask::target`, until 20%)
+above Idle, which goes there on `onTargetChanged` / `onManaChanged`. The Resto Druid, Elem Shaman, Resto Shaman, Holy
+Priest and Disc Priest subtrees only have the Mage's Mana Potion node (below 15% mana) above Idle, which goes there on
+`onManaChanged`; `Priest/STAI_Combat_Shadow_Priest.xml` has Mana Potion, then Wand, then Idle (back to Root on
+`onTargetChanged` / `onManaChanged`). The other spec subtrees, the Rogue and Hunter Combat trees and every Dead tree
+are only Idle for now.
 Every Reaction tree (`STAI_Reaction.xml` and each class's) trades and rolls for loot: Idle goes to Open Trade on
 `onTradeRequested` and to Accept Trade on `onTradeAccepted` (each also selected while `tradeOpenRequested` /
 `tradeAcceptRequested`, then back to Root), so the bot opens the window when its master starts a trade and accepts

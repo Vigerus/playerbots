@@ -2,10 +2,6 @@
 <!-- Combat subtree for frost Mage bots (run by STAI_Combat_Mage.xml) -->
 <Root>
   <Global>
-    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
-    <Task class="HazardProvider_GlobalTask">
-      <Margin value="2"/>
-    </Task>
     <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
     <Task class="HealthProvider_GlobalTask"/>
     <Task class="ManaProvider_GlobalTask"/>
@@ -27,16 +23,6 @@
       <ThreatAmount value="90"/>
     </Task>
   </Global>
-  <Node name="Escape Hazard">
-    <Conditions>
-      <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
-      <Condition binding="Root|HazardProvider_GlobalTask::safePosition"/>
-    </Conditions>
-    <Task class="Task_MoveToPosition">
-      <AcceptableRadius value="1"/>
-      <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
-    </Task>
-  </Node>
   <Node name="Ice Block">
     <Conditions>
       <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
@@ -92,7 +78,6 @@
       <Target value="self"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
       <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Ice Block"/>
     </Transitions>
   </Node>
@@ -123,7 +108,6 @@
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
       <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Ice Block"/>
       <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
       <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>
@@ -148,7 +132,6 @@
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
       <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Ice Block"/>
       <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
       <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>
@@ -161,7 +144,6 @@
       <Delay value="1"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
       <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Ice Block"/>
       <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
       <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>

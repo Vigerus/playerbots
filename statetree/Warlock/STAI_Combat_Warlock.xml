@@ -1,11 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Warlock bots: AiPlayerbot.StateTree.Combat.Warlock -->
 <Root>
+  <Global>
+    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
+    <Task class="HazardProvider_GlobalTask">
+      <Margin value="2"/>
+    </Task>
+    <!-- mana of the bot: manaPct, onManaChanged -->
+    <Task class="ManaProvider_GlobalTask"/>
+    <!-- the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
+         target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's -->
+    <Task class="TargetProvider_GlobalTask">
+      <WithThreat value="true"/>
+      <ThreatAmount value="90"/>
+    </Task>
+  </Global>
+  <!-- standing in a hostile area effect: walks out first, whatever the rest of the tree (or its subtree) does -->
+  <Node name="Escape Hazard">
+    <Conditions>
+      <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
+      <Condition binding="Root|HazardProvider_GlobalTask::safePosition"/>
+    </Conditions>
+    <Task class="Task_MoveToPosition">
+      <AcceptableRadius value="1"/>
+      <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
+    </Task>
+  </Node>
+  <!-- out of mana: the wand until the mana is back at 20% (no regeneration while casting) -->
+  <Node name="Wand">
+    <Conditions>
+      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Task class="Task_Shoot">
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
+      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root">
+        <Conditions>
+          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
+        </Conditions>
+      </Transition>
+    </Transitions>
+  </Node>
   <Node name="Idle">
     <Conditions/>
-    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
+    <!-- placeholder until the rest of the combat exists: waits, leaves through its transitions -->
     <Task class="Task_Wait">
       <Delay value="0"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
+      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root|Wand"/>
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Wand"/>
+    </Transitions>
   </Node>
 </Root>
