@@ -2,6 +2,8 @@
 
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 
+#include "Entities/ObjectGuid.h"
+
 #include <string>
 
 class Player;
@@ -19,6 +21,15 @@ namespace ai
         std::string specName;
 
         uint32 sinceCheckMs = 0;
+
+        // the core's OnTalentsChanged (talents learned / removed, e.g. a premade spec applied): checked on the next
+        // update instead of waiting for the interval
+        ~SpecProvider_GlobalTaskContext() override { Unsubscribe(); }
+        void Subscribe();
+        void Unsubscribe();
+        void OnTalentsChanged(ObjectGuid self) { talentsChanged = true; }
+        bool talentsChanged = false;
+        ObjectGuid subscribed;
     };
 
     // Global task that names the bot's spec from its talent tab with the most points (PlayerSpec; a class default
@@ -29,8 +40,8 @@ namespace ai
     // specName is one of: "frost mage", "fire mage" (arcane counts as frost), "holy priest", "disc priest",
     // "shadow priest", "warlock", "rogue", "hunter", "elem shaman", "enh shaman", "resto shaman",
     // "prot druid" (balance and feral), "resto druid", "holy paladin", "prot paladin", "retri paladin",
-    // "arms warrior", "fury warrior", "prot warrior"; empty for other classes. Ticked: checks every 2s;
-    // onSpecChanged fires when the name changed.
+    // "arms warrior", "fury warrior", "prot warrior"; empty for other classes. Ticked: checks every 2s, and on the
+    // next update after the core's TeamSubsystem OnTalentsChanged; onSpecChanged fires when the name changed.
     class SpecProvider_GlobalTask : public STAI_GlobalTask
     {
     public:
@@ -45,6 +56,7 @@ namespace ai
 
         virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
+        virtual void OnExit(STAI_TaskContext& context) const override;
         virtual bool IsTickable() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
@@ -52,6 +64,8 @@ namespace ai
 
         // the spec name of the player (see above)
         static std::string GetSpecName(const Player* player);
+        // the spec name of a class whose talent tab (0-2, client order) has the most points
+        static std::string GetSpecName(uint8 cls, int tab);
 
     private:
         static void Update(SpecProvider_GlobalTaskContext& context);

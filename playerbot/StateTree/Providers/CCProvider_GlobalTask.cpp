@@ -99,10 +99,10 @@ ObjectGuid CCProvider_GlobalTask::FindTarget(const CCProvider_GlobalTaskContext&
         return ObjectGuid();
 
     // the group kills the first living rti target first: that one is never crowd-controlled
-    const std::vector<Unit*> killOrder = GetMarkedUnits(context, context.rtiIcons);
+    const std::vector<Unit*> killOrder = GetMarkedUnits(context, context.ai->GetTargetIcons().GetRti(context.bot));
     Unit* killFirst = killOrder.empty() ? nullptr : killOrder.front();
 
-    for (Unit* unit : GetMarkedUnits(context, context.rtiCcIcons))
+    for (Unit* unit : GetMarkedUnits(context, context.ai->GetTargetIcons().GetRtiCcList(context.bot)))
     {
         if (unit == killFirst || unit->IsPlayer())
             continue;
@@ -141,6 +141,7 @@ EActionRunStatus CCProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) c
     context.whoNeeds.clear();
     context.sinceCheckMs = 0;
     context.sinceFireMs = 0;
+    context.iconsVersion = context.ai->GetTargetIcons().GetVersion();
     Update(context);
     return EActionRunStatus::Running;
 }
@@ -151,8 +152,11 @@ EActionRunStatus CCProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, ui
     CCProvider_GlobalTaskContext& context = ContextAs<CCProvider_GlobalTaskContext>(baseContext);
     context.sinceCheckMs += elapsed;
     context.sinceFireMs += elapsed;
-    if (context.sinceCheckMs >= checkIntervalMs)
+    // the bot's rti cc icons changed (the rti command, the inspect addon): check now
+    const uint32 iconsVersion = context.ai->GetTargetIcons().GetVersion();
+    if (context.sinceCheckMs >= checkIntervalMs || iconsVersion != context.iconsVersion)
     {
+        context.iconsVersion = iconsVersion;
         context.sinceCheckMs = 0;
         Update(context);
     }

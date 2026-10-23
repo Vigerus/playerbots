@@ -98,7 +98,7 @@ bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, U
 
 Unit* TargetProvider_GlobalTask::FindMarkedTarget(const TargetProvider_GlobalTaskContext& context, const std::vector<Unit*>& ccMarks)
 {
-    for (Unit* unit : GetMarkedUnits(context, context.rtiIcons))
+    for (Unit* unit : GetMarkedUnits(context, context.ai->GetTargetIcons().GetRti(context.bot)))
         if (IsValidTarget(context, unit, ccMarks))
             return unit;
     return nullptr;
@@ -195,7 +195,7 @@ void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context
     }
 
     // the bot's crowd-control marks, once per update (no group: none)
-    const std::vector<Unit*> ccMarks = GetMarkedUnits(context, context.rtiCcIcons);
+    const std::vector<Unit*> ccMarks = GetMarkedUnits(context, context.ai->GetTargetIcons().GetRtiCcList(context.bot));
 
     Unit* current = context.chosen.IsEmpty() ? nullptr : bot->GetMap()->GetUnit(context.chosen);
     const bool currentValid = current && IsValidTarget(context, current, ccMarks);
@@ -231,6 +231,7 @@ EActionRunStatus TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContex
     context.threatHigh = false;
     context.marked = false;
     context.sinceCheckMs = 0;
+    context.iconsVersion = context.ai->GetTargetIcons().GetVersion();
     Update(context, true);
     return EActionRunStatus::Running;
 }
@@ -250,7 +251,10 @@ EActionRunStatus TargetProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext
     TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnTick);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
     context.sinceCheckMs += elapsed;
-    const bool choose = context.sinceCheckMs >= chooseIntervalMs;
+    // the bot's rti icons changed (the rti command, the inspect addon): choose again now
+    const uint32 iconsVersion = context.ai->GetTargetIcons().GetVersion();
+    const bool choose = context.sinceCheckMs >= chooseIntervalMs || iconsVersion != context.iconsVersion;
+    context.iconsVersion = iconsVersion;
     if (choose)
         context.sinceCheckMs = 0;
     Update(context, choose);

@@ -9,6 +9,9 @@
 #include "PlayerbotTextMgr.h"
 #include "PlayerTalentSpec.h"
 #include "PlayerbotDungeonPositions.h"
+#include "PlayerbotTargetIcons.h"
+#include "PlayerbotRtsc.h"
+#include "PlayerbotPremadeSpecs.h"
 
 #include <atomic>
 #include <mutex>
@@ -380,10 +383,16 @@ public:
     // WoWAddonInspectBot addon: runs its equip / unequip requests, then answers its inventory request
     void ApplyInventoryCommands();
     void SendInventory();
+    // runs the "rti" chat commands (set / show the kill order and crowd control icons)
+    void ApplyRtiCommands();
+    // WoWAddonInspectBot: applies the premade spec picked in its spec box, then answers with the inventory
+    void ApplySpecCommands();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
-    void HandleMasterIncomingPacket(const WorldPacket& packet);
+    // rtscAnySelected: one of the master's bots is rtsc selected (PlayerbotMgr, once per packet for every bot)
+    void HandleMasterIncomingPacket(const WorldPacket& packet, bool rtscAnySelected = false);
+    bool IsRtscSelected() const { return rtsc.IsSelected(); }
     void HandleMasterOutgoingPacket(const WorldPacket& packet);
 	void HandleTeleportAck();
     // what the client does for a player: entering a teleport area trigger (dungeon portal) sends CMSG_AREATRIGGER,
@@ -630,6 +639,8 @@ public:
     PlayerbotSecurity* GetSecurity() { return &security; }
     // where the bot stands in dungeon stages (rtsc overrides, ai_playerbot_dungeon_positions)
     ai::PlayerbotDungeonPositions& GetDungeonPositions() { return dungeonPositions; }
+    // the raid target icons the bot attacks / crowd-controls (rti / rti cc, ai_playerbot_db_store)
+    ai::PlayerbotTargetIcons& GetTargetIcons() { return targetIcons; }
 
     WorldPosition GetJumpDestination() { return jumpDestination; }
     void SetJumpDestination(const WorldPosition& pos) { jumpDestination = pos; }
@@ -811,6 +822,26 @@ protected:
     std::vector<InventoryCommand> inventoryCommands;
     uint8 inventorySeq = 0;
     ai::PlayerbotDungeonPositions dungeonPositions;
+    ai::PlayerbotTargetIcons targetIcons;
+    // RTS control: "rtsc ..." commands and the master's Aedm casts, run in UpdateAI
+    ai::PlayerbotRtsc rtsc;
+    // "rti ..." chat commands (the text after "rti", the player to answer): set from chat, run in UpdateAI
+    struct RtiCommand
+    {
+        std::string text;
+        uint64 requester = 0;
+        bool addon = false;         // WoWAddonInspectBot: no whisper, the addon gets the bot's inventory (and icons)
+    };
+    // WoWAddonInspectBot's spec box ("BOT\tspec <premade spec id>"): set from chat, run in UpdateAI
+    struct SpecCommand
+    {
+        int pathId = -1;
+        uint64 requester = 0;
+    };
+    std::mutex specCommandLock;
+    std::vector<SpecCommand> specCommands;
+    std::mutex rtiCommandLock;
+    std::vector<RtiCommand> rtiCommands;
 
 #ifdef BUILD_ELUNA
     MaNGOS::unique_weak_ptr<PlayerbotAI> m_weakRef;

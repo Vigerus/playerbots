@@ -10,10 +10,8 @@
 
 namespace ai
 {
-    // the bot's kill order and crowd control raid target icons (were the legacy "rti" / "rti cc" values, set by the
-    // "rti" chat command; these are their defaults)
-    inline const std::vector<std::string>& STAI_DefaultRtiIcons() { static const std::vector<std::string> icons = { "skull" }; return icons; }
-    inline const std::vector<std::string>& STAI_DefaultRtiCcIcons() { static const std::vector<std::string> icons = { "moon" }; return icons; }
+    // the bot's kill order and crowd control icons are PlayerbotAI::GetTargetIcons() (PlayerbotTargetIcons, the "rti"
+    // chat command)
 
     // index of a raid target icon (Group::GetTargetIcon), -1 for an unknown name
     inline int STAI_GetRtiIndex(const std::string& rti)

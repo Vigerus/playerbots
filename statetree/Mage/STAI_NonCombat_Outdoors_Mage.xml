@@ -2,6 +2,9 @@
 <!-- NonCombat subtree for Mage bots outside the instances that have their own tree (run by STAI_NonCombat_Mage.xml) -->
 <Root>
   <Global>
+    <!-- the rooms (InstanceSubsystem stages) of the bot and its master: stage, masterStage, masterStageCleared,
+         pathBlocked, stagePosition, stagePositionFar, onStageBlocked, onStageCleared, onStagePositionFar -->
+    <Task class="InstanceProvider_GlobalTask"/>
     <!-- fires onMasterFar while the master is beyond follow range -->
     <Task class="MasterDistance_GlobalTask">
       <Range value="follow"/>
@@ -21,6 +24,13 @@
   <Node name="Follow player">
     <Conditions>
       <Condition binding="Root|MasterDistance_GlobalTask::masterFar"/>
+      <!-- the master is in a cleared room: the bot stays put while the master is between rooms or in one that is not
+           cleared -->
+      <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
+      <!-- the way to the master does not cross a room that is not cleared -->
+      <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+      <!-- with a point for the bot in the master's room it goes there instead (Position Yourself) -->
+      <Condition binding="Root|InstanceProvider_GlobalTask::stagePosition" negate="true"/>
     </Conditions>
     <!-- the path to the master on the PathfindingWorker (across the dungeon portals), then walk it -->
     <Task class="Task_MakePath">
@@ -31,6 +41,38 @@
       <Binding local="path" external="Root|Follow player|Task_MakePath::path"/>
       <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
     </Task>
+    <Transitions>
+      <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|Idle">
+        <Conditions match="any">
+          <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared" negate="true"/>
+          <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked"/>
+        </Conditions>
+      </Transition>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
+    </Transitions>
+  </Node>
+  <Node name="Position Yourself">
+    <Conditions>
+      <!-- the master is in a room with a point for the bot, its cleared or uncleared one by the room's state (its rtsc /
+           entrance override, else the room's position) and the bot is away from it -->
+      <Condition binding="Root|InstanceProvider_GlobalTask::stagePositionFar"/>
+      <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+    </Conditions>
+    <Task class="Task_MoveToPosition">
+      <AcceptableRadius value="2"/>
+      <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
+    </Task>
+    <Transitions>
+      <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|Idle">
+        <Conditions match="any">
+          <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared" negate="true"/>
+          <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked"/>
+        </Conditions>
+      </Transition>
+      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+    </Transitions>
   </Node>
   <Node name="Check Decurse">
     <Conditions>
@@ -59,11 +101,12 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
     </Transitions>
   </Node>
   <Node name="Idle">
     <Conditions/>
-    <!-- nothing to do: waits until a delegate sends the tree elsewhere -->
+    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
     <Task class="Task_Wait">
       <Delay value="0"/>
     </Task>
@@ -81,6 +124,7 @@
           <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
         </Conditions>
       </Transition>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
     </Transitions>
   </Node>
 </Root>

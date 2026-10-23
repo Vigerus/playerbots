@@ -6,17 +6,6 @@
     <!-- the bot's map / instance: mapId, instanceId, inDungeon, onInstanceChanged -->
     <Task class="InstanceProvider_GlobalTask"/>
   </Global>
-  <Node name="Scholomance">
-    <Conditions>
-      <Condition binding="Root|InstanceProvider_GlobalTask::mapId" compare="equal" value="289"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Mage/STAI_NonCombat_Scholomance_Mage.xml"/>
-    </Task>
-    <Transitions>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
-    </Transitions>
-  </Node>
   <Node name="Dungeon">
     <Conditions>
       <Condition binding="Root|InstanceProvider_GlobalTask::inDungeon"/>

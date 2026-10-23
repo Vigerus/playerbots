@@ -1285,15 +1285,30 @@ void PlayerbotMgr::HandleCommand(uint32 type, const std::string& text, uint32 la
 
 void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 {
+    // whether an rtsc cast selects or moves is decided once for all bots, before any of them handles it
+    bool rtscAnySelected = false;
+    if (packet.GetOpcode() == CMSG_CAST_SPELL)
+    {
+        ForEachPlayerbot([&](Player* bot)
+        {
+            rtscAnySelected = rtscAnySelected || bot->GetPlayerbotAI()->IsRtscSelected();
+        });
+        sRandomPlayerbotMgr.ForEachPlayerbot([&](Player* bot)
+        {
+            if (bot->GetPlayerbotAI()->GetMaster() == GetMaster())
+                rtscAnySelected = rtscAnySelected || bot->GetPlayerbotAI()->IsRtscSelected();
+        });
+    }
+
     ForEachPlayerbot([&](Player* bot)
     {
-        bot->GetPlayerbotAI()->HandleMasterIncomingPacket(packet);
+        bot->GetPlayerbotAI()->HandleMasterIncomingPacket(packet, rtscAnySelected);
     });
 
     sRandomPlayerbotMgr.ForEachPlayerbot([&](Player* bot)
     {
         if (bot->GetPlayerbotAI()->GetMaster() == GetMaster())
-            bot->GetPlayerbotAI()->HandleMasterIncomingPacket(packet);
+            bot->GetPlayerbotAI()->HandleMasterIncomingPacket(packet, rtscAnySelected);
     });
 
     switch (packet.GetOpcode())

@@ -21,8 +21,9 @@ namespace
     const float STAGE_POSITION_RADIUS = 2.0f;     // yards: the bot stands at its stage position
     const float PATH_SAMPLE_STEP = 2.0f;          // yards between the points of the way tested against the stages
 
-    // the way of the bot to the spot crosses a stage that is not cleared, other than the stage the bot is in
-    bool CrossesUnclearedStage(InstanceSubsystem* instances, Player* bot, int32 botStage, float x, float y, float z)
+    // the way of the bot to the spot crosses a stage that is not cleared, other than the stage the bot is in and
+    // targetStage (the master's stage when the spot is its uncleared point)
+    bool CrossesUnclearedStage(InstanceSubsystem* instances, Player* bot, int32 botStage, int32 targetStage, float x, float y, float z)
     {
         PathFinder path(bot);
         path.calculate(x, y, z);
@@ -42,7 +43,7 @@ namespace
             {
                 const Vector3 point = from + (to - from) * (float(j) / samples);
                 const int32 stage = instances->FindStage(map->GetId(), point.x, point.y, point.z);
-                if (stage < 0 || stage == botStage)
+                if (stage < 0 || stage == botStage || stage == targetStage)
                     continue;
 
                 auto itr = cleared.find(stage);
@@ -62,7 +63,7 @@ EActionRunStatus InstanceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseCont
     InstanceProvider_GlobalTaskContext& context = ContextAs<InstanceProvider_GlobalTaskContext>(baseContext);
     context.Subscribe();
     if (context.bot->IsInWorld())
-        context.SetMap(context.bot->GetMap());
+        context.SetMap(context.bot->GetMap(), false);
     context.UpdateStages();
     return EActionRunStatus::Running;
 }
@@ -138,7 +139,7 @@ void InstanceProvider_GlobalTaskContext::Unsubscribe()
         instances->RemoveAll(bot->GetObjectGuid(), this);
 }
 
-void InstanceProvider_GlobalTaskContext::SetMap(Map* map)
+void InstanceProvider_GlobalTaskContext::SetMap(Map* map, bool arrived)
 {
     if (!map)
         return;
@@ -161,6 +162,13 @@ void InstanceProvider_GlobalTaskContext::SetMap(Map* map)
         stagePosition = STAI_Position();
         stagePositionFar = false;
         stageTimer = 0;
+
+        // where the bot arrived: its entrance points when it has none yet (UpdateStages, which may query the db).
+        // Seen first when the tree starts (login inside the dungeon) only counts in the entrance stage.
+        entrancePending = hasStages && map->IsDungeon() &&
+            (arrived || instances->FindStage(mapId, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()) == 0);
+        if (entrancePending)
+            entrance = { bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ() };
     }
 
     if (fire)
@@ -169,7 +177,7 @@ void InstanceProvider_GlobalTaskContext::SetMap(Map* map)
 
 void InstanceProvider_GlobalTaskContext::OnPlayerEnterMap(Player* player, Map* map)
 {
-    SetMap(map);
+    SetMap(map, true);
 }
 
 void InstanceProvider_GlobalTaskContext::UpdateStages()
@@ -182,7 +190,19 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
     Map* map = bot->GetMap();
     stage = instances->FindStage(map->GetId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
 
-    const bool wasBlocked = !masterStageCleared || pathBlocked;
+    // the entrance is always cleared: the bot's first arrival is both of its points there
+    if (entrancePending)
+    {
+        entrancePending = false;
+        PlayerbotDungeonPositions& positions = ai->GetDungeonPositions();
+        PlayerbotDungeonPositions::Position existing;
+        for (bool cleared : { true, false })
+            if (!positions.Get(bot, map->GetId(), 0, cleared, existing))
+                positions.Set(bot, map->GetId(), 0, cleared, { entrance.x, entrance.y, entrance.z });
+    }
+
+    // blocked: the bot can go neither to a stage point nor after the master
+    const bool wasBlocked = pathBlocked || (!masterStageCleared && !stagePosition.valid);
     const bool wasCleared = masterStageCleared;
     const int32 lastMasterStage = masterStage;
     masterStage = -1;
@@ -196,31 +216,33 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
     if (hasMaster)
     {
         masterStage = instances->FindStage(map->GetId(), master->GetPositionX(), master->GetPositionY(), master->GetPositionZ());
-        if (masterStage >= 0)
-            masterStageCleared = instances->IsStageCleared(map, uint32(masterStage));
+        // outside every stage (corridors between them) the master is not followed either: the bot stays
+        masterStageCleared = masterStage >= 0 && instances->IsStageCleared(map, uint32(masterStage));
     }
 
-    // the bot's spot in the master's (cleared) stage: its own rtsc override, else the stage's position for it
-    if (masterStage >= 0 && masterStageCleared)
+    // the bot's point in the master's stage, the cleared or the uncleared one by the stage's state: its own override
+    // (rtsc, entrance), else the stage's position for it
+    if (masterStage >= 0)
     {
         PlayerbotDungeonPositions::Position position;
-        if (ai->GetDungeonPositions().Get(bot, map->GetId(), uint32(masterStage), position))
+        if (ai->GetDungeonPositions().Get(bot, map->GetId(), uint32(masterStage), masterStageCleared, position))
             stagePosition = { position.x, position.y, position.z, true };
-        else if (instances->GetStagePosition(map->GetId(), uint32(masterStage), bot->getClass(), PlayerSpec::GetPlayerSpecTab(bot), position.x, position.y, position.z))
+        else if (instances->GetStagePosition(map->GetId(), uint32(masterStage), masterStageCleared, bot->getClass(), PlayerSpec::GetPlayerSpecTab(bot), position.x, position.y, position.z))
             stagePosition = { position.x, position.y, position.z, true };
     }
 
-    // the way to the stage position, else to the master while it is out of follow range
+    // the way to the stage position (an uncleared point lies in the master's stage, which does not block it), else
+    // to the master while it is out of follow range
     if (stagePosition.valid)
     {
         stagePositionFar = bot->GetDistance(stagePosition.x, stagePosition.y, stagePosition.z) > STAGE_POSITION_RADIUS;
         if (stagePositionFar)
-            pathBlocked = CrossesUnclearedStage(instances, bot, stage, stagePosition.x, stagePosition.y, stagePosition.z);
+            pathBlocked = CrossesUnclearedStage(instances, bot, stage, masterStage, stagePosition.x, stagePosition.y, stagePosition.z);
     }
     else if (hasMaster && masterStageCleared && sServerFacade.GetDistance2d(bot, master) > ai->GetRange("follow"))
-        pathBlocked = CrossesUnclearedStage(instances, bot, stage, master->GetPositionX(), master->GetPositionY(), master->GetPositionZ());
+        pathBlocked = CrossesUnclearedStage(instances, bot, stage, -1, master->GetPositionX(), master->GetPositionY(), master->GetPositionZ());
 
-    if (!wasBlocked && (!masterStageCleared || pathBlocked))
+    if (!wasBlocked && (pathBlocked || (!masterStageCleared && !stagePosition.valid)))
         onStageBlocked.Broadcast();
     // the master's room got cleared while the master stayed in it
     else if (masterStageCleared && !wasCleared && masterStage == lastMasterStage)

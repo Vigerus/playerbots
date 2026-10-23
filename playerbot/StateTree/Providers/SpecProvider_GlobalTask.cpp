@@ -3,6 +3,8 @@
 #include "playerbot/PlayerSpec.h"
 
 #include "Entities/Player.h"
+#include "Groups/TeamSubsystem.h"
+#include "World/World.h"
 
 using namespace ai;
 
@@ -14,9 +16,13 @@ namespace
 
 std::string SpecProvider_GlobalTask::GetSpecName(const Player* player)
 {
+    return GetSpecName(player->getClass(), PlayerSpec::GetPlayerSpecTab(player));
+}
+
+std::string SpecProvider_GlobalTask::GetSpecName(uint8 cls, int tab)
+{
     // talent tabs in the client's order
-    const int tab = PlayerSpec::GetPlayerSpecTab(player);
-    switch (player->getClass())
+    switch (cls)
     {
         case CLASS_MAGE:    return tab == 1 ? "fire mage" : "frost mage";                                 // arcane, fire, frost
         case CLASS_PRIEST:  return tab == 0 ? "disc priest" : tab == 1 ? "holy priest" : "shadow priest";  // discipline, holy, shadow
@@ -47,8 +53,36 @@ EActionRunStatus SpecProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext)
     SpecProvider_GlobalTaskContext& context = ContextAs<SpecProvider_GlobalTaskContext>(baseContext);
     context.specName.clear();
     context.sinceCheckMs = 0;
+    context.talentsChanged = false;
+    context.Subscribe();
     Update(context);
     return EActionRunStatus::Running;
+}
+
+void SpecProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+{
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(SpecProvider_GlobalTask::OnExit);
+    ContextAs<SpecProvider_GlobalTaskContext>(baseContext).Unsubscribe();
+}
+
+void SpecProvider_GlobalTaskContext::Subscribe()
+{
+    if (!subscribed.IsEmpty() || !bot)
+        return;
+
+    subscribed = bot->GetObjectGuid();
+    if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
+        teams->AddOnTalentsChanged(subscribed, this, &SpecProvider_GlobalTaskContext::OnTalentsChanged);
+}
+
+void SpecProvider_GlobalTaskContext::Unsubscribe()
+{
+    if (subscribed.IsEmpty())
+        return;
+
+    if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
+        teams->RemoveAll(subscribed, this);
+    subscribed.Clear();
 }
 
 EActionRunStatus SpecProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -56,9 +90,10 @@ EActionRunStatus SpecProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, 
     TRACE_CPU_PROFILER_ENTRY_SCOPE(SpecProvider_GlobalTask::OnTick);
     SpecProvider_GlobalTaskContext& context = ContextAs<SpecProvider_GlobalTaskContext>(baseContext);
     context.sinceCheckMs += elapsed;
-    if (context.sinceCheckMs >= checkIntervalMs)
+    if (context.sinceCheckMs >= checkIntervalMs || context.talentsChanged)
     {
         context.sinceCheckMs = 0;
+        context.talentsChanged = false;
         Update(context);
     }
     return EActionRunStatus::Running;

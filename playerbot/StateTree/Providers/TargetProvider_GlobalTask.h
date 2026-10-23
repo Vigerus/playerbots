@@ -30,12 +30,9 @@ namespace ai
 
         ObjectGuid chosen;          // the chosen unit, also while target is held back by threat
         bool marked = false;        // chosen is an rti mark (not the fallback)
+        uint32 iconsVersion = 0;    // PlayerbotTargetIcons::GetVersion of the last choice: a change chooses again
 
         uint32 sinceCheckMs = 0;
-
-        // the bot's kill order / crowd control icons (TODO(strategy): were its "rti" / "rti cc" values)
-        std::vector<std::string> rtiIcons = STAI_DefaultRtiIcons();
-        std::vector<std::string> rtiCcIcons = STAI_DefaultRtiCcIcons();
     };
 
     // Global task that picks the unit the bot attacks:

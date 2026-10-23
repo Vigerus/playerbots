@@ -9,6 +9,7 @@
 
 #include "playerbot/TravelMgr.h"
 #include "playerbot/StateTree/STAI_Tree.h"
+#include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
 
 #include "instancebot/GuildProgressSubsystem.h"
 
@@ -1157,6 +1158,44 @@ void PlayerbotAIConfig::LoadTalentSpecs()
                             }
                         }
                     }
+                }
+
+                // the StateTree spec it makes: AiPlayerbot.PremadeSpecHint, else the tab of its last link with the most
+                // points (as PlayerSpec::GetPlayerSpecTab picks it)
+                if (talentPath.talentSpec.size() > 0)
+                {
+                    std::ostringstream os; os << "AiPlayerbot.PremadeSpecHint." << cls << "." << spec;
+                    std::string hint = config.GetStringDefault(os.str().c_str(), "");
+                    hint = hint.substr(0, hint.find("#", 0));
+                    boost::trim(hint);
+
+                    TalentSpec& last = talentPath.talentSpec.back();
+                    int tab = -1, most = 0;
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        const int points = last.GetTalentPoints(i);
+                        if (tab == -1 || most < points)
+                        {
+                            tab = i;
+                            most = points;
+                        }
+                    }
+                    const std::string fromLink = ai::SpecProvider_GlobalTask::GetSpecName(uint8(cls), tab);
+
+                    if (hint.empty())
+                        hint = fromLink;
+                    else
+                    {
+                        bool known = false;
+                        for (int i = 0; i < 3; ++i)
+                            known = known || hint == ai::SpecProvider_GlobalTask::GetSpecName(uint8(cls), i);
+                        if (!known)
+                        {
+                            sLog.outErrorDb("%s = %s: not a spec of the class, using %s", os.str().c_str(), hint.c_str(), fromLink.c_str());
+                            hint = fromLink;
+                        }
+                    }
+                    talentPath.hint = hint;
                 }
 
                 //Only add paths that have atleast 1 spec.

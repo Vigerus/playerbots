@@ -105,7 +105,7 @@ Tasks:
 | `CurseProvider_GlobalTask` | `<Aura spellid="..."/>` per aura (any rank), optional | `DispelProvider_GlobalTask` for curses only (every dispellable curse when no aura is listed), for the trees that only decurse; same properties and delegate |
 | `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="target" .../>` and / or `<Binding local="whoNeeds" .../>`, or `<Target value="self"/>` (the bot first); `<Target value="dead"/>`: only dead targets (resurrections); `<Fallback spellid="..."/>` per spell, cast instead while the bot knows none of the spells before it (Flash Heal, then Heal, then Lesser Heal); `<SkipAura spellid="..."/>` (targets with that aura, any rank and caster, are skipped: Weakened Soul) / `<SkipAura own="true"/>` (targets with the bot's own aura of the cast spell: Renew) | casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target, or every target is skipped by `<SkipAura>` (so the node waits its retry delay instead of being selected again at once) |
 | `HealthProvider_GlobalTask` / `ManaProvider_GlobalTask` | none | global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second |
-| `InstanceProvider_GlobalTask` | none | global task: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again. On maps with stages (see below) ticked every 500ms: properties `stage` / `masterStage` (the stage the bot / master stands in, -1 none), `masterStageCleared` (the master is in no stage or a cleared one), `pathBlocked` (the way to `stagePosition`, else to the master out of follow range, crosses a stage that is not cleared other than the bot's), `stagePosition` (the bot's spot in the master's cleared stage, unset without one), `stagePositionFar`; delegates `onStageBlocked` (`masterStageCleared` turned false or `pathBlocked` true), `onStageCleared` (the master's stage got cleared), `onStagePositionFar` (every check while away from `stagePosition` and not blocked) |
+| `InstanceProvider_GlobalTask` | none | global task: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again. On maps with stages (see below) ticked every 500ms: properties `stage` / `masterStage` (the stage the bot / master stands in, -1 none), `masterStageCleared` (the master is in a cleared stage; false while it is in no stage, true while it is not on the bot's map), `pathBlocked` (the way to `stagePosition`, else to the master out of follow range, crosses a stage that is not cleared other than the bot's and the master's), `stagePosition` (the bot's cleared point in the master's stage once it is cleared, else its uncleared point; unset without one), `stagePositionFar`; delegates `onStageBlocked` (the bot can neither follow nor go to a point: `pathBlocked` turned true, or the master went into a stage that is not cleared without an uncleared point, or out of every stage), `onStageCleared` (the master's stage got cleared), `onStagePositionFar` (every check while away from `stagePosition` and not blocked) |
 | `Task_MoveToPosition` | `<AcceptableRadius value="2"/>` (yards, default 2), `<Binding local="position" .../>` | moves to the bound position (again when it changes; `MovePointAsync`, the path comes from the `PathfindingWorker`); Succeeded inside the radius or without a position, Failed after 30s; `OnExit` stops its movement |
 | `CCProvider_GlobalTask` | `<Aura spellid="..."/>` per aura, optional | global task, ticked (every 250ms): the first unit marked with one of the bot's `rti cc` icons (default moon) that is alive, hostile, in sight, not crowd-controlled yet (polymorph, frost, sap, ... or a listed aura) and not the group's kill target (the first living `rti` mark, default skull); property `whoNeeds` (that unit), delegate `onCCNeeded` (a new target, and every second while it still needs crowd control) |
 | `TargetProvider_GlobalTask` | `<WithThreat value="false"/>`, `<ThreatAmount value="90"/>` (percent, default 90) | global task, ticked: the unit to attack, the first living, hostile, in-sight mark of the bot's `rti` icons, else the least-health non-player unit on the threat lists of the bot and its group (kept while it stays valid); crowd-controlled units and the bot's `rti cc` marks are skipped; property `target` (a guid), delegate `onTargetChanged`. With `WithThreat` true and a living tank in the group, `target` is empty (property `threatHigh`, `onTargetChanged` fires) while the bot's threat on the creature is at `ThreatAmount` or more of the highest other threat on it (also before anybody else has threat), and is set again once it drops below |
@@ -125,7 +125,29 @@ Tasks:
 | `HealProvider_GlobalTask` | `<Critical value="20"/>`, `<Low value="50"/>`, `<Medium value="70"/>`, `<AlmostFull value="90"/>` (percent, the bands' upper bounds), `<TankRange value="30"/>` (yards) | global task, ticked (every 200ms): the bot and its group members on its map. Properties `critical` / `low` / `medium` / `almostFull` (the living members below each bound, lowest health first, a tank before others of the same health; a member is in every band above its own; duelling members left out), `healTarget` (the first of them) and `lowestPct`; delegate `onNeedsHeal` (a member got wounded below `AlmostFull`, or a band got more members). `aggroed` (living members that are no tank and are the victim of a hostile unit, the bot first), `selfAttacked` (a hostile unit attacks the bot), delegate `onAggro` (a new member in `aggroed`). `dead` (members that are dead, not released and not offered a resurrection yet), `resurrectTarget` (the first), delegate `onDead`. `mainTank` (the first living tank other than the bot), `tankOutOfRange` (beyond `TankRange` or out of sight), delegate `onTankOutOfRange` (it turned true). Tanks come from `STAI_TeamRoles` (see `TeamProvider_GlobalTask`) |
 | `TeamProvider_GlobalTask` | none | global task, ticked: the spec and roles of the bot and its group members on its map (`STAI_TeamRoles`: `PlayerSpec`, read again on the core `TeamSubsystem`'s group events and `OnTalentsChanged` / `OnMemberTalentsChanged`, and every 2s for stances / Righteous Fury); properties `tanks`, `healers`, `damage` (guids in group order, the bot included), `mainTank` (the first living tank other than the bot), `specName` / `isTank` / `isHealer` (the bot's own); delegate `onRolesChanged` (a role, spec, member or the main tank changed) |
 | `Task_AcceptResurrection` | none | waits, dead, until a resurrection is offered to the bot and accepts it (as the client's `CMSG_RESURRECT_RESPONSE` would); Running while nothing is offered, Succeeded once accepted or when the bot is alive |
-| `SpecProvider_GlobalTask` | none | global task, ticked (every 2s): property `specName`, the bot's spec from its talent tab with the most points (`PlayerSpec`, a class default below level 10): "frost mage", "fire mage" (arcane counts as frost), "holy priest", "disc priest", "shadow priest", "warlock", "rogue", "hunter", "elem shaman", "enh shaman", "resto shaman", "prot druid" (balance and feral), "resto druid", "holy paladin", "prot paladin", "retri paladin", "arms warrior", "fury warrior", "prot warrior"; delegate `onSpecChanged` fired when it changed |
+| `SpecProvider_GlobalTask` | none | global task, ticked (every 2s, and on the next update after the core `TeamSubsystem`'s `OnTalentsChanged`: talents learned, removed or a premade spec applied): property `specName`, the bot's spec from its talent tab with the most points (`PlayerSpec`, a class default below level 10): "frost mage", "fire mage" (arcane counts as frost), "holy priest", "disc priest", "shadow priest", "warlock", "rogue", "hunter", "elem shaman", "enh shaman", "resto shaman", "prot druid" (balance and feral), "resto druid", "holy paladin", "prot paladin", "retri paladin", "arms warrior", "fury warrior", "prot warrior"; delegate `onSpecChanged` fired when it changed |
+
+The `rti` / `rti cc` icons of `TargetProvider_GlobalTask` and `CCProvider_GlobalTask` are the bot's own
+(`PlayerbotAI::GetTargetIcons`, `playerbot/PlayerbotTargetIcons.*`), set by whispering it (or in party chat, every bot):
+`rti skull,cross` (kill order: the first living unit marked skull, else cross; up to 8 icons), `rti cc circle` (the
+crowd control mark: one icon), `rti none` / `rti cc none` (no icons), `rti ?` (or `rti`: the bot whispers both lists and the
+unit each marks now) and `rti cc ?` (only the crowd control list); the WoWAddonInspectBot addon sets them from its
+icon slots (`BOT	rti <icons>` / `BOT	rticc <icons>`). Both providers choose again on their next update when the
+icons changed (`PlayerbotTargetIcons::GetVersion`). Defaults skull / moon; kept per bot in
+`ai_playerbot_db_store` as the legacy values (`rti>skull,cross`, `rti cc>circle`), so orders saved by the old engine
+still load.
+
+RTS control (`playerbot/PlayerbotRtsc.*`, from the master only): `rtsc` switches it on and teaches the master Aedm
+(spell 30758), whose ground casts the bots see (`PlayerbotAI::HandleMasterIncomingPacket`, `CMSG_CAST_SPELL`). While no bot
+of the master is selected a cast within 10 yards of a bot selects it; while some are, a cast moves the selected bots
+there (and deselects them) without selecting the bots near the spot; `rtsc select` / `cancel` /
+`toggle`, `rtsc move` (every cast moves the bot), `rtsc save <name>` / `save selected <name>` (the next cast is saved),
+`rtsc save here <name>`, `rtsc unsave <name>`, `rtsc show [<name>]`, `rtsc go <name>`, `rtsc last`, `rtsc reset`
+(off, forgets everything, removes the spell). The move is a `MovePointAsync`; outside stages Follow player takes the
+bot back once the master is out of follow range, in a dungeon with stages the spot is also saved as the bot's point
+for the stage the master stands in, cleared or uncleared by the stage's state, nothing while the master is in no stage
+(Position Yourself keeps it there). Saved locations are in `ai_playerbot_db_store` as the legacy values
+(`RTSC saved location::<name>>map|x|y|z|o`). `rtsc jump` and `rtsc file` are not back yet.
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`; global tasks that publish properties and delegates for
 the tree, the providers, in `playerbot/StateTree/Providers/`) and are registered in `STAI_BuiltinTasks.cpp`.
@@ -168,8 +190,8 @@ Unknown paths, properties of different types and delegates that do not exist sto
 The class NonCombat trees follow the master through `MasterDistance_GlobalTask`: Follow player runs `Task_MakePath` to
 its `location`, then `Task_MoveTo` along the path, also when the master entered or left a dungeon. Each `<Class>/STAI_NonCombat_<Class>.xml`
 only picks a subtree by the bot's map (`InstanceProvider_GlobalTask`): `STAI_NonCombat_Dungeon_<Class>.xml` in dungeon
-and raid instances (`inDungeon`), `STAI_NonCombat_Outdoors_<Class>.xml` everywhere else; Mage also has
-`STAI_NonCombat_Scholomance_Mage.xml` (map 289, above Dungeon, for now the same as the Mage Dungeon tree).
+and raid instances (`inDungeon`, Scholomance included), `STAI_NonCombat_Outdoors_<Class>.xml` everywhere else (for
+now the same nodes as the Dungeon trees). `STAI_NonCombat.xml` (Default) also follows and positions itself.
 `onInstanceChanged` sends the class tree back to Root to pick again. Every tree ends with Idle (`Task_Wait`, delay
 0), which leaves through its transitions. Mage decurses and buffs: Idle goes to Check Decurse when someone is cursed
 (Remove Lesser Curse) and to Check Missing Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is
@@ -232,18 +254,23 @@ into its boxes with `bCanBeEnteredInCombatIfNotCleared` (default false, so the m
 `PlayerbotAI::CanCastSpell` checks it for charge spells (charge, intercept, feral charge); `Task_GetInRange` fails on
 such a target (`PlayerbotAI::IsStageEntryBlocked`).
 
-The Dungeon (and Scholomance) subtrees use them:
+Every NonCombat tree (Default, and each class's Dungeon and Outdoors subtrees) uses them; outside instances there are
+no stages, so Follow player's stage conditions always pass and Position Yourself is never selected:
 
-- Follow player also needs `masterStageCleared` (the master is in no stage or a cleared one), `pathBlocked` false (the
-  bot's way to the master crosses no stage that is not cleared, tested along the path every 500ms) and no
-  `stagePosition`; it leaves for Idle on `onStageBlocked`: the bots wait outside rooms the master pulls into (combat
-  still takes them in) and follow again once the room is cleared.
-- Position Yourself (`Task_MoveToPosition` to `stagePosition`) while the master is in a cleared stage with a position
-  for the bot and the bot is away from it (`stagePositionFar`); the other nodes go there on `onStagePositionFar`.
-  The position is the bot's own override for the stage (table `ai_playerbot_dungeon_positions` of the characters
-  database, `sql/characters/ai_playerbot_dungeon_positions.sql`), else the stage's position for its class / spec.
-  Moving a bot with rtsc in a dungeon saves the spot as its override for the stage containing it (else the master's
-  stage).
+- Follow player also needs `masterStageCleared` (the master is in a cleared stage: not in one that is not cleared and
+  not between stages), `pathBlocked` false (the bot's way to the master crosses no stage that is not cleared, tested
+  along the path every 500ms) and no `stagePosition`; it leaves for Idle on `onStageBlocked`: the bots wait where they
+  are while the master is between stages or in a room that is not cleared and has no uncleared point for them (combat
+  still takes them in), and follow again once the master is in a cleared stage.
+- Position Yourself (`Task_MoveToPosition` to `stagePosition`) while the master is in a stage with a point for the bot
+  and the bot is away from it (`stagePositionFar`); the other nodes go there on `onStagePositionFar`. Each stage has
+  two points: the cleared one (used once the stage is cleared) and the uncleared one (before); the way to the
+  uncleared point may cross the master's stage. The point is the bot's own override for the dungeon and stage (table
+  `ai_playerbot_dungeon_positions` of the characters database, column `cleared`,
+  `sql/characters/ai_playerbot_dungeon_positions.sql`), else the stage file's `clearposition` / `unclearedposition`.
+  Moving a bot with rtsc in a dungeon saves the spot as its override for the master's stage, the cleared or the
+  uncleared point by the stage's state. The entrance (stage 0) is always cleared: the first time a bot arrives in a
+  dungeon (or starts its tree in the entrance stage) without entrance points, its spot is saved as both.
 
 Every NonCombat tree eats and drinks through Eat and Drink (above Idle, below the buff / decurse nodes): Idle goes
 there when health changed below 80% or mana below 90%, the node is also selected while one of them is that low, and

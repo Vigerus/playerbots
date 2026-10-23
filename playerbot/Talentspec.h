@@ -69,6 +69,8 @@ class TalentSpec {
         TalentPath(int pathId, std::string pathName, int pathProbability) { id = pathId; name = pathName; probability = pathProbability; };
         int id =0;
         std::string name = "";
+        // the StateTree spec it makes (SpecProvider_GlobalTask names, AiPlayerbot.PremadeSpecHint)
+        std::string hint = "";
         int probability = 100;
         std::vector<TalentSpec> talentSpec;
     };

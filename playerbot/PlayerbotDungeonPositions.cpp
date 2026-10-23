@@ -5,10 +5,10 @@
 
 using namespace ai;
 
-bool PlayerbotDungeonPositions::Get(Player* bot, uint32 mapId, uint32 stage, Position& position)
+bool PlayerbotDungeonPositions::Get(Player* bot, uint32 mapId, uint32 stage, bool cleared, Position& position)
 {
     Load(bot);
-    auto itr = positions.find({ mapId, stage });
+    auto itr = positions.find({ mapId, stage, cleared });
     if (itr == positions.end())
         return false;
 
@@ -16,20 +16,20 @@ bool PlayerbotDungeonPositions::Get(Player* bot, uint32 mapId, uint32 stage, Pos
     return true;
 }
 
-void PlayerbotDungeonPositions::Set(Player* bot, uint32 mapId, uint32 stage, const Position& position)
+void PlayerbotDungeonPositions::Set(Player* bot, uint32 mapId, uint32 stage, bool cleared, const Position& position)
 {
     Load(bot);
-    positions[{ mapId, stage }] = position;
-    CharacterDatabase.PExecute("REPLACE INTO `ai_playerbot_dungeon_positions` (`guid`, `map`, `stage`, `position_x`, `position_y`, `position_z`) VALUES ('%u', '%u', '%u', '%f', '%f', '%f')",
-        bot->GetGUIDLow(), mapId, stage, position.x, position.y, position.z);
+    positions[{ mapId, stage, cleared }] = position;
+    CharacterDatabase.PExecute("REPLACE INTO `ai_playerbot_dungeon_positions` (`guid`, `map`, `stage`, `cleared`, `position_x`, `position_y`, `position_z`) VALUES ('%u', '%u', '%u', '%u', '%f', '%f', '%f')",
+        bot->GetGUIDLow(), mapId, stage, cleared ? 1 : 0, position.x, position.y, position.z);
 }
 
-void PlayerbotDungeonPositions::Remove(Player* bot, uint32 mapId, uint32 stage)
+void PlayerbotDungeonPositions::Remove(Player* bot, uint32 mapId, uint32 stage, bool cleared)
 {
     Load(bot);
-    positions.erase({ mapId, stage });
-    CharacterDatabase.PExecute("DELETE FROM `ai_playerbot_dungeon_positions` WHERE `guid` = '%u' AND `map` = '%u' AND `stage` = '%u'",
-        bot->GetGUIDLow(), mapId, stage);
+    positions.erase({ mapId, stage, cleared });
+    CharacterDatabase.PExecute("DELETE FROM `ai_playerbot_dungeon_positions` WHERE `guid` = '%u' AND `map` = '%u' AND `stage` = '%u' AND `cleared` = '%u'",
+        bot->GetGUIDLow(), mapId, stage, cleared ? 1 : 0);
 }
 
 void PlayerbotDungeonPositions::Load(Player* bot)
@@ -38,7 +38,7 @@ void PlayerbotDungeonPositions::Load(Player* bot)
         return;
 
     loaded = true;
-    auto result = CharacterDatabase.PQuery("SELECT `map`, `stage`, `position_x`, `position_y`, `position_z` FROM `ai_playerbot_dungeon_positions` WHERE `guid` = '%u'",
+    auto result = CharacterDatabase.PQuery("SELECT `map`, `stage`, `cleared`, `position_x`, `position_y`, `position_z` FROM `ai_playerbot_dungeon_positions` WHERE `guid` = '%u'",
         bot->GetGUIDLow());
     if (!result)
         return;
@@ -46,7 +46,7 @@ void PlayerbotDungeonPositions::Load(Player* bot)
     do
     {
         Field* fields = result->Fetch();
-        positions[{ fields[0].GetUInt32(), fields[1].GetUInt32() }] = { fields[2].GetFloat(), fields[3].GetFloat(), fields[4].GetFloat() };
+        positions[{ fields[0].GetUInt32(), fields[1].GetUInt32(), fields[2].GetUInt8() != 0 }] = { fields[3].GetFloat(), fields[4].GetFloat(), fields[5].GetFloat() };
     }
     while (result->NextRow());
 }

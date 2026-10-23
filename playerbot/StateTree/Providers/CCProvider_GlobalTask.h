@@ -30,10 +30,7 @@ namespace ai
 
         uint32 sinceCheckMs = 0;
         uint32 sinceFireMs = 0;
-
-        // the bot's kill order / crowd control icons (TODO(strategy): were its "rti" / "rti cc" values)
-        std::vector<std::string> rtiIcons = STAI_DefaultRtiIcons();
-        std::vector<std::string> rtiCcIcons = STAI_DefaultRtiCcIcons();
+        uint32 iconsVersion = 0;    // PlayerbotTargetIcons::GetVersion of the last check: a change checks again now
     };
 
     // Global task that watches the bot's crowd-control marks (its "rti cc" icons, default moon) in the bot's group:

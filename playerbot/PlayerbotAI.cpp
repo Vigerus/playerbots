@@ -4,6 +4,7 @@
 #include <iomanip>
 
 #include "playerbot/PlayerSpec.h"
+#include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
 #include "playerbot/Helpers.h"
 
 #include "MotionGenerators/MovementGenerator.h"
@@ -438,6 +439,9 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     }
     ApplyStateTreeToggles();
     ApplyInventoryCommands();
+    ApplyRtiCommands();
+    ApplySpecCommands();
+    rtsc.Update(this);
     StateMachine.Update(elapsed, minimal);
     UpdateUpkeep();
     SendStateTreeDebug();
@@ -1236,6 +1240,39 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
             return;
         }
 
+        // WoWAddonInspectBot icon slots and spec box (whisper, or with " <bot name>" at the end on party/raid):
+        //   "rti <icons|none>", "rticc <icons|none>"   the kill order / crowd control icons ("skull,cross")
+        //   "spec <premade spec id>"                  applies AiPlayerbot.PremadeSpec<...>.<class>.<id>
+        // answered with the inventory (which carries the icons and the specs)
+        if (filtered.rfind("rti ", 0) == 0 || filtered.rfind("rticc ", 0) == 0 || filtered.rfind("spec ", 0) == 0)
+        {
+            std::istringstream request(filtered);
+            std::string command, argument, name;
+            request >> command >> argument >> name;
+            if (!argument.empty() && (name.empty() ? type == CHAT_MSG_WHISPER : name == bot->GetName()))
+            {
+                const uint64 requester = fromPlayer.GetObjectGuid().GetRawValue();
+                if (command == "spec")
+                {
+                    SpecCommand specCommand;
+                    specCommand.pathId = atoi(argument.c_str());
+                    specCommand.requester = requester;
+                    std::lock_guard<std::mutex> lock(specCommandLock);
+                    specCommands.push_back(specCommand);
+                }
+                else
+                {
+                    RtiCommand rtiCommand;
+                    rtiCommand.text = (command == "rticc" ? "cc " : "") + argument;
+                    rtiCommand.requester = requester;
+                    rtiCommand.addon = true;
+                    std::lock_guard<std::mutex> lock(rtiCommandLock);
+                    rtiCommands.push_back(rtiCommand);
+                }
+            }
+            return;
+        }
+
         if (filtered.rfind("statetree", 0) == 0)
         {
             std::string request = filtered.substr(9);
@@ -1368,6 +1405,20 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
             SetShouldLogOut(false);
         }
     }
+    else if (filtered == "rtsc" || filtered.rfind("rtsc ", 0) == 0)
+    {
+        // run on the bot's update, from the master only
+        rtsc.QueueCommand(filtered.size() > 4 ? filtered.substr(5) : "", &fromPlayer);
+    }
+    else if (filtered == "rti" || filtered.rfind("rti ", 0) == 0)
+    {
+        // run on the bot's update: it reads and saves the bot's icons
+        RtiCommand command;
+        command.text = filtered.size() > 3 ? filtered.substr(4) : "";
+        command.requester = fromPlayer.GetObjectGuid().GetRawValue();
+        std::lock_guard<std::mutex> lock(rtiCommandLock);
+        rtiCommands.push_back(command);
+    }
     else if ((filtered.size() > 5) && (filtered.substr(0, 5) == "wait ") && (filtered.find("wait for attack") == std::string::npos))
     {
         std::string remaining = filtered.substr(filtered.find(" ") + 1);
@@ -1499,9 +1550,12 @@ int32 PlayerbotAI::CalculateGlobalCooldown(uint32 spellid)
     return globalCooldown > 0 ? globalCooldown : sPlayerbotAIConfig.reactDelay;
 }
 
-void PlayerbotAI::HandleMasterIncomingPacket(const WorldPacket& packet)
+void PlayerbotAI::HandleMasterIncomingPacket(const WorldPacket& packet, bool rtscAnySelected)
 {
-    // TODO(strategy): the master's packets were handled by legacy actions (see the constructor)
+    // the master's Aedm casts: RTS control moves (queued, run in UpdateAI)
+    if (packet.GetOpcode() == CMSG_CAST_SPELL && master)
+        rtsc.QueueSpell(master, packet, rtscAnySelected);
+    // TODO(strategy): the master's other packets were handled by legacy actions (see the constructor)
 }
 
 void PlayerbotAI::HandleMasterOutgoingPacket(const WorldPacket& packet)
@@ -5763,6 +5817,108 @@ namespace
     }
 }
 
+void PlayerbotAI::ApplyRtiCommands()
+{
+    std::vector<RtiCommand> commands;
+    {
+        std::lock_guard<std::mutex> lock(rtiCommandLock);
+        commands.swap(rtiCommands);
+    }
+
+    // "rti" / "rti cc": the icons and the unit they mark now ("skull,cross (Defias Pillager)")
+    auto describe = [this](bool cc)
+    {
+        const std::vector<std::string> icons = cc ? targetIcons.GetRtiCcList(bot) : targetIcons.GetRti(bot);
+        std::ostringstream out;
+        out << (cc ? "rti cc" : "rti") << ": " << ai::PlayerbotTargetIcons::Format(icons);
+        if (Unit* marked = ai::PlayerbotTargetIcons::GetMarkedUnit(bot, icons))
+            out << " (" << marked->GetName() << ")";
+        return out.str();
+    };
+
+    for (const RtiCommand& command : commands)
+    {
+        Player* requester = sObjectMgr.GetPlayer(ObjectGuid(command.requester));
+        if (!requester || !requester->IsInWorld())
+            continue;
+
+        std::string text = command.text;
+        const bool cc = text == "cc" || text.rfind("cc ", 0) == 0;
+        if (cc)
+            text = text.size() > 2 ? text.substr(3) : "";
+
+        // the addon's icon slots: set silently, the addon shows the result from the inventory answer
+        if (command.addon)
+        {
+            const std::vector<std::string> icons = ai::PlayerbotTargetIcons::Parse(text);
+            if (!cc && (!icons.empty() || text == "none"))
+                targetIcons.SetRti(bot, icons);
+            else if (cc && (icons.size() == 1 || text == "none"))
+                targetIcons.SetRtiCc(bot, icons.empty() ? "" : icons.front());
+            inventoryRequester = command.requester;
+            continue;
+        }
+
+        // "rti" / "rti ?": both lists; "rti cc" / "rti cc ?": the crowd control list
+        if (text.empty() || text == "?")
+        {
+            if (!cc)
+                TellPlayer(requester, describe(false));
+            TellPlayer(requester, describe(true));
+            continue;
+        }
+
+        // "rti skull,cross,square": up to 8 icons, the first marked target in this order; "rti cc moon": one icon;
+        // "none" clears it
+        std::vector<std::string> invalid;
+        const std::vector<std::string> icons = ai::PlayerbotTargetIcons::Parse(text, &invalid);
+        if ((icons.empty() && text != "none") || (cc && icons.size() > 1))
+        {
+            std::ostringstream out;
+            if (cc)
+                out << "Usage: rti cc <icon>, none or ?";
+            else
+                out << "Usage: rti <icon>[,<icon>...] (up to " << ai::PlayerbotTargetIcons::maxIcons << ", in priority order), none or ?";
+            out << "; icons: star, circle, diamond, triangle, moon, square, cross, skull";
+            TellError(requester, out.str());
+            continue;
+        }
+
+        if (cc)
+            targetIcons.SetRtiCc(bot, icons.empty() ? "" : icons.front());
+        else
+            targetIcons.SetRti(bot, icons);
+        std::string reply = describe(cc);
+        if (!invalid.empty())
+            reply += " (unknown: " + ai::PlayerbotTargetIcons::Format(invalid) + ")";
+        TellPlayer(requester, reply);
+    }
+}
+
+void PlayerbotAI::ApplySpecCommands()
+{
+    std::vector<SpecCommand> commands;
+    {
+        std::lock_guard<std::mutex> lock(specCommandLock);
+        commands.swap(specCommands);
+    }
+
+    for (const SpecCommand& command : commands)
+    {
+        // the addon shows the result: the spec box of the inventory answer
+        inventoryRequester = command.requester;
+        if (!bot->IsInWorld() || bot->IsInCombat() || !bot->IsAlive())
+            continue;
+
+        std::ostringstream out;
+        if (ai::PlayerbotPremadeSpecs::Apply(bot, command.pathId, out))
+        {
+            UpdateTalentSpec();
+            sLog.outDetail("%s: %s", bot->GetName(), out.str().c_str());
+        }
+    }
+}
+
 void PlayerbotAI::ApplyInventoryCommands()
 {
     std::vector<InventoryCommand> commands;
@@ -5845,8 +6001,23 @@ void PlayerbotAI::SendInventory()
     //   G^<bag 1-4>^<bag item id>^<slots>
     //   B^<bag 0-4>^<slot from 1>^<item id>^<count>^<random property id>^<permanent enchant id>
     //     ^<inventory slots it can be equipped in, ',' separated; 0 usable ammo>
+    //   R^<rti icons, ','>^<rti cc icon>               "none" when empty
+    //   P^<premade spec id>^<name>^<hint>             the premade specs of the bot's class, in config order
+    //   C^<premade spec id the bot has, -1 none>^<spec name (SpecProvider_GlobalTask)>
     std::ostringstream out;
     out << "H^" << bot->GetName() << "^" << bot->GetMoney() << "^" << bot->GetUInt32Value(PLAYER_AMMO_ID);
+
+    out << "~R^" << ai::PlayerbotTargetIcons::Format(targetIcons.GetRti(bot)) << "^" << ai::PlayerbotTargetIcons::Format(targetIcons.GetRtiCcList(bot));
+    auto field = [](std::string text)
+    {
+        // the separators of the payload
+        std::replace(text.begin(), text.end(), '^', ' ');
+        std::replace(text.begin(), text.end(), '~', ' ');
+        return text;
+    };
+    for (const TalentPath& path : ai::PlayerbotPremadeSpecs::GetPaths(bot))
+        out << "~P^" << path.id << "^" << field(path.name) << "^" << field(path.hint);
+    out << "~C^" << ai::PlayerbotPremadeSpecs::GetCurrentPathId(bot) << "^" << ai::SpecProvider_GlobalTask::GetSpecName(bot);
 
     for (uint8 equipmentSlot = EQUIPMENT_SLOT_START; equipmentSlot < EQUIPMENT_SLOT_END; ++equipmentSlot)
         if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, equipmentSlot))

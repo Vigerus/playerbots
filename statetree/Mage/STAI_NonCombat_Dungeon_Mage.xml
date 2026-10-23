@@ -24,11 +24,12 @@
   <Node name="Follow player">
     <Conditions>
       <Condition binding="Root|MasterDistance_GlobalTask::masterFar"/>
-      <!-- the master is in no room or in a cleared one: the bot waits outside rooms that are not cleared -->
+      <!-- the master is in a cleared room: the bot stays put while the master is between rooms or in one that is not
+           cleared -->
       <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
       <!-- the way to the master does not cross a room that is not cleared -->
       <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
-      <!-- in a cleared room with a spot for the bot it goes there instead (Position Yourself) -->
+      <!-- with a point for the bot in the master's room it goes there instead (Position Yourself) -->
       <Condition binding="Root|InstanceProvider_GlobalTask::stagePosition" negate="true"/>
     </Conditions>
     <!-- the path to the master on the PathfindingWorker (across the dungeon portals), then walk it -->
@@ -53,8 +54,8 @@
   </Node>
   <Node name="Position Yourself">
     <Conditions>
-      <!-- the master is in a cleared room with a spot for the bot (its rtsc override, else the room's position for its
-           class / spec) and the bot is away from it -->
+      <!-- the master is in a room with a point for the bot, its cleared or uncleared one by the room's state (its rtsc /
+           entrance override, else the room's position) and the bot is away from it -->
       <Condition binding="Root|InstanceProvider_GlobalTask::stagePositionFar"/>
       <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
     </Conditions>

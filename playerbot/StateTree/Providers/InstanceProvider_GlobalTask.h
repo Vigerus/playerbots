@@ -30,7 +30,8 @@ namespace ai
         //   <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageCleared" node="Root|Follow player"/>
         FSTAI_Delegate onStageCleared;
         // fired when following / going to the stage position got blocked: the master went into a stage that is not
-        // cleared, or the bot's way crosses one (masterStageCleared turned false or pathBlocked true)
+        // cleared and has no uncleared point for the bot, or out of every stage, or the bot's way crosses a stage that
+        // is not cleared (pathBlocked)
         //   <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|UtilityAI"/>
         FSTAI_Delegate onStageBlocked;
         // fired on every check while the bot is away from its stagePosition (and its way there is not blocked)
@@ -39,11 +40,13 @@ namespace ai
 
         // properties:
         //   stage / masterStage: index of the stage the bot / master stands in, -1 none or no stages on the map
-        //   masterStageCleared: the master stands in no stage or in a cleared one (the bot may go there)
+        //   masterStageCleared: the master stands in a cleared stage, the bot may follow it (true while the master is
+        //     not on the bot's map or the map has no stages; false while it stands outside every stage)
         //   pathBlocked: the bot's way to its destination (stagePosition, else the master) crosses a stage that is
-        //     not cleared (other than the one the bot is in); only checked while the bot is away from it
-        //   stagePosition: where the bot stands in the master's stage while it is cleared (the bot's rtsc override,
-        //     else the stage's position for its class / spec); unset without one
+        //     not cleared (other than the one the bot is in and the master's); only checked while the bot is away
+        //   stagePosition: the bot's point in the master's stage, the cleared one once the stage is cleared, else the
+        //     uncleared one (the bot's override from rtsc / its first arrival at the entrance, else the stage's
+        //     position for its class / spec); unset without one
         //   stagePositionFar: stagePosition is set and the bot is more than 2 yards away
         int32 stage = -1;
         int32 masterStage = -1;
@@ -55,12 +58,17 @@ namespace ai
         bool hasStages = false;     // the map has stages
         uint32 stageTimer = 0;      // ms since the stages were checked
 
+        // the bot's entrance points (stage 0) are saved from entrance by the next UpdateStages when it has none
+        bool entrancePending = false;
+        STAI_Position entrance;
+
         bool subscribed = false;
 
         void Subscribe();
         void Unsubscribe();
-        // takes the map over, fires when it is another map / instance than the known one
-        void SetMap(Map* map);
+        // takes the map over, fires when it is another map / instance than the known one. arrived: the bot was just
+        // added to the map (else it is seen there first when the tree starts)
+        void SetMap(Map* map, bool arrived);
 
         void OnPlayerEnterMap(Player* player, Map* map);
         // finds the stages of the bot and its master, the stage position and whether the way is blocked; fires
