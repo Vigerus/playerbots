@@ -34,7 +34,8 @@ namespace ai
     //     <Target value="self"/>      the bot itself, before target and whoNeeds
     //   </Task>
     //   <Task class="Task_CastSpell" spellid="Resurrection">
-    //     <Target value="dead"/>      only dead targets (resurrections), instead of only living ones
+    //     <Target value="dead"/>      only dead targets (resurrections), instead of only living ones; a corpse guid
+    //                                 (a released member, HealProvider_GlobalTask::dead) is cast at as the corpse
     //     <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::dead"/>
     //   </Task>
     //   <Task class="Task_CastSpell" spellid="Power Word: Shield">

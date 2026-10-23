@@ -921,7 +921,7 @@ AiPlayerbot.FleeingEnabled = 1
 # to bottom. The class entry wins over Default; an empty value (or a file that fails to load, see the
 # server log) uses a single Idle node.
 # Formats are described in statetree/README.md. Paths are relative to the directory of aiplayerbot.conf.
-# Class trees are in statetree/<Class>/; every class uses the Default Dead tree.
+# Class trees are in statetree/<Class>/; every class but Shaman (Reincarnation) uses the Default Dead tree.
 
 AiPlayerbot.StateTree.NonCombat.Default = statetree/STAI_NonCombat.xml
 AiPlayerbot.StateTree.Combat.Default = statetree/STAI_Combat.xml
@@ -951,6 +951,7 @@ AiPlayerbot.StateTree.Reaction.Priest = statetree/Priest/STAI_Reaction_Priest.xm
 AiPlayerbot.StateTree.NonCombat.Shaman = statetree/Shaman/STAI_NonCombat_Shaman.xml
 AiPlayerbot.StateTree.Combat.Shaman = statetree/Shaman/STAI_Combat_Shaman.xml
 AiPlayerbot.StateTree.Reaction.Shaman = statetree/Shaman/STAI_Reaction_Shaman.xml
+AiPlayerbot.StateTree.Dead.Shaman = statetree/Shaman/STAI_Dead_Shaman.xml
 
 AiPlayerbot.StateTree.NonCombat.Mage = statetree/Mage/STAI_NonCombat_Mage.xml
 AiPlayerbot.StateTree.Combat.Mage = statetree/Mage/STAI_Combat_Mage.xml

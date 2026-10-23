@@ -12,6 +12,9 @@
     <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
     <Task class="HealthProvider_GlobalTask"/>
     <Task class="ManaProvider_GlobalTask"/>
+    <!-- the dead members of the group (bodies that are not released, no resurrection offered yet): dead,
+         resurrectTarget; onDead -->
+    <Task class="HealProvider_GlobalTask"/>
   </Global>
   <Node name="Follow player">
     <Conditions>
@@ -66,6 +69,21 @@
       <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
     </Transitions>
   </Node>
+  <!-- a member died: walk to the body and resurrect it (bodies that are not released, no resurrection offered yet) -->
+  <Node name="Resurrect">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::dead"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="25"/>
+      <Target value="dead"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::resurrectTarget"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Ancestral Spirit">
+      <Target value="dead"/>
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::dead"/>
+    </Task>
+  </Node>
   <Node name="Eat and Drink">
     <Conditions match="any">
       <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
@@ -99,6 +117,7 @@
         </Conditions>
       </Transition>
       <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onDead" node="Root|Resurrect"/>
     </Transitions>
   </Node>
 </Root>

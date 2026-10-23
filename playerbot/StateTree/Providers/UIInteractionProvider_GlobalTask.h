@@ -48,6 +48,17 @@ namespace ai
         // property "tradeAcceptRequested": the trade window is open, the other player accepted, the bot did not
         bool tradeAcceptRequested = false;
 
+        // fired when a resurrection is offered to the dead bot (a priest's Resurrection, a shaman's Ancestral Spirit,
+        // also cast at the corpse of the released bot)
+        FSTAI_Delegate onResurrectOffered;
+        // property "resurrectOffered": the bot is dead and a resurrection is offered (Task_AcceptResurrection)
+        bool resurrectOffered = false;
+        // fired when the released bot can come back at its body
+        FSTAI_Delegate onReclaimCorpse;
+        // property "canReclaimCorpse": the client's "Resurrect" button at the body: the bot is a ghost within
+        // CORPSE_RECLAIM_RADIUS of its corpse and the reclaim delay is over (Task_ReclaimCorpse)
+        bool canReclaimCorpse = false;
+
         bool subscribed = false;
 
         void Subscribe();
@@ -56,16 +67,20 @@ namespace ai
         void OnTradeStatus(uint32 status);
         // tradeAcceptRequested from the trade data
         void UpdateTrade();
+        // resurrectOffered / canReclaimCorpse; fires their delegates when they turned true
+        void UpdateDeath();
     };
 
     // Global task for what a player answers in its UI: loot rolls (property rolls, delegate onRollRequested, a new
-    // roll from TeamSubsystem::OnLootRollStarted) and trades (properties tradeOpenRequested / tradeAcceptRequested,
-    // delegates onTradeRequested / onTradeAccepted, from the SMSG_TRADE_STATUS the bot gets: PlayerbotAI::onTradeStatus).
-    // Ticked: drops the rolls that were voted on or timed out, follows the trade.
+    // roll from TeamSubsystem::OnLootRollStarted), trades (properties tradeOpenRequested / tradeAcceptRequested,
+    // delegates onTradeRequested / onTradeAccepted, from the SMSG_TRADE_STATUS the bot gets: PlayerbotAI::onTradeStatus)
+    // and the death popups (properties resurrectOffered / canReclaimCorpse, delegates onResurrectOffered /
+    // onReclaimCorpse). Ticked: drops the rolls that were voted on or timed out, follows the trade and the death.
     //   <Global>
     //     <Task class="UIInteractionProvider_GlobalTask"/>
     //   </Global>
-    // Task_RollForItem votes on the rolls, Task_OpenTrade opens the trade window, Task_AcceptTrade accepts the trade.
+    // Task_RollForItem votes on the rolls, Task_OpenTrade opens the trade window, Task_AcceptTrade accepts the trade,
+    // Task_AcceptResurrection accepts the resurrection, Task_ReclaimCorpse comes back at the body.
     class UIInteractionProvider_GlobalTask : public STAI_GlobalTask
     {
     public:

@@ -2,6 +2,7 @@
 
 #include "playerbot/PlayerbotAI.h"
 
+#include "Entities/Corpse.h"
 #include "Maps/Map.h"
 #include "Spells/SpellAuras.h"
 #include "Spells/SpellMgr.h"
@@ -123,6 +124,7 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
     Player* bot = context.bot;
     const uint32 spellId = ResolveSpell(bot);
     std::vector<Unit*> targets;
+    std::vector<Corpse*> corpses;   // <Target value="dead"/>: the corpses of released members
     std::vector<ObjectGuid> guids = context.whoNeeds;
     if (!context.target.IsEmpty())
         guids.insert(guids.begin(), context.target);
@@ -131,6 +133,14 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
     bool skipped = false;
     for (ObjectGuid guid : guids)
     {
+        if (guid.IsCorpse())
+        {
+            if (Corpse* corpse = dead ? bot->GetMap()->GetCorpse(guid) : nullptr)
+                if (corpse->IsInWorld())
+                    corpses.push_back(corpse);
+            continue;
+        }
+
         Unit* target = guid == bot->GetObjectGuid() ? bot : bot->GetMap()->GetUnit(guid);
         if (!target || !target->IsInWorld() || target->IsAlive() == dead)
             continue;
@@ -145,11 +155,11 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
 
     // everybody left has the aura already: failed, so the node is not selected again right away (its condition
     // still passes) and the nodes below it get their turn
-    if (targets.empty() && skipped)
+    if (targets.empty() && corpses.empty() && skipped)
         return LogStatus(context, EActionRunStatus::Failed);
 
     // nobody needs it (any more): the task succeeds right away
-    if (targets.empty())
+    if (targets.empty() && corpses.empty())
         return LogStatus(context, EActionRunStatus::Succeeded);
 
     if (!spellId)
@@ -176,7 +186,24 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
         return EActionRunStatus::Running;
     }
 
-    // every living target is out of reach right now (range, sight, mana...)
+    // the corpses of released members: the resurrection reaches the ghost wherever it is
+    // (range and sight are the spell's own cast checks)
+    for (Corpse* corpse : corpses)
+    {
+        context.castStartMs = WorldTimer::getMSTime();
+        if (!context.ai->CastSpellOnCorpse(spellId, corpse))
+            continue;
+
+        context.spellId = spellId;
+        context.castTarget = corpse->GetObjectGuid();
+        const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+        context.resultAtStart = spellInfo && (IsChanneledSpell(spellInfo) || GetSpellCastTime(spellInfo, bot) == 0);
+        if (context.resultAtStart)
+            context.result = 1;
+        return EActionRunStatus::Running;
+    }
+
+    // every target is out of reach right now (range, sight, mana...)
     return LogStatus(context, EActionRunStatus::Failed);
 }
 

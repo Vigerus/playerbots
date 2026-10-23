@@ -35,8 +35,10 @@ namespace ai
         // a hostile unit attacks the bot (also when the bot tanks)
         bool selfAttacked = false;
 
-        // the dead members on the bot's map that a resurrection reaches: the body not released, no resurrection
-        // offered yet; fired when one is new:
+        // the dead members that a resurrection reaches, no resurrection offered yet: on the bot's map with the body
+        // not released (the player's guid), or released (a ghost anywhere, e.g. a bot logged out dead and back in)
+        // with the corpse on the bot's map (the corpse's guid: Task_GetInRange / Task_CastSpell with
+        // <Target value="dead"/> go to it and cast at it); fired when one is new:
         std::vector<ObjectGuid> dead;
         FSTAI_Delegate onDead;
         // the first of dead (to walk to, Task_GetInRange with <Target value="dead"/>)

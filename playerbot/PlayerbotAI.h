@@ -26,6 +26,7 @@
 #include "delegates/Delegates.h"
 #include "Entities/UnitResourceThresholds.h"
 
+class Corpse;
 class Player;
 class PlayerbotMgr;
 class ChatHandler;
@@ -529,6 +530,9 @@ public:
     bool CastSpell(uint32 spellId, Unit* target, Item* itemTarget = nullptr, bool waitForSpell = true, uint32* outSpellDuration = nullptr);
     bool CastSpell(uint32 spellId, GameObject* goTarget, Item* itemTarget = nullptr, bool waitForSpell = true, uint32* outSpellDuration = nullptr);
     bool CastSpell(uint32 spellId, float x, float y, float z, Item* itemTarget = nullptr, bool waitForSpell = true, uint32* outSpellDuration = nullptr);
+    // casts a spell at a corpse, as a client targeting the body does (a resurrection of a released player, whose
+    // ghost may be on another map); false when it did not start
+    bool CastSpellOnCorpse(uint32 spellId, Corpse* corpse);
     bool CastPetSpell(uint32 spellId, Unit* target);
     bool CastVehicleSpell(uint32 spellId, Unit* target, float projectileSpeed, bool needTurn);
     bool CastVehicleSpell(uint32 spellId, float x, float y, float z);

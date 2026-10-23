@@ -3,6 +3,7 @@
 #include "playerbot/StateTree/Providers/BuffProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CCProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CooldownProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/CorpseProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/DispelProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/HazardProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/HealProvider_GlobalTask.h"
@@ -21,6 +22,7 @@
 #include "playerbot/StateTree/Tasks/Task_CastBuff.h"
 #include "playerbot/StateTree/Tasks/Task_CastSpell.h"
 #include "playerbot/StateTree/Tasks/Task_CastTotem.h"
+#include "playerbot/StateTree/Tasks/Task_Corpse.h"
 #include "playerbot/StateTree/Tasks/Task_EatAndDrink.h"
 #include "playerbot/StateTree/Tasks/Task_MakePath.h"
 #include "playerbot/StateTree/Tasks/Task_MoveTo.h"
@@ -28,6 +30,7 @@
 #include "playerbot/StateTree/Tasks/Task_GetInRange.h"
 #include "playerbot/StateTree/Tasks/Task_RollForItem.h"
 #include "playerbot/StateTree/Tasks/Task_RunSubtree.h"
+#include "playerbot/StateTree/Tasks/Task_SelfResurrect.h"
 #include "playerbot/StateTree/Tasks/Task_Shoot.h"
 #include "playerbot/StateTree/Tasks/Task_Trade.h"
 #include "playerbot/StateTree/Tasks/Task_UseItem.h"
@@ -73,5 +76,9 @@ namespace ai
         factory.RegisterTask("Task_AcceptResurrection", { &Task_AcceptResurrection::Validate, &Task_AcceptResurrection::Create });
         factory.RegisterTask("TotemProvider_GlobalTask", { &TotemProvider_GlobalTask::Validate, &TotemProvider_GlobalTask::Create });
         factory.RegisterTask("Task_CastTotem", { &Task_CastTotem::Validate, &Task_CastTotem::Create });
+        factory.RegisterTask("Task_SelfResurrect", { &Task_SelfResurrect::Validate, &Task_SelfResurrect::Create });
+        factory.RegisterTask("CorpseProvider_GlobalTask", { &CorpseProvider_GlobalTask::Validate, &CorpseProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_ReleaseSpirit", { &Task_ReleaseSpirit::Validate, &Task_ReleaseSpirit::Create });
+        factory.RegisterTask("Task_ReclaimCorpse", { &Task_ReclaimCorpse::Validate, &Task_ReclaimCorpse::Create });
     }
 }

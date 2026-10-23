@@ -3,6 +3,7 @@
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/ServerFacade.h"
 
+#include "Entities/Corpse.h"
 #include "Maps/Map.h"
 #include "MotionGenerators/MotionMaster.h"
 
@@ -51,11 +52,18 @@ namespace
         return true;
     }
 
-    Unit* GetTarget(const Task_GetInRangeContext& context, bool dead)
+    WorldObject* GetTarget(const Task_GetInRangeContext& context, bool dead)
     {
         Player* bot = context.bot;
         if (context.target.IsEmpty() || !bot->IsInWorld())
             return nullptr;
+
+        // the corpse of a released member
+        if (context.target.IsCorpse())
+        {
+            Corpse* corpse = dead ? bot->GetMap()->GetCorpse(context.target) : nullptr;
+            return corpse && corpse->IsInWorld() ? corpse : nullptr;
+        }
 
         Unit* target = bot->GetMap()->GetUnit(context.target);
         return target && target->IsInWorld() && sServerFacade.IsAlive(target) != dead ? target : nullptr;
@@ -107,7 +115,7 @@ EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 e
     Player* bot = context.bot;
 
     // nothing to get to: the node finishes, the tree selects again
-    Unit* target = GetTarget(context, dead);
+    WorldObject* target = GetTarget(context, dead);
     if (!target)
     {
         Stop(context);
@@ -137,11 +145,24 @@ EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 e
     // chase into range; in range without sight the bot closes in until it sees the target
     const bool inRange = sServerFacade.GetDistance2d(bot, target) <= yards;
     const float chaseDistance = inRange ? closeDistance : yards * chaseFactor;
+    // a corpse does not move: walk to it until in range and sight
+    if (!target->isType(TYPEMASK_UNIT))
+    {
+        if (!context.chasing || bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != POINT_MOTION_TYPE)
+        {
+            if (bot->IsSitState())
+                bot->SetStandState(UNIT_STAND_STATE_STAND);
+            bot->GetMotionMaster()->MovePoint(0, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ());
+            context.chasing = true;
+            context.chaseDistance = 0.0f;
+        }
+        return LogStatus(baseContext, EActionRunStatus::Running);
+    }
     if (!context.chasing || context.chaseDistance != chaseDistance || bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
     {
         if (bot->IsSitState())
             bot->SetStandState(UNIT_STAND_STATE_STAND);
-        bot->GetMotionMaster()->MoveChase(target, chaseDistance);
+        bot->GetMotionMaster()->MoveChase(static_cast<Unit*>(target), chaseDistance);
         context.chasing = true;
         context.chaseDistance = chaseDistance;
     }

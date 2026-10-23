@@ -3,6 +3,8 @@
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/PlayerbotSecurity.h"
 
+#include "Entities/Corpse.h"
+#include "Entities/Player.h"
 #include "Groups/TeamSubsystem.h"
 #include "Loot/LootMgr.h"
 #include "World/World.h"
@@ -28,6 +30,9 @@ EActionRunStatus UIInteractionProvider_GlobalTask::OnEnter(STAI_TaskContext& bas
     UIInteractionProvider_GlobalTaskContext& context = ContextAs<UIInteractionProvider_GlobalTaskContext>(baseContext);
     context.Subscribe();
     context.UpdateTrade();
+    context.resurrectOffered = false;
+    context.canReclaimCorpse = false;
+    context.UpdateDeath();
     return EActionRunStatus::Running;
 }
 
@@ -44,6 +49,7 @@ EActionRunStatus UIInteractionProvider_GlobalTask::OnTick(STAI_TaskContext& base
     }), context.rolls.end());
 
     context.UpdateTrade();
+    context.UpdateDeath();
     return EActionRunStatus::Running;
 }
 
@@ -64,6 +70,8 @@ const std::vector<STAI_PropertyDef>& UIInteractionProvider_GlobalTask::GetProper
         STAI_PropertyDef::Of("rolls", &UIInteractionProvider_GlobalTaskContext::rolls),
         STAI_PropertyDef::Of("tradeOpenRequested", &UIInteractionProvider_GlobalTaskContext::tradeOpenRequested),
         STAI_PropertyDef::Of("tradeAcceptRequested", &UIInteractionProvider_GlobalTaskContext::tradeAcceptRequested),
+        STAI_PropertyDef::Of("resurrectOffered", &UIInteractionProvider_GlobalTaskContext::resurrectOffered),
+        STAI_PropertyDef::Of("canReclaimCorpse", &UIInteractionProvider_GlobalTaskContext::canReclaimCorpse),
     };
     return properties;
 }
@@ -75,11 +83,37 @@ const std::vector<STAI_DelegateDef>& UIInteractionProvider_GlobalTask::GetDelega
         STAI_DelegateDef::Of("onRollRequested", &UIInteractionProvider_GlobalTaskContext::onRollRequested),
         STAI_DelegateDef::Of("onTradeRequested", &UIInteractionProvider_GlobalTaskContext::onTradeRequested),
         STAI_DelegateDef::Of("onTradeAccepted", &UIInteractionProvider_GlobalTaskContext::onTradeAccepted),
+        STAI_DelegateDef::Of("onResurrectOffered", &UIInteractionProvider_GlobalTaskContext::onResurrectOffered),
+        STAI_DelegateDef::Of("onReclaimCorpse", &UIInteractionProvider_GlobalTaskContext::onReclaimCorpse),
     };
     return delegates;
 }
 
 // ---------------------------------------------------------------- context
+
+void UIInteractionProvider_GlobalTaskContext::UpdateDeath()
+{
+    const bool wasOffered = resurrectOffered;
+    const bool couldReclaim = canReclaimCorpse;
+    resurrectOffered = false;
+    canReclaimCorpse = false;
+    if (bot->IsInWorld() && !bot->IsAlive())
+    {
+        resurrectOffered = bot->isRessurectRequested();
+
+        // as WorldSession::HandleReclaimCorpseOpcode checks it
+        if (bot->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+            if (Corpse* corpse = bot->GetCorpse())
+                canReclaimCorpse = corpse->GetMapId() == bot->GetMapId() &&
+                    corpse->GetGhostTime() + bot->GetCorpseReclaimDelay(corpse->GetType() == CORPSE_RESURRECTABLE_PVP) <= time(nullptr) &&
+                    corpse->IsWithinDistInMap(bot, CORPSE_RECLAIM_RADIUS, true);
+    }
+
+    if (resurrectOffered && !wasOffered)
+        onResurrectOffered.Broadcast();
+    if (canReclaimCorpse && !couldReclaim)
+        onReclaimCorpse.Broadcast();
+}
 
 void UIInteractionProvider_GlobalTaskContext::Subscribe()
 {

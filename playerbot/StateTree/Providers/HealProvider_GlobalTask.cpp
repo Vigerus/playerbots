@@ -4,7 +4,9 @@
 #include "playerbot/StateTree/Providers/TeamProvider_GlobalTask.h"
 #include "playerbot/StateTree/STAI_TaskFactory.h"
 
+#include "Entities/Corpse.h"
 #include "Entities/Player.h"
+#include "Globals/ObjectAccessor.h"
 #include "Groups/Group.h"
 #include "Maps/Map.h"
 
@@ -62,6 +64,22 @@ namespace
     bool CanBeResurrected(Player* member)
     {
         return member->GetDeathState() == CORPSE && !member->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) && !member->isRessurectRequested();
+    }
+
+    // the corpse on the bot's map of a released member (a ghost, wherever it is) that a resurrection cast at the
+    // corpse brings back; null otherwise
+    Corpse* GetResurrectableCorpse(Player* bot, Player* member)
+    {
+        if (!member->IsInWorld() || !member->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) || member->isRessurectRequested())
+            return nullptr;
+
+        Corpse* corpse = sObjectAccessor.GetCorpseForPlayerGUID(member->GetObjectGuid());
+        if (!corpse || corpse->GetType() == CORPSE_BONES || corpse->GetMapId() != bot->GetMapId() || corpse->GetInstanceId() != bot->GetInstanceId())
+            return nullptr;
+
+        // the map's own object, in the world
+        corpse = bot->GetMap()->GetCorpse(corpse->GetObjectGuid());
+        return corpse && corpse->IsInWorld() ? corpse : nullptr;
     }
 
     bool HasNew(const std::vector<ObjectGuid>& now, const std::vector<ObjectGuid>& before)
@@ -130,6 +148,8 @@ void HealProvider_GlobalTask::Evaluate(HealProvider_GlobalTaskContext& context) 
         {
             if (member != bot && CanBeResurrected(member))
                 context.dead.push_back(member->GetObjectGuid());
+            else if (Corpse* corpse = member != bot ? GetResurrectableCorpse(bot, member) : nullptr)
+                context.dead.push_back(corpse->GetObjectGuid());
             continue;
         }
 
@@ -149,6 +169,18 @@ void HealProvider_GlobalTask::Evaluate(HealProvider_GlobalTaskContext& context) 
         const float pct = member->GetHealthPercent();
         if (pct < settings.almostFull)
             wounded.push_back({ member, pct, tank });
+    }
+
+    // released members on other maps (a ghost at the graveyard) whose corpse lies on the bot's map
+    if (Group* group = bot->GetGroup())
+    {
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->getSource();
+            if (member && member != bot && member->IsInWorld() && member->GetMap() != bot->GetMap())
+                if (Corpse* corpse = GetResurrectableCorpse(bot, member))
+                    context.dead.push_back(corpse->GetObjectGuid());
+        }
     }
 
     std::stable_sort(wounded.begin(), wounded.end(), [](const Wounded& a, const Wounded& b)

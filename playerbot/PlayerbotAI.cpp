@@ -17,6 +17,7 @@
 #include "PlayerbotSecurity.h"
 #include "Groups/Group.h"
 #include "Entities/Pet.h"
+#include "Entities/Corpse.h"
 #include "Spells/SpellAuras.h"
 #include "Spells/SpellMgr.h"
 #include "playerbot/ServerFacade.h"
@@ -4317,6 +4318,47 @@ bool PlayerbotAI::CastSpell(uint32 spellId, GameObject* goTarget, Item* itemTarg
 
 
 
+    return true;
+}
+
+bool PlayerbotAI::CastSpellOnCorpse(uint32 spellId, Corpse* corpse)
+{
+    if (!spellId || !corpse || !corpse->IsInWorld() || bot->IsFlying() || bot->IsTaxiFlying())
+        return false;
+
+    const SpellEntry* pSpellInfo = sServerFacade.LookupSpellInfo(spellId);
+    if (!pSpellInfo || !bot->HasSpell(spellId) || !(pSpellInfo->Targets & (TARGET_FLAG_CORPSE_ALLY | TARGET_FLAG_CORPSE_ENEMY)))
+        return false;
+
+    // as the other casts: standing up takes this try
+    if (!bot->IsStandState())
+    {
+        bot->SetStandState(UNIT_STAND_STATE_STAND);
+        return false;
+    }
+    if (!sServerFacade.IsInFront(bot, corpse, sPlayerbotAIConfig.sightDistance, CAST_ANGLE_IN_FRONT))
+        sServerFacade.SetFacingTo(bot, corpse);
+
+    Spell* spell = new Spell(bot, pSpellInfo, false);
+    SpellCastTargets targets;
+    targets.setCorpseTarget(corpse);
+
+    // a cast time is not cast while moving
+    const bool isMoving = !bot->IsStopped() || bot->IsFalling();
+    if (isMoving && GetSpellCastTime(pSpellInfo, bot, spell) > 0)
+    {
+        if (IsJumping() || bot->IsFalling())
+        {
+            spell->cancel();
+            return false;
+        }
+        StopMoving();
+    }
+
+    if (spell->SpellStart(&targets) != SPELL_CAST_OK)
+        return false;
+
+    WaitForSpellCast(spell);
     return true;
 }
 
