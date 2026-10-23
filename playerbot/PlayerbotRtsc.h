@@ -18,7 +18,8 @@ namespace ai
 {
     // RTS control: the master moves its bots by casting Aedm (spell 30758, taught by the first "rtsc" command) on the
     // ground, like an RTS unit order. Commands (whispered, or in party chat to every bot), from the master only:
-    //   rtsc                    switches it on (and teaches the master the spell)
+    //   rtsc                    switches it on (and teaches the master the spell); a cast of the spell switches it
+    //                           on too, so it keeps working after a server restart
     //   rtsc reset              switches it off, forgets the selection and the saved locations, removes the spell
     //   rtsc select / cancel / toggle   selects / deselects the bot (spell visual on the bot)
     //   rtsc move               every cast moves the bot there (until rtsc cancel / reset)

@@ -194,8 +194,9 @@ void PlayerbotRtsc::HandleCommand(PlayerbotAI* ai, Player* requester, const std:
 
 void PlayerbotRtsc::HandleSpell(PlayerbotAI* ai, Player* requester, const WorldPosition& position, bool anySelected)
 {
-    if (!enabled)
-        return;
+    // only rtsc teaches Aedm and rtsc reset removes it: a master casting it has RTS control on, also after a server
+    // restart (enabled is not saved)
+    enabled = true;
 
     Player* bot = ai->GetBot();
     lastSpell = position;

@@ -140,7 +140,7 @@ icons changed (`PlayerbotTargetIcons::GetVersion`). Defaults skull / moon; kept 
 still load.
 
 RTS control (`playerbot/PlayerbotRtsc.*`, from the master only): `rtsc` switches it on and teaches the master Aedm
-(spell 30758), whose ground casts the bots see (`PlayerbotAI::HandleMasterIncomingPacket`, `CMSG_CAST_SPELL`). While no bot
+(spell 30758; a cast of it switches it on too, also after a server restart), whose ground casts the bots see (`PlayerbotAI::HandleMasterIncomingPacket`, `CMSG_CAST_SPELL`). While no bot
 of the master is selected a cast within 10 yards of a bot selects it; while some are, a cast moves the selected bots
 there (and deselects them) without selecting the bots near the spot; `rtsc select` / `cancel` /
 `toggle`, `rtsc move` (every cast moves the bot), `rtsc save <name>` / `save selected <name>` (the next cast is saved),
