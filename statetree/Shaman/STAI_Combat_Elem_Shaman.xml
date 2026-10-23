@@ -4,7 +4,29 @@
   <Global>
     <!-- mana of the bot: manaPct, onManaChanged -->
     <Task class="ManaProvider_GlobalTask"/>
+    <!-- interruptible casts of the enemies that Earth Shock reaches now (healing first): whoNeeds, onInterruptNeeded -->
+    <Task class="InterruptProvider_GlobalTask" spellid="Earth Shock"/>
+    <!-- the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
+         target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's -->
+    <Task class="TargetProvider_GlobalTask">
+      <WithThreat value="true"/>
+      <ThreatAmount value="90"/>
+    </Task>
+    <!-- the totems selected for the bot (outdoor, or the master's dungeon stage) that are not up: needs,
+         onTotemMissing; onTotemsChanged when the selection changed -->
+    <Task class="TotemProvider_GlobalTask">
+      <Range value="30"/>
+    </Task>
   </Global>
+  <!-- Earth Shock only interrupts, it is not part of the rotation -->
+  <Node name="Interrupt">
+    <Conditions>
+      <Condition binding="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Earth Shock">
+      <Binding local="whoNeeds" external="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+    </Task>
+  </Node>
   <!-- low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s) -->
   <Node name="Mana Potion">
     <Conditions>
@@ -19,14 +41,55 @@
       <Item id="2455"/>   <!-- Minor Mana Potion -->
     </Task>
   </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the rest of the combat exists: waits, leaves through its transitions -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
+  <!-- a selected totem is not up: gets in range of the target first (totems stay where they are dropped), then
+       drops the missing totems one per GCD; fails while none can be cast (mana), not selected again for 3s -->
+  <Node name="Totems">
+    <Conditions>
+      <Condition binding="Root|TotemProvider_GlobalTask::needs"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Task class="Task_CastTotem">
+      <Binding local="needs" external="Root|TotemProvider_GlobalTask::needs"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Mana Potion"/>
+      <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
+    </Transitions>
+  </Node>
+  <!-- the rotation: Lightning Bolt, held back by the threat check of the target -->
+  <Node name="Attack Target">
+    <Conditions>
+      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Lightning Bolt">
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
+    </Transitions>
+  </Node>
+  <Node name="Idle">
+    <Conditions/>
+    <!-- nothing to attack: waits briefly (a totem that failed is tried again) or until a delegate sends the tree elsewhere -->
+    <Task class="Task_Wait">
+      <Delay value="1"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
+      <Transition type="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemMissing" node="Root|Totems"/>
+      <Transition type="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemsChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root|Attack Target"/>
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root">
+        <Conditions>
+          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+        </Conditions>
+      </Transition>
     </Transitions>
   </Node>
 </Root>

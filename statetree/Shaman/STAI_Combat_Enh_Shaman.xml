@@ -1,11 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat subtree for Enh Shaman bots (run by STAI_Combat_Shaman.xml) -->
 <Root>
+  <Global>
+    <!-- the totems selected for the bot (outdoor, or the master's dungeon stage) that are not up: needs,
+         onTotemMissing; onTotemsChanged when the selection changed -->
+    <Task class="TotemProvider_GlobalTask">
+      <Range value="30"/>
+    </Task>
+  </Global>
+  <!-- a selected totem is not up: drops the missing totems one per GCD; fails while none can be cast (mana), not
+       selected again for 3s -->
+  <Node name="Totems">
+    <Conditions>
+      <Condition binding="Root|TotemProvider_GlobalTask::needs"/>
+    </Conditions>
+    <Task class="Task_CastTotem">
+      <Binding local="needs" external="Root|TotemProvider_GlobalTask::needs"/>
+    </Task>
+  </Node>
   <Node name="Idle">
     <Conditions/>
-    <!-- placeholder until the spec's combat exists: waits forever, leaves only through a transition -->
+    <!-- placeholder until the spec's combat exists: waits briefly (a totem that failed is tried again) or until a
+         delegate sends the tree elsewhere -->
     <Task class="Task_Wait">
-      <Delay value="0"/>
+      <Delay value="1000"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemMissing" node="Root|Totems"/>
+      <Transition type="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemsChanged" node="Root"/>
+    </Transitions>
   </Node>
 </Root>

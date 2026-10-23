@@ -10,6 +10,7 @@
 #include "PlayerTalentSpec.h"
 #include "PlayerbotDungeonPositions.h"
 #include "PlayerbotTargetIcons.h"
+#include "PlayerbotTotems.h"
 #include "PlayerbotRtsc.h"
 #include "PlayerbotPremadeSpecs.h"
 
@@ -387,6 +388,8 @@ public:
     void ApplyRtiCommands();
     // WoWAddonInspectBot: applies the premade spec picked in its spec box, then answers with the inventory
     void ApplySpecCommands();
+    // WoWAddonInspectBot's totem boxes: selects a totem for the set in use (outdoor or the stage's), then answers with the inventory
+    void ApplyTotemCommands();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     void QueueChatResponse(uint32 msgType, ObjectGuid guid1, ObjectGuid guid2, std::string message, std::string chanName, std::string name, bool noDelay = false);
 	void HandleBotOutgoingPacket(const WorldPacket& packet);
@@ -641,6 +644,8 @@ public:
     ai::PlayerbotDungeonPositions& GetDungeonPositions() { return dungeonPositions; }
     // the raid target icons the bot attacks / crowd-controls (rti / rti cc, ai_playerbot_db_store)
     ai::PlayerbotTargetIcons& GetTargetIcons() { return targetIcons; }
+    // the totems a shaman keeps up, outdoor and per dungeon stage (ai_playerbot_totems)
+    ai::PlayerbotTotems& GetTotems() { return totems; }
 
     WorldPosition GetJumpDestination() { return jumpDestination; }
     void SetJumpDestination(const WorldPosition& pos) { jumpDestination = pos; }
@@ -823,6 +828,7 @@ protected:
     uint8 inventorySeq = 0;
     ai::PlayerbotDungeonPositions dungeonPositions;
     ai::PlayerbotTargetIcons targetIcons;
+    ai::PlayerbotTotems totems;
     // RTS control: "rtsc ..." commands and the master's Aedm casts, run in UpdateAI
     ai::PlayerbotRtsc rtsc;
     // "rti ..." chat commands (the text after "rti", the player to answer): set from chat, run in UpdateAI
@@ -840,6 +846,15 @@ protected:
     };
     std::mutex specCommandLock;
     std::vector<SpecCommand> specCommands;
+    // WoWAddonInspectBot's totem boxes ("BOT	totem <school> <spell id, 0 none>"): set from chat, run in UpdateAI
+    struct TotemCommand
+    {
+        std::string school;
+        uint32 spellId = 0;
+        uint64 requester = 0;
+    };
+    std::mutex totemCommandLock;
+    std::vector<TotemCommand> totemCommands;
     std::mutex rtiCommandLock;
     std::vector<RtiCommand> rtiCommands;
 

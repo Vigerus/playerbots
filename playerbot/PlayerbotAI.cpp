@@ -441,6 +441,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     ApplyInventoryCommands();
     ApplyRtiCommands();
     ApplySpecCommands();
+    ApplyTotemCommands();
     rtsc.Update(this);
     StateMachine.Update(elapsed, minimal);
     UpdateUpkeep();
@@ -1268,6 +1269,28 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
                     rtiCommand.addon = true;
                     std::lock_guard<std::mutex> lock(rtiCommandLock);
                     rtiCommands.push_back(rtiCommand);
+                }
+            }
+            return;
+        }
+
+        // WoWAddonInspectBot totem boxes (whisper, or with " <bot name>" at the end on party/raid):
+        //   "totem <fire|earth|water|air> <spell id, 0 none>"   the school's totem of the set in use
+        // answered with the inventory (which carries the totems)
+        if (filtered.rfind("totem ", 0) == 0)
+        {
+            std::istringstream request(filtered);
+            std::string command, name;
+            TotemCommand totemCommand;
+            request >> command >> totemCommand.school;
+            if (request >> totemCommand.spellId)
+            {
+                request >> name;
+                if (name.empty() ? type == CHAT_MSG_WHISPER : name == bot->GetName())
+                {
+                    totemCommand.requester = fromPlayer.GetObjectGuid().GetRawValue();
+                    std::lock_guard<std::mutex> lock(totemCommandLock);
+                    totemCommands.push_back(totemCommand);
                 }
             }
             return;
@@ -5919,6 +5942,33 @@ void PlayerbotAI::ApplySpecCommands()
     }
 }
 
+void PlayerbotAI::ApplyTotemCommands()
+{
+    std::vector<TotemCommand> commands;
+    {
+        std::lock_guard<std::mutex> lock(totemCommandLock);
+        commands.swap(totemCommands);
+    }
+
+    for (const TotemCommand& command : commands)
+    {
+        // the addon shows the result: the totem boxes of the inventory answer
+        inventoryRequester = command.requester;
+        if (!bot->IsInWorld())
+            continue;
+
+        // the set in use: the stage's where the master stands in a dungeon stage, else the outdoor set
+        const uint8 school = ai::PlayerbotTotems::ParseSchool(command.school);
+        const ai::PlayerbotTotems::SetKey key = ai::PlayerbotTotems::GetCurrentKey(bot, master);
+        // a totem the bot knows (any rank), or none
+        if (school >= MAX_TOTEM_SLOT || (command.spellId && !ai::PlayerbotTotems::GetHighestKnownRank(bot, command.spellId)))
+            continue;
+
+        if (totems.Select(bot, key, school, command.spellId))
+            sLog.outDetail("%s: %s totem %u (%s)", bot->GetName(), command.school.c_str(), command.spellId, ai::PlayerbotTotems::DescribeKey(key).c_str());
+    }
+}
+
 void PlayerbotAI::ApplyInventoryCommands()
 {
     std::vector<InventoryCommand> commands;
@@ -6004,6 +6054,9 @@ void PlayerbotAI::SendInventory()
     //   R^<rti icons, ','>^<rti cc icon>               "none" when empty
     //   P^<premade spec id>^<name>^<hint>             the premade specs of the bot's class, in config order
     //   C^<premade spec id the bot has, -1 none>^<spec name (SpecProvider_GlobalTask)>
+    //   K^<where the totems in use are saved: "outdoor" or "<dungeon> stage <n> (<name>)">^<1 the stage has its own set>
+    //   T^<fire|earth|water|air>^<selected totem spell (first rank), 0 none>^<the school's totems the bot knows,
+    //     "<first rank id>:<name>" ',' separated>                        shamans only, one per school
     std::ostringstream out;
     out << "H^" << bot->GetName() << "^" << bot->GetMoney() << "^" << bot->GetUInt32Value(PLAYER_AMMO_ID);
 
@@ -6018,6 +6071,27 @@ void PlayerbotAI::SendInventory()
     for (const TalentPath& path : ai::PlayerbotPremadeSpecs::GetPaths(bot))
         out << "~P^" << path.id << "^" << field(path.name) << "^" << field(path.hint);
     out << "~C^" << ai::PlayerbotPremadeSpecs::GetCurrentPathId(bot) << "^" << ai::SpecProvider_GlobalTask::GetSpecName(bot);
+
+    if (bot->getClass() == CLASS_SHAMAN)
+    {
+        const ai::PlayerbotTotems::SetKey key = ai::PlayerbotTotems::GetCurrentKey(bot, master);
+        const ai::PlayerbotTotems::TotemSet& set = totems.GetSet(bot, key);
+        out << "~K^" << field(ai::PlayerbotTotems::DescribeKey(key)) << "^" << (key != ai::PlayerbotTotems::outdoorKey && totems.HasOwnSet(bot, key) ? 1 : 0);
+        for (uint8 school = 0; school < MAX_TOTEM_SLOT; ++school)
+        {
+            out << "~T^" << ai::PlayerbotTotems::GetSchoolName(school) << "^" << set[school] << "^";
+            bool first = true;
+            for (uint32 spellId : ai::PlayerbotTotems::GetKnownTotems(bot, school))
+            {
+                const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+                std::string name = spellInfo ? field(spellInfo->SpellName[0]) : std::to_string(spellId);
+                std::replace(name.begin(), name.end(), ',', ' ');
+                std::replace(name.begin(), name.end(), ':', ' ');
+                out << (first ? "" : ",") << spellId << ":" << name;
+                first = false;
+            }
+        }
+    }
 
     for (uint8 equipmentSlot = EQUIPMENT_SLOT_START; equipmentSlot < EQUIPMENT_SLOT_END; ++equipmentSlot)
         if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, equipmentSlot))

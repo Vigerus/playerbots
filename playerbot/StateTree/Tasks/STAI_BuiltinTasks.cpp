@@ -14,11 +14,13 @@
 #include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/TargetProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/TeamProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/TotemProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/Task_AcceptResurrection.h"
 #include "playerbot/StateTree/Tasks/Task_CastBuff.h"
 #include "playerbot/StateTree/Tasks/Task_CastSpell.h"
+#include "playerbot/StateTree/Tasks/Task_CastTotem.h"
 #include "playerbot/StateTree/Tasks/Task_EatAndDrink.h"
 #include "playerbot/StateTree/Tasks/Task_MakePath.h"
 #include "playerbot/StateTree/Tasks/Task_MoveTo.h"
@@ -69,5 +71,7 @@ namespace ai
         factory.RegisterTask("HealProvider_GlobalTask", { &HealProvider_GlobalTask::Validate, &HealProvider_GlobalTask::Create });
         factory.RegisterTask("TeamProvider_GlobalTask", { &TeamProvider_GlobalTask::Validate, &TeamProvider_GlobalTask::Create });
         factory.RegisterTask("Task_AcceptResurrection", { &Task_AcceptResurrection::Validate, &Task_AcceptResurrection::Create });
+        factory.RegisterTask("TotemProvider_GlobalTask", { &TotemProvider_GlobalTask::Validate, &TotemProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_CastTotem", { &Task_CastTotem::Validate, &Task_CastTotem::Create });
     }
 }
