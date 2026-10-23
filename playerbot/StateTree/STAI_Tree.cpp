@@ -53,6 +53,16 @@ namespace
         if (def.binding.path.empty())
             throw std::runtime_error(where + ": <Condition> needs a binding=\"Root|...\" (a task property)");
 
+        const std::string key = Attribute(condition, "key");
+        if (!key.empty())
+        {
+            char* end = nullptr;
+            def.key = std::strtod(key.c_str(), &end);
+            if (*end)
+                throw std::runtime_error(where + ": key needs a number, got '" + key + "'");
+            def.hasKey = true;
+        }
+
         const std::string negate = Attribute(condition, "negate");
         if (negate == "true" || negate == "1")
             def.negate = true;
@@ -78,7 +88,13 @@ namespace
             char* end = nullptr;
             def.value = std::strtod(value.c_str(), &end);
             if (value.empty() || *end)
-                throw std::runtime_error(where + ": compare needs a number in value=\"...\", got '" + value + "'");
+            {
+                // a text: only compared for equality
+                if (value.empty() || def.compare != Compare::Equal)
+                    throw std::runtime_error(where + ": compare needs a number in value=\"...\" (a text only with compare=\"equal\"), got '" + value + "'");
+                def.isText = true;
+                def.text = value;
+            }
         }
 
         return def;
@@ -373,6 +389,18 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
                 condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
                 if (!condition.property)
                     throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
+                if (condition.hasKey)
+                {
+                    if (!condition.property->lookup)
+                        throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' with a key is not a map of numbers");
+                    continue;
+                }
+                if (condition.isText)
+                {
+                    if (!condition.property->toText)
+                        throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a text, it cannot be compared with '" + condition.text + "'");
+                    continue;
+                }
                 if (condition.compare == STAI_ConditionDef::Compare::None && !condition.property->isSet)
                     throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
                 if (condition.compare != STAI_ConditionDef::Compare::None && !condition.property->toNumber)
@@ -417,12 +445,17 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
 
 bool STAI_ConditionDef::Passes(const void* boundValue) const
 {
+    if (isText)
+        return (property->toText(boundValue) == text) != negate;
+
     bool passed;
+    double entry = 0.0;
+    const bool hasEntry = hasKey && property->lookup(boundValue, key, entry);
     if (compare == Compare::None)
-        passed = property->isSet(boundValue);
+        passed = hasKey ? hasEntry && entry != 0.0 : property->isSet(boundValue);
     else
     {
-        const double number = property->toNumber(boundValue);
+        const double number = hasKey ? entry : property->toNumber(boundValue);
         switch (compare)
         {
             case Compare::Equal: passed = number == value; break;
@@ -438,7 +471,15 @@ bool STAI_ConditionDef::Passes(const void* boundValue) const
 std::string STAI_ConditionDef::GetText() const
 {
     std::string text = binding.path;
-    if (compare != Compare::None)
+    if (hasKey)
+    {
+        std::ostringstream out;
+        out << "[" << key << "]";
+        text += out.str();
+    }
+    if (isText)
+        text += " " + compareText + " '" + this->text + "'";
+    else if (compare != Compare::None)
     {
         std::ostringstream out;
         out << " " << compareText << " " << value;

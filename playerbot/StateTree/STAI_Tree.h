@@ -25,6 +25,11 @@ namespace ai
     // not empty, otherwise its bool value), or not set with negate="true".
     // <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>: compares a number
     // property (compare: equal, lesser, lesser or equal, greater, greater or equal).
+    // <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="45438"/>: the entry of a map of numbers (or
+    // bools) instead of the property itself: passes while it is set (non-zero), compare / negate as above; a key the
+    // map does not have is not set (compared as 0).
+    // <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>: a text property
+    // equal to the value (only compare="equal").
     struct STAI_ConditionDef
     {
         enum class Compare : uint8 { None, Equal, Lesser, LesserOrEqual, Greater, GreaterOrEqual };
@@ -35,6 +40,10 @@ namespace ai
         std::string compareText;
         double value = 0.0;
         bool negate = false;
+        bool hasKey = false;        // key="...": an entry of a map property
+        bool isText = false;        // compare="equal" with a value that is no number: compares a text property
+        std::string text;
+        double key = 0.0;
 
         // a bound condition on the value of its property
         bool Passes(const void* boundValue) const;

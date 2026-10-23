@@ -1,11 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Druid bots: AiPlayerbot.StateTree.Combat.Druid -->
+<!-- picks the subtree for the bot's spec; a spec change (talents learned or reset) selects again -->
 <Root>
+  <Global>
+    <!-- the bot's spec: specName, onSpecChanged -->
+    <Task class="SpecProvider_GlobalTask"/>
+  </Global>
+  <Node name="Resto Druid">
+    <Conditions>
+      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="resto druid"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Druid/STAI_Combat_Resto_Druid.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+    </Transitions>
+  </Node>
+  <Node name="Prot Druid">
+    <Conditions>
+      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="prot druid"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Druid/STAI_Combat_Prot_Druid.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+    </Transitions>
+  </Node>
   <Node name="Idle">
     <Conditions/>
-    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
+    <!-- no spec subtree: waits for a spec change -->
     <Task class="Task_Wait">
       <Delay value="0"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+    </Transitions>
   </Node>
 </Root>

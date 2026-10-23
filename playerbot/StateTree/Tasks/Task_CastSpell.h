@@ -1,6 +1,7 @@
 #pragma once
 
 #include "playerbot/StateTree/STAI_TaskFactory.h"
+#include "playerbot/StateTree/Tasks/STAI_SpellConfig.h"
 
 #include "Entities/ObjectGuid.h"
 
@@ -29,6 +30,9 @@ namespace ai
     //   <Task class="Task_CastSpell" spellid="Frostbolt">
     //     <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     //   </Task>
+    //   <Task class="Task_CastSpell" spellid="Ice Block">
+    //     <Target value="self"/>      the bot itself, before target and whoNeeds
+    //   </Task>
     // Succeeded once the cast and the GCD are over, or in OnEnter when there is no living target; Failed in OnEnter
     // when the bot does not know the spell or can cast it on none of the living targets (range, sight, mana...).
     // Its History entries ("Cast <spell>") are successful when the spell went off: instant and channeled spells (Fire
@@ -38,8 +42,7 @@ namespace ai
     class Task_CastSpell : public STAI_Task
     {
     public:
-        Task_CastSpell(uint32 spellId, const std::string& spellName, std::vector<uint32> namedSpells = {})
-            : spellId(spellId), spellName(spellName), namedSpells(std::move(namedSpells)) {}
+        Task_CastSpell(STAI_ConfiguredSpell spell, bool self) : spell(std::move(spell)), self(self) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -57,18 +60,15 @@ namespace ai
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
-        virtual std::string GetDebugInfo() const override { return "Cast " + STAI_SpellMarkup(spellId); }
+        virtual std::string GetDebugInfo() const override { return "Cast " + STAI_SpellMarkup(spell.spellId); }
         // every cast gets its own History entry
         virtual bool AreConsecutiveLogsStacked() const override { return false; }
 
     private:
-        // the spell the bot casts: the configured id when it knows it, else its highest rank of the configured name
-        uint32 ResolveSpell(const Player* bot) const;
         // the cast's spell go / failure since it started: 1 went off, 0 failed, -1 neither yet
         static int8 CastResult(const Task_CastSpellContext& context);
 
-        uint32 spellId;             // the configured spell id, or the first spell of the configured name
-        std::string spellName;      // lower case, empty when configured by id: by name the bot's highest rank is cast
-        std::vector<uint32> namedSpells;    // by name: every spell of that name, highest rank first (found once at load)
+        STAI_ConfiguredSpell spell;     // the spell the bot casts (its highest known rank when named)
+        bool self;                      // <Target value="self"/>: the bot is the first target
     };
 }

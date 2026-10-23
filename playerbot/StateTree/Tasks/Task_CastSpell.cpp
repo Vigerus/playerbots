@@ -5,9 +5,7 @@
 #include "Maps/Map.h"
 #include "Spells/SpellMgr.h"
 
-#include <algorithm>
-#include <cctype>
-#include <sstream>
+#include <optional>
 #include <stdexcept>
 
 using namespace ai;
@@ -17,78 +15,27 @@ namespace
     // the task gives up waiting for the cast and the GCD after this long
     constexpr uint32 castTimeoutMs = 10000;
 
-    std::string ToLower(std::string text)
+    // <Target value="self"/>: the bot casts on itself
+    bool ParseSelf(const STAI_TaskConfig& config)
     {
-        std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
-        return text;
-    }
-
-    bool IsNumber(const std::string& text)
-    {
-        return !text.empty() && std::all_of(text.begin(), text.end(), [](unsigned char c) { return std::isdigit(c); });
-    }
-
-    // spellid="..." of the <Task>: a spell id, or the name of a spell (lower case) with the first spell of that name
-    // and every spell of that name, highest rank first
-    struct ParsedSpell
-    {
-        uint32 spellId = 0;
-        std::string spellName;
-        std::vector<uint32> namedSpells;
-    };
-
-    ParsedSpell ParseSpell(const STAI_TaskConfig& config)
-    {
-        const std::string value = config.get<std::string>("<xmlattr>.spellid", "");
-        if (value.empty())
-            throw std::runtime_error("needs spellid=\"<spell id or name>\"");
-
-        if (IsNumber(value))
-        {
-            const uint32 spellId = uint32(std::strtoul(value.c_str(), nullptr, 10));
-            if (!sSpellTemplate.LookupEntry<SpellEntry>(spellId))
-                throw std::runtime_error("spellid=\"" + value + "\": unknown spell");
-            return { spellId, "" };
-        }
-
-        ParsedSpell spell;
-        spell.spellName = ToLower(value);
-        for (uint32 id = 1; id < sSpellTemplate.GetMaxEntry(); ++id)
-            if (const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(id))
-                if (ToLower(spellInfo->SpellName[0]) == spell.spellName)
-                    spell.namedSpells.push_back(id);
-
-        if (spell.namedSpells.empty())
-            throw std::runtime_error("spellid=\"" + value + "\": no spell has that name");
-
-        spell.spellId = spell.namedSpells.front();
-        // stable: spells of the same rank keep their id order
-        std::stable_sort(spell.namedSpells.begin(), spell.namedSpells.end(), [](uint32 a, uint32 b) { return sSpellMgr.GetSpellRank(a) > sSpellMgr.GetSpellRank(b); });
-        return spell;
+        const std::optional<std::string> target = STAI_TaskFactory::GetSetting(config, "Target");
+        if (!target)
+            return false;
+        if (*target != "self")
+            throw std::runtime_error("<Target value=\"" + *target + "\">: only \"self\" is known");
+        return true;
     }
 }
 
 void Task_CastSpell::Validate(const STAI_TaskConfig& config)
 {
-    ParseSpell(config);
+    STAI_ConfiguredSpell::Parse(config);
+    ParseSelf(config);
 }
 
 std::unique_ptr<STAI_Task> Task_CastSpell::Create(const STAI_TaskConfig& config)
 {
-    const ParsedSpell spell = ParseSpell(config);
-    return std::make_unique<Task_CastSpell>(spell.spellId, spell.spellName, spell.namedSpells);
-}
-
-uint32 Task_CastSpell::ResolveSpell(const Player* bot) const
-{
-    if (spellName.empty())
-        return bot->HasSpell(spellId) ? spellId : 0;
-
-    // the highest rank the bot knows (HasSpell: learned, not removed or disabled)
-    for (uint32 id : namedSpells)
-        if (bot->HasSpell(id))
-            return id;
-    return 0;
+    return std::make_unique<Task_CastSpell>(STAI_ConfiguredSpell::Parse(config), ParseSelf(config));
 }
 
 EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
@@ -108,6 +55,8 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
     std::vector<ObjectGuid> guids = context.whoNeeds;
     if (!context.target.IsEmpty())
         guids.insert(guids.begin(), context.target);
+    if (self)
+        guids.insert(guids.begin(), bot->GetObjectGuid());
     for (ObjectGuid guid : guids)
     {
         Unit* target = guid == bot->GetObjectGuid() ? bot : bot->GetMap()->GetUnit(guid);
@@ -119,25 +68,25 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
     if (targets.empty())
         return LogStatus(context, EActionRunStatus::Succeeded);
 
-    const uint32 spell = ResolveSpell(bot);
-    if (!spell)
+    const uint32 spellId = spell.Resolve(bot);
+    if (!spellId)
         return LogStatus(context, EActionRunStatus::Failed);
 
     for (Unit* target : targets)
     {
-        if (!context.ai->CanCastSpell(spell, target, 0, true))
+        if (!context.ai->CanCastSpell(spellId, target, 0, true))
             continue;
 
         // before the cast: an instant spell's spell go arrives during CastSpell
         context.castStartMs = WorldTimer::getMSTime();
-        if (!context.ai->CastSpell(spell, target))
+        if (!context.ai->CastSpell(spellId, target))
             continue;
 
-        context.spellId = spell;
+        context.spellId = spellId;
         context.castTarget = target->GetObjectGuid();
 
         // instant and channeled spells went off when they started; a cast time is decided by the spell go
-        const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spell);
+        const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
         context.resultAtStart = spellInfo && (IsChanneledSpell(spellInfo) || GetSpellCastTime(spellInfo, bot) == 0);
         if (context.resultAtStart)
             context.result = 1;

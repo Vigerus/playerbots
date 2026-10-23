@@ -42,6 +42,12 @@ namespace ai
         struct HasIsEmpty : std::false_type {};
         template <class T>
         struct HasIsEmpty<T, std::void_t<decltype(std::declval<const T&>().IsEmpty())>> : std::true_type {};
+        // std::map and the like with number keys and number (or bool) values: read by key in conditions
+        template <class T, class = void>
+        struct IsNumberMap : std::false_type {};
+        template <class T>
+        struct IsNumberMap<T, std::void_t<typename T::key_type, typename T::mapped_type>>
+            : std::bool_constant<std::is_arithmetic_v<typename T::key_type> && std::is_arithmetic_v<typename T::mapped_type>> {};
     }
 
     // A value of a task context that other tasks of the tree can read by path (Root|<TaskClass>::<name> for a
@@ -49,6 +55,8 @@ namespace ai
     //   <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>   copied into the task's own property
     //   <Condition binding="Root|BuffProvider_GlobalTask::needs"/>                passes while the value is set
     //   <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>   compares a number
+    //   <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="45438"/>   an entry of a number map
+    //   <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>   a text
     struct STAI_PropertyDef
     {
         std::string name;
@@ -57,11 +65,15 @@ namespace ai
         std::function<void(void* to, const void* from)> assign;
         std::function<bool(const void* value)> isSet;           // containers: not empty, guids: not empty, else bool(value); empty when untestable
         std::function<double(const void* value)> toNumber;      // numbers (and bool) for compared conditions; empty otherwise
+        // maps of numbers: the entry of the key as a number, false when the map has no such entry; empty otherwise
+        std::function<bool(const void* value, double key, double& entry)> lookup;
+        // strings for conditions comparing text (compare="equal" value="frost mage"); empty otherwise
+        std::function<const std::string&(const void* value)> toText;
 
         template <class Context, class T>
         static STAI_PropertyDef Of(const std::string& name, T Context::* member)
         {
-            STAI_PropertyDef def{ name, std::type_index(typeid(T)), {}, {}, {} };
+            STAI_PropertyDef def{ name, std::type_index(typeid(T)), {}, {}, {}, {}, {}, {} };
             def.get = [member](STAI_TaskContext& context) -> void* { return &(static_cast<Context&>(context).*member); };
             def.assign = [](void* to, const void* from) { *static_cast<T*>(to) = *static_cast<const T*>(from); };
             if constexpr (STAI_Detail::HasEmpty<T>::value)
@@ -72,6 +84,18 @@ namespace ai
                 def.isSet = [](const void* value) { return static_cast<bool>(*static_cast<const T*>(value)); };
             if constexpr (std::is_arithmetic_v<T>)
                 def.toNumber = [](const void* value) { return static_cast<double>(*static_cast<const T*>(value)); };
+            if constexpr (std::is_same_v<T, std::string>)
+                def.toText = [](const void* value) -> const std::string& { return *static_cast<const std::string*>(value); };
+            if constexpr (STAI_Detail::IsNumberMap<T>::value)
+                def.lookup = [](const void* value, double key, double& entry)
+                {
+                    const T& map = *static_cast<const T*>(value);
+                    const auto found = map.find(static_cast<typename T::key_type>(key));
+                    if (found == map.end())
+                        return false;
+                    entry = static_cast<double>(found->second);
+                    return true;
+                };
             return def;
         }
     };

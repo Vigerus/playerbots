@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Combat subtree for Shadow Priest bots (run by STAI_Combat_Priest.xml) -->
+<Root>
+  <Node name="Idle">
+    <Conditions/>
+    <!-- placeholder until the spec's combat exists: waits forever, leaves only through a transition -->
+    <Task class="Task_Wait">
+      <Delay value="0"/>
+    </Task>
+  </Node>
+</Root>

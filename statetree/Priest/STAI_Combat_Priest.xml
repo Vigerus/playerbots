@@ -1,11 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Priest bots: AiPlayerbot.StateTree.Combat.Priest -->
+<!-- picks the subtree for the bot's spec; a spec change (talents learned or reset) selects again -->
 <Root>
+  <Global>
+    <!-- the bot's spec: specName, onSpecChanged -->
+    <Task class="SpecProvider_GlobalTask"/>
+  </Global>
+  <Node name="Holy Priest">
+    <Conditions>
+      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="holy priest"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Priest/STAI_Combat_Holy_Priest.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+    </Transitions>
+  </Node>
+  <Node name="Disc Priest">
+    <Conditions>
+      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="disc priest"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Priest/STAI_Combat_Disc_Priest.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+    </Transitions>
+  </Node>
+  <Node name="Shadow Priest">
+    <Conditions>
+      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="shadow priest"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Priest/STAI_Combat_Shadow_Priest.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+    </Transitions>
+  </Node>
   <Node name="Idle">
     <Conditions/>
-    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
+    <!-- no spec subtree: waits for a spec change -->
     <Task class="Task_Wait">
       <Delay value="0"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+    </Transitions>
   </Node>
 </Root>

@@ -80,6 +80,10 @@ Global tasks (providers) cannot be switched off.
 Conditions test task properties: `<Condition binding="Root|..."/>` (see below) passes while the property is set (a
 container not empty, else its bool value), or while it is not set with `negate="true"`; with
 `compare="equal|lesser|lesser or equal|greater|greater or equal" value="<number>"` it compares a number property.
+`compare="equal"` with a value that is not a number compares a text property (`<Condition
+binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>`), other compares need numbers.
+`key="<number>"` reads the entry of a map property instead (`CooldownProvider_GlobalTask::ready`): it passes while the
+entry is set (non-zero), `compare` / `negate` work on the entry, a missing key is not set (compared as 0).
 `<Conditions match="any">` passes when one condition passes (default `all`). The debug addon shows each condition
 green (passed), red (failed) or gray (not checked in the last update). (The legacy trigger conditions,
 `<Condition trigger="..."/>`, went with the strategy engine.)
@@ -98,7 +102,7 @@ Tasks:
 | `MasterDistance_GlobalTask` | `<Range value="follow"/>` (yards or a range name, default `follow`) | global task: property `masterFar` (a living master on another map or instance is always far), property `location` (where the master is, for `Task_MakePath`), delegate `onMasterFar` fired every update while the master is beyond the range |
 | `BuffProvider_GlobalTask` | `<Buff spellid="..." scope="self\|single\|group"/>` per spell (any rank; scope optional, read from the spell's targets) | global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any; spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance) |
 | `CurseProvider_GlobalTask` | `<Aura spellid="..."/>` per aura (any rank), optional | global task, not ticked: watches the bot and its group for the listed auras, or every dispellable curse when none is listed; property `whoNeeds` (the cursed members, the bot first), delegate `onNeedsHelp` fired when an evaluation finds any |
-| `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="target" .../>` and / or `<Binding local="whoNeeds" .../>` | casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot does not know the spell or reaches no living target |
+| `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="target" .../>` and / or `<Binding local="whoNeeds" .../>`, or `<Target value="self"/>` (the bot first) | casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot does not know the spell or reaches no living target |
 | `HealthProvider_GlobalTask` / `ManaProvider_GlobalTask` | none | global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second |
 | `InstanceProvider_GlobalTask` | none | global task: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again. On maps with stages (see below) ticked every 500ms: properties `stage` / `masterStage` (the stage the bot / master stands in, -1 none), `masterStageCleared` (the master is in no stage or a cleared one), `pathBlocked` (the way to `stagePosition`, else to the master out of follow range, crosses a stage that is not cleared other than the bot's), `stagePosition` (the bot's spot in the master's cleared stage, unset without one), `stagePositionFar`; delegates `onStageBlocked` (`masterStageCleared` turned false or `pathBlocked` true), `onStageCleared` (the master's stage got cleared), `onStagePositionFar` (every check while away from `stagePosition` and not blocked) |
 | `Task_MoveToPosition` | `<AcceptableRadius value="2"/>` (yards, default 2), `<Binding local="position" .../>` | moves to the bound position (again when it changes; `MovePointAsync`, the path comes from the `PathfindingWorker`); Succeeded inside the radius or without a position, Failed after 30s; `OnExit` stops its movement |
@@ -112,6 +116,12 @@ Tasks:
 | `Task_AcceptTrade`   | none | accepts the trade (the other player accepted first), with the same trader rule; Failed when it cancelled |
 | `Task_RollForItem`   | `<Binding local="rolls" external="Root\|UIInteractionProvider_GlobalTask::rolls"/>` | votes on every bound roll: greed for now (pass when greed is not allowed); not tickable, Succeeded in `OnEnter` |
 | `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
+| `Task_UseItem`       | `<Item id="..."/>` per item, in the order they are tried | uses the first listed item of the bags whose spell is off cooldown (and its level allows) on the bot; with the item cheat an item it does not have by casting its spell; Succeeded once the item's spell went off, Failed when nothing can be used or the spell did not go off within 3s |
+| `Task_Shoot`         | `<Binding local="target" .../>` | shoots the target with the equipped wand (Shoot, auto-repeat) while the node runs; Succeeded without a living target or when the bound target changed, Failed without a wand, when the target cannot be shot or the shooting stopped for 2s and cannot be started again; `OnExit` stops the shooting |
+| `InterruptProvider_GlobalTask` | `spellid="..."` on the `<Task>` (the bot's interrupt, id or name) | global task, ticked (every 100ms): the enemies on the threat lists of the bot and its group that cast or channel an interruptible spell and that the interrupt reaches now (known, off cooldown, range, sight, mana); property `whoNeeds` (healing casts first), delegate `onInterruptNeeded` fired when the first caster or its spell changes |
+| `HazardProvider_GlobalTask` | `<Margin value="2"/>` (yards, default 2) | global task, ticked (every 250ms): the area effects on the ground (dynamic objects) of units hostile to the bot with a harmful effect; property `inHazard` (the bot stands in one), property `safePosition` (the closest spot around the bot, 16 directions up to 20 yards, outside every hazard by the margin, in sight and walkable; kept while it stays safe; unset outside hazards), delegate `onHazard` fired when the bot got into one and every second while it is still in one |
+| `CooldownProvider_GlobalTask` | `<Spell id="..."/>` per spell (any rank) | global task, ticked (every 250ms): property `ready` (`std::map` spell id -> the bot knows the spell or another rank of it and its own and category cooldowns are over, the GCD not included), read with a keyed condition `<Condition binding="Root\|CooldownProvider_GlobalTask::ready" key="11958"/>`; delegate `onCooldownChanged` fired when an entry changed |
+| `SpecProvider_GlobalTask` | none | global task, ticked (every 2s): property `specName`, the bot's spec from its talent tab with the most points (`PlayerSpec`, a class default below level 10): "frost mage", "fire mage" (arcane counts as frost), "holy priest", "disc priest", "shadow priest", "warlock", "rogue", "hunter", "enh shaman" (elemental too), "resto shaman", "prot druid" (balance and feral), "resto druid", "holy paladin", "prot paladin", "retri paladin", "arms warrior", "fury warrior", "prot warrior"; delegate `onSpecChanged` fired when it changed |
 
 New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`; global tasks that publish properties and delegates for
 the tree, the providers, in `playerbot/StateTree/Providers/`) and are registered in `STAI_BuiltinTasks.cpp`.
@@ -160,11 +170,20 @@ and raid instances (`inDungeon`), `STAI_NonCombat_Outdoors_<Class>.xml` everywhe
 0), which leaves through its transitions. Mage decurses and buffs: Idle goes to Check Decurse when someone is cursed
 (Remove Lesser Curse) and to Check Missing Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is
 missing; each casts once per visit and is selected again while its `whoNeeds` / `needs` is not empty.
-`Mage/STAI_Combat_Mage.xml` (one tree for every map) runs CC Target (`Task_CastSpell` Polymorph on
-`CCProvider_GlobalTask::whoNeeds`), Attack Target (`Task_GetInRange`, then `Task_CastSpell` Frostbolt on
-`TargetProvider_GlobalTask::target`, one cast per visit; `WithThreat` holds the target back at 90% of the tank's
-threat) and Idle (`Task_Wait` 0, left on `onCCNeeded` /
-`onTargetChanged`). The other classes' Combat and Dead trees are only Idle for now.
+The class Combat trees of Mage, Priest, Shaman, Druid, Paladin and Warrior only pick a subtree by
+`SpecProvider_GlobalTask::specName`, `<Class>/STAI_Combat_<Spec>_<Class>.xml` (e.g. `Mage/STAI_Combat_Frost_Mage.xml`,
+`Priest/STAI_Combat_Disc_Priest.xml`), and select again on `onSpecChanged`; Warlock, Rogue and Hunter have one spec and
+keep a single tree. `Mage/STAI_Combat_Frost_Mage.xml` (one tree for every map, PvE, no AoE yet) runs, in this order: Escape Hazard
+(`Task_MoveToPosition` to `HazardProvider_GlobalTask::safePosition` while `inHazard`), Ice Block (self, below 20%
+health, while `CooldownProvider_GlobalTask::ready` has it), Interrupt (Counterspell on `InterruptProvider_GlobalTask::whoNeeds`), CC Target (`Task_CastSpell` Polymorph
+on `CCProvider_GlobalTask::whoNeeds`), Decurse (Remove Lesser Curse on `CurseProvider_GlobalTask::whoNeeds`), Mana
+Gem (`Task_UseItem`, below 30% mana), Evocation (self, below 15%, while ready), Mana Potion (`Task_UseItem`, below 15%), Wand
+(`Task_Shoot` below 10% mana, left once it is back at 20% or the target changed), Attack Target (`Task_GetInRange`,
+then `Task_CastSpell` Frostbolt on `TargetProvider_GlobalTask::target`, one cast per visit; `WithThreat` holds the
+target back at 90% of the tank's threat) and Idle. Attack Target, Wand, Evocation and Idle leave on `onHazard`,
+`onHealthChanged` (Ice Block, entered only below 20%), `onInterruptNeeded`, `onCCNeeded` (and the others as listed in
+the file). `Mage/STAI_Combat_Fire_Mage.xml` is the same with Fireball instead of Frostbolt and without Ice Block. The
+other spec subtrees, the Warlock, Rogue and Hunter Combat trees and every Dead tree are only Idle for now.
 Every Reaction tree (`STAI_Reaction.xml` and each class's) trades and rolls for loot: Idle goes to Open Trade on
 `onTradeRequested` and to Accept Trade on `onTradeAccepted` (each also selected while `tradeOpenRequested` /
 `tradeAcceptRequested`, then back to Root), so the bot opens the window when its master starts a trade and accepts
