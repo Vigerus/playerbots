@@ -21,13 +21,14 @@ namespace ai
     //   <Task class="Task_GetInRange">
     //     <Range value="spell"/>    yards or a range name (default spell: the bot's spell range)
     //     <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    //     <Target value="dead"/>    optional: the target must be dead instead of alive (a body to resurrect)
     //   </Task>
-    // Succeeded once in range and sight (right away when it already is), also when there is no living target (the
-    // node finishes, the tree selects again); Failed after 10s without getting there.
+    // Succeeded once in range and sight (right away when it already is), also when there is no living (dead) target
+    // (the node finishes, the tree selects again); Failed after 10s without getting there.
     class Task_GetInRange : public STAI_Task
     {
     public:
-        Task_GetInRange(const std::string& range, const std::string& targetSource) : range(range), targetSource(targetSource) {}
+        Task_GetInRange(const std::string& range, const std::string& targetSource, bool dead) : range(range), targetSource(targetSource), dead(dead) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -53,5 +54,6 @@ namespace ai
 
         std::string range;          // yards or a range name
         std::string targetSource;   // what the target is bound to, for the debug info
+        bool dead;                  // <Target value="dead"/>: the target is a dead body
     };
 }

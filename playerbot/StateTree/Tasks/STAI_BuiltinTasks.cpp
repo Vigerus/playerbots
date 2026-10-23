@@ -3,8 +3,9 @@
 #include "playerbot/StateTree/Providers/BuffProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CCProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CooldownProvider_GlobalTask.h"
-#include "playerbot/StateTree/Providers/CurseProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/DispelProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/HazardProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/HealProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/InstanceProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/InterruptProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/UIInteractionProvider_GlobalTask.h"
@@ -12,8 +13,10 @@
 #include "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/TargetProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/TeamProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
+#include "playerbot/StateTree/Tasks/Task_AcceptResurrection.h"
 #include "playerbot/StateTree/Tasks/Task_CastBuff.h"
 #include "playerbot/StateTree/Tasks/Task_CastSpell.h"
 #include "playerbot/StateTree/Tasks/Task_EatAndDrink.h"
@@ -42,6 +45,7 @@ namespace ai
         factory.RegisterTask("Task_CastBuff", { &Task_CastBuff::Validate, &Task_CastBuff::Create });
         factory.RegisterTask("MasterDistance_GlobalTask", { &MasterDistance_GlobalTask::Validate, &MasterDistance_GlobalTask::Create });
         factory.RegisterTask("CurseProvider_GlobalTask", { &CurseProvider_GlobalTask::Validate, &CurseProvider_GlobalTask::Create });
+        factory.RegisterTask("DispelProvider_GlobalTask", { &DispelProvider_GlobalTask::Validate, &DispelProvider_GlobalTask::Create });
         factory.RegisterTask("Task_CastSpell", { &Task_CastSpell::Validate, &Task_CastSpell::Create });
         factory.RegisterTask("HealthProvider_GlobalTask", { &HealthProvider_GlobalTask::Validate, &HealthProvider_GlobalTask::Create });
         factory.RegisterTask("ManaProvider_GlobalTask", { &ManaProvider_GlobalTask::Validate, &ManaProvider_GlobalTask::Create });
@@ -62,5 +66,8 @@ namespace ai
         factory.RegisterTask("HazardProvider_GlobalTask", { &HazardProvider_GlobalTask::Validate, &HazardProvider_GlobalTask::Create });
         factory.RegisterTask("Task_UseItem", { &Task_UseItem::Validate, &Task_UseItem::Create });
         factory.RegisterTask("Task_Shoot", { &Task_Shoot::Validate, &Task_Shoot::Create });
+        factory.RegisterTask("HealProvider_GlobalTask", { &HealProvider_GlobalTask::Validate, &HealProvider_GlobalTask::Create });
+        factory.RegisterTask("TeamProvider_GlobalTask", { &TeamProvider_GlobalTask::Validate, &TeamProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_AcceptResurrection", { &Task_AcceptResurrection::Validate, &Task_AcceptResurrection::Create });
     }
 }

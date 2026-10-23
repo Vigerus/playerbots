@@ -14,7 +14,7 @@ class SpellAuraHolder;
 namespace ai
 {
     // Base of the contexts of global tasks that watch auras on the bot and its group (BuffProvider_GlobalTask,
-    // CurseProvider_GlobalTask): Subscribe hooks the TeamSubsystem (group changes) and the SpellAuraWorldSubsystem
+    // DispelProvider_GlobalTask): Subscribe hooks the TeamSubsystem (group changes) and the SpellAuraWorldSubsystem
     // (aura applied / removed on every member, self included); each event of a watched aura on the bot's map, and
     // each group change, calls Evaluate. Unsubscribed in OnExit (Unsubscribe) and when the context is destroyed.
     struct STAI_GroupAuraWatchContext : public STAI_TaskContext

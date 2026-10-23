@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Combat subtree for healing (Holy and Disc) Priest bots (run by STAI_Combat_Priest.xml) -->
+<Root>
+  <Global>
+    <!-- mana of the bot: manaPct, onManaChanged -->
+    <Task class="ManaProvider_GlobalTask"/>
+    <!-- the health of the bot and its group: critical / low / medium / almostFull (worst first), healTarget, aggroed,
+         selfAttacked, mainTank, tankOutOfRange; onNeedsHeal, onAggro, onTankOutOfRange -->
+    <Task class="HealProvider_GlobalTask">
+      <Critical value="20"/>
+      <Low value="50"/>
+      <Medium value="70"/>
+      <AlmostFull value="90"/>
+      <TankRange value="30"/>
+    </Task>
+    <!-- harmful magic and diseases on the bot and its group: magic, disease, onNeedsHelp -->
+    <Task class="DispelProvider_GlobalTask">
+      <Dispel type="magic"/>
+      <Dispel type="disease"/>
+    </Task>
+    <!-- Fade only while it is ready: ready[586] -->
+    <Task class="CooldownProvider_GlobalTask">
+      <Spell id="586"/>  <!-- Fade -->
+    </Task>
+    <!-- the bot's crowd-control mark (rti cc, default moon), shackled undead count as controlled: whoNeeds, onCCNeeded -->
+    <Task class="CCProvider_GlobalTask"/>
+    <!-- the unit to attack when nobody needs healing, held back at 90% of the tank's threat: target, onTargetChanged -->
+    <Task class="TargetProvider_GlobalTask">
+      <WithThreat value="true"/>
+      <ThreatAmount value="90"/>
+    </Task>
+  </Global>
+  <!-- below 20%: a shield first (skipped while Weakened Soul is on them: the node fails and waits 3s), then Flash Heal -->
+  <Node name="Shield Critical">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::critical"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="35"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Power Word: Shield">
+      <SkipAura spellid="6788"/>  <!-- Weakened Soul -->
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::critical"/>
+    </Task>
+  </Node>
+  <Node name="Critical Heal">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::critical"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="35"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
+    </Task>
+    <!-- the fastest heal the bot knows: Flash Heal from level 20, before that Heal / Lesser Heal -->
+    <Task class="Task_CastSpell" spellid="Flash Heal">
+      <Fallback spellid="Heal"/>
+      <Fallback spellid="Lesser Heal"/>
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::critical"/>
+    </Task>
+  </Node>
+  <!-- the bot took aggro from the tank: Fade (only with a living tank in the group, while it is off cooldown) -->
+  <Node name="Fade">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::selfAttacked"/>
+      <Condition binding="Root|HealProvider_GlobalTask::mainTank"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="586"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Fade">
+      <Target value="self"/>
+    </Task>
+  </Node>
+  <!-- members that are no tank and are attacked (the bot first): a shield, unless Weakened Soul is on them -->
+  <Node name="Shield Aggroed">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::aggroed"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Power Word: Shield">
+      <SkipAura spellid="6788"/>  <!-- Weakened Soul -->
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::aggroed"/>
+    </Task>
+  </Node>
+  <!-- below 50%: a shield, then Greater Heal (Heal / Lesser Heal before the bot knows it) -->
+  <Node name="Shield Low">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::low"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="35"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Power Word: Shield">
+      <SkipAura spellid="6788"/>  <!-- Weakened Soul -->
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::low"/>
+    </Task>
+  </Node>
+  <Node name="Low Heal">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::low"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="35"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Greater Heal">
+      <Fallback spellid="Heal"/>
+      <Fallback spellid="Lesser Heal"/>
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::low"/>
+    </Task>
+  </Node>
+  <Node name="Dispel Magic">
+    <Conditions>
+      <Condition binding="Root|DispelProvider_GlobalTask::magic"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Dispel Magic">
+      <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::magic"/>
+    </Task>
+  </Node>
+  <Node name="Cure Disease">
+    <Conditions>
+      <Condition binding="Root|DispelProvider_GlobalTask::disease"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Abolish Disease">
+      <Fallback spellid="Cure Disease"/>
+      <!-- Abolish Disease keeps curing: not cast again while it is on the target -->
+      <SkipAura own="true"/>
+      <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::disease"/>
+    </Task>
+  </Node>
+  <!-- below 70%: Heal (Lesser Heal at low levels), cheaper than Greater Heal -->
+  <Node name="Medium Heal">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::medium"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="35"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Heal">
+      <Fallback spellid="Lesser Heal"/>
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::medium"/>
+    </Task>
+  </Node>
+  <!-- below 90%: Renew, unless the bot's Renew is on them already (then the node fails and waits 3s) -->
+  <Node name="Renew">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::almostFull"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="35"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Renew">
+      <SkipAura own="true"/>
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::almostFull"/>
+    </Task>
+  </Node>
+  <!-- low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s) -->
+  <Node name="Mana Potion">
+    <Conditions>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+    </Conditions>
+    <Task class="Task_UseItem">
+      <Item id="13444"/>  <!-- Major Mana Potion -->
+      <Item id="13443"/>  <!-- Superior Mana Potion -->
+      <Item id="6149"/>   <!-- Greater Mana Potion -->
+      <Item id="3827"/>   <!-- Mana Potion -->
+      <Item id="3385"/>   <!-- Lesser Mana Potion -->
+      <Item id="2455"/>   <!-- Minor Mana Potion -->
+    </Task>
+  </Node>
+  <!-- the moon mark: Shackle Undead (fails on anything that is not undead) -->
+  <Node name="Shackle">
+    <Conditions>
+      <Condition binding="Root|CCProvider_GlobalTask::whoNeeds"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Shackle Undead">
+      <Binding local="whoNeeds" external="Root|CCProvider_GlobalTask::whoNeeds"/>
+    </Task>
+  </Node>
+  <!-- nobody to heal: stay within heal range and sight of the tank -->
+  <Node name="Follow Tank">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::tankOutOfRange"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="25"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::mainTank"/>
+    </Task>
+  </Node>
+  <!-- mana to spare: some damage, one cast per visit (the heal nodes above come first after each); the damage over
+       time spells are skipped (the node fails, 3s) while the bot's own is on the target -->
+  <Node name="Shadow Word: Pain">
+    <Conditions>
+      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Shadow Word: Pain">
+      <SkipAura own="true"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <Node name="Holy Fire">
+    <Conditions>
+      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Holy Fire">
+      <SkipAura own="true"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <Node name="Smite">
+    <Conditions>
+      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Smite">
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <!-- less mana: the wand (no mana spent, the mana regenerates) until a heal is needed or the mana is back above 70% -->
+  <Node name="Wand">
+    <Conditions>
+      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Task class="Task_Shoot">
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onNeedsHeal" node="Root"/>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onAggro" node="Root"/>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onTankOutOfRange" node="Root"/>
+      <Transition type="OnDelegate" source="Root|DispelProvider_GlobalTask::onNeedsHelp" node="Root"/>
+      <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root"/>
+      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root">
+        <Conditions>
+          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+        </Conditions>
+      </Transition>
+    </Transitions>
+  </Node>
+  <Node name="Idle">
+    <Conditions/>
+    <!-- nothing to heal, dispel or attack: selects again every second (a Renew ran out, a heal node's retry delay is
+         over), sooner when a delegate fires -->
+    <Task class="Task_Wait">
+      <Delay value="1000"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onNeedsHeal" node="Root"/>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onAggro" node="Root"/>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onTankOutOfRange" node="Root"/>
+      <Transition type="OnDelegate" source="Root|DispelProvider_GlobalTask::onNeedsHelp" node="Root"/>
+      <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root"/>
+      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|CooldownProvider_GlobalTask::onCooldownChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root">
+        <Conditions>
+          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+        </Conditions>
+      </Transition>
+    </Transitions>
+  </Node>
+</Root>

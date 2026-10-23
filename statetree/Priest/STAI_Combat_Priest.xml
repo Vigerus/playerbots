@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Priest bots: AiPlayerbot.StateTree.Combat.Priest -->
-<!-- picks the subtree for the bot's spec; a spec change (talents learned or reset) selects again -->
+<!-- picks the subtree for the bot's spec (Holy and Disc share the healer subtree); a spec change (talents learned or
+     reset) selects again -->
 <Root>
   <Global>
     <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
@@ -26,7 +27,7 @@
       <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="holy priest"/>
     </Conditions>
     <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Priest/STAI_Combat_Holy_Priest.xml"/>
+      <Subtree filename="statetree/Priest/STAI_Combat_Healer_Priest.xml"/>
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>
@@ -38,7 +39,7 @@
       <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="disc priest"/>
     </Conditions>
     <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Priest/STAI_Combat_Disc_Priest.xml"/>
+      <Subtree filename="statetree/Priest/STAI_Combat_Healer_Priest.xml"/>
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|HazardProvider_GlobalTask::onHazard" node="Root|Escape Hazard"/>

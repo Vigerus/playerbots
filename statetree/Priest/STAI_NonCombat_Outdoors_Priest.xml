@@ -9,6 +9,24 @@
     <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
     <Task class="HealthProvider_GlobalTask"/>
     <Task class="ManaProvider_GlobalTask"/>
+    <!-- the health of the bot and its group (medium: below 70%), the dead members: medium, healTarget, dead,
+         resurrectTarget; onNeedsHeal, onDead -->
+    <Task class="HealProvider_GlobalTask"/>
+    <!-- harmful magic and diseases on the bot and its group: magic, disease, onNeedsHelp -->
+    <Task class="DispelProvider_GlobalTask">
+      <Dispel type="magic"/>
+      <Dispel type="disease"/>
+    </Task>
+    <!-- watches the buffs of the bot and its group (the prayers cover a subgroup): needs, onMissingBuff -->
+    <Task class="BuffProvider_GlobalTask">
+      <Buff spellid="1243"/>               <!-- Power Word: Fortitude (single) -->
+      <Buff spellid="21562"/>              <!-- Prayer of Fortitude (group, same buff) -->
+      <Buff spellid="14752"/>              <!-- Divine Spirit (single, talent) -->
+      <Buff spellid="27681"/>              <!-- Prayer of Spirit (group, same buff) -->
+      <Buff spellid="976"/>                <!-- Shadow Protection (single) -->
+      <Buff spellid="27683"/>              <!-- Prayer of Shadow Protection (group, same buff) -->
+      <Buff spellid="588" scope="self"/>   <!-- Inner Fire -->
+    </Task>
   </Global>
   <Node name="Follow player">
     <Conditions>
@@ -22,6 +40,61 @@
       <AcceptableRadius value="follow"/>
       <Binding local="path" external="Root|Follow player|Task_MakePath::path"/>
       <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
+    </Task>
+  </Node>
+  <!-- a member died: walk to the body and resurrect it (bodies that are not released, no resurrection offered yet) -->
+  <Node name="Resurrect">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::dead"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="25"/>
+      <Target value="dead"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::resurrectTarget"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Resurrection">
+      <Target value="dead"/>
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::dead"/>
+    </Task>
+  </Node>
+  <!-- after the fight: heal everybody below 70% (the bot included) before eating and drinking -->
+  <Node name="Heal Group">
+    <Conditions>
+      <Condition binding="Root|HealProvider_GlobalTask::medium"/>
+    </Conditions>
+    <Task class="Task_GetInRange">
+      <Range value="35"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Heal">
+      <Fallback spellid="Lesser Heal"/>
+      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::medium"/>
+    </Task>
+  </Node>
+  <Node name="Dispel Magic">
+    <Conditions>
+      <Condition binding="Root|DispelProvider_GlobalTask::magic"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Dispel Magic">
+      <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::magic"/>
+    </Task>
+  </Node>
+  <Node name="Cure Disease">
+    <Conditions>
+      <Condition binding="Root|DispelProvider_GlobalTask::disease"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Abolish Disease">
+      <Fallback spellid="Cure Disease"/>
+      <SkipAura own="true"/>
+      <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::disease"/>
+    </Task>
+  </Node>
+  <Node name="Check Missing Buffs">
+    <Conditions>
+      <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
+    </Conditions>
+    <Task class="Task_CastBuff">
+      <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
     </Task>
   </Node>
   <Node name="Eat and Drink">
@@ -39,7 +112,7 @@
   </Node>
   <Node name="Idle">
     <Conditions/>
-    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
+    <!-- waits forever, leaves only through a transition -->
     <Task class="Task_Wait">
       <Delay value="0"/>
     </Task>
@@ -55,6 +128,10 @@
           <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
         </Conditions>
       </Transition>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onDead" node="Root|Resurrect"/>
+      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onNeedsHeal" node="Root|Heal Group"/>
+      <Transition type="OnDelegate" source="Root|DispelProvider_GlobalTask::onNeedsHelp" node="Root"/>
+      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Missing Buffs"/>
     </Transitions>
   </Node>
 </Root>

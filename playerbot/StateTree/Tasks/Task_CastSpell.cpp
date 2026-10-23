@@ -3,6 +3,7 @@
 #include "playerbot/PlayerbotAI.h"
 
 #include "Maps/Map.h"
+#include "Spells/SpellAuras.h"
 #include "Spells/SpellMgr.h"
 
 #include <optional>
@@ -15,27 +16,96 @@ namespace
     // the task gives up waiting for the cast and the GCD after this long
     constexpr uint32 castTimeoutMs = 10000;
 
-    // <Target value="self"/>: the bot casts on itself
-    bool ParseSelf(const STAI_TaskConfig& config)
+    // <Target value="self|dead"/>: the bot casts on itself / only on dead targets
+    std::string ParseTarget(const STAI_TaskConfig& config)
     {
         const std::optional<std::string> target = STAI_TaskFactory::GetSetting(config, "Target");
         if (!target)
-            return false;
-        if (*target != "self")
-            throw std::runtime_error("<Target value=\"" + *target + "\">: only \"self\" is known");
-        return true;
+            return "";
+        if (*target != "self" && *target != "dead")
+            throw std::runtime_error("<Target value=\"" + *target + "\">: expected \"self\" or \"dead\"");
+        return *target;
     }
+
+    // an aura of the spell chain on the target (from caster only, unless it is empty)
+    bool HasAuraOfChain(const Unit* target, uint32 firstSpellId, ObjectGuid caster)
+    {
+        for (const auto& [spellId, holder] : target->GetSpellAuraHolderMap())
+            if (!holder->IsDeleted() && sSpellMgr.GetFirstSpellInChain(holder->GetId()) == firstSpellId &&
+                (caster.IsEmpty() || holder->GetCasterGuid() == caster))
+                return true;
+        return false;
+    }
+}
+
+std::vector<Task_CastSpell::SkipAura> Task_CastSpell::ParseSkipAuras(const STAI_TaskConfig& config)
+{
+    std::vector<SkipAura> skipAuras;
+    for (const auto& [key, child] : config)
+    {
+        if (key != "SkipAura")
+            continue;
+
+        SkipAura skip;
+        skip.own = child.get<std::string>("<xmlattr>.own", "false") == "true";
+        const std::string idText = child.get<std::string>("<xmlattr>.spellid", "");
+        if (!idText.empty())
+        {
+            const uint32 spellId = uint32(std::strtoul(idText.c_str(), nullptr, 10));
+            if (!spellId || !sSpellTemplate.LookupEntry<SpellEntry>(spellId))
+                throw std::runtime_error("<SkipAura spellid=\"" + idText + "\">: unknown spell");
+            skip.firstSpellId = sSpellMgr.GetFirstSpellInChain(spellId);
+        }
+        else if (!skip.own)
+            throw std::runtime_error("<SkipAura>: needs spellid=\"...\" or own=\"true\"");
+        skipAuras.push_back(skip);
+    }
+    return skipAuras;
+}
+
+std::vector<STAI_ConfiguredSpell> Task_CastSpell::ParseFallbacks(const STAI_TaskConfig& config)
+{
+    std::vector<STAI_ConfiguredSpell> fallbacks;
+    for (const auto& [key, child] : config)
+        if (key == "Fallback")
+            fallbacks.push_back(STAI_ConfiguredSpell::Parse(child));
+    return fallbacks;
+}
+
+uint32 Task_CastSpell::ResolveSpell(const Player* bot) const
+{
+    if (const uint32 spellId = spell.Resolve(bot))
+        return spellId;
+    for (const STAI_ConfiguredSpell& fallback : fallbacks)
+        if (const uint32 spellId = fallback.Resolve(bot))
+            return spellId;
+    return 0;
+}
+
+bool Task_CastSpell::IsSkipped(const Player* bot, const Unit* target, uint32 spellId) const
+{
+    for (const SkipAura& skip : skipAuras)
+    {
+        const uint32 firstSpellId = skip.firstSpellId ? skip.firstSpellId : sSpellMgr.GetFirstSpellInChain(spellId);
+        if (HasAuraOfChain(target, firstSpellId, skip.own ? bot->GetObjectGuid() : ObjectGuid()))
+            return true;
+    }
+    return false;
 }
 
 void Task_CastSpell::Validate(const STAI_TaskConfig& config)
 {
     STAI_ConfiguredSpell::Parse(config);
-    ParseSelf(config);
+    ParseTarget(config);
+    ParseSkipAuras(config);
+    ParseFallbacks(config);
 }
 
 std::unique_ptr<STAI_Task> Task_CastSpell::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<Task_CastSpell>(STAI_ConfiguredSpell::Parse(config), ParseSelf(config));
+    const std::string target = ParseTarget(config);
+    return std::make_unique<Task_CastSpell>(STAI_ConfiguredSpell::Parse(config), target == "self", target == "dead", ParseSkipAuras(config),
+        ParseFallbacks(config));
 }
 
 EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
@@ -49,26 +119,39 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
     StartLog(context);
 
     // the target first, then whoNeeds: members to help, or units to act on (attack, crowd control); the dead ones
-    // need nothing any more
+    // need nothing any more (only they do for <Target value="dead"/>)
     Player* bot = context.bot;
+    const uint32 spellId = ResolveSpell(bot);
     std::vector<Unit*> targets;
     std::vector<ObjectGuid> guids = context.whoNeeds;
     if (!context.target.IsEmpty())
         guids.insert(guids.begin(), context.target);
     if (self)
         guids.insert(guids.begin(), bot->GetObjectGuid());
+    bool skipped = false;
     for (ObjectGuid guid : guids)
     {
         Unit* target = guid == bot->GetObjectGuid() ? bot : bot->GetMap()->GetUnit(guid);
-        if (target && target->IsInWorld() && target->IsAlive())
-            targets.push_back(target);
+        if (!target || !target->IsInWorld() || target->IsAlive() == dead)
+            continue;
+        // already has the aura (Weakened Soul, the bot's own Renew): needs nothing from this spell
+        if (spellId && IsSkipped(bot, target, spellId))
+        {
+            skipped = true;
+            continue;
+        }
+        targets.push_back(target);
     }
+
+    // everybody left has the aura already: failed, so the node is not selected again right away (its condition
+    // still passes) and the nodes below it get their turn
+    if (targets.empty() && skipped)
+        return LogStatus(context, EActionRunStatus::Failed);
 
     // nobody needs it (any more): the task succeeds right away
     if (targets.empty())
         return LogStatus(context, EActionRunStatus::Succeeded);
 
-    const uint32 spellId = spell.Resolve(bot);
     if (!spellId)
         return LogStatus(context, EActionRunStatus::Failed);
 

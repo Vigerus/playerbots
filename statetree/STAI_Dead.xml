@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Dead state tree for every class: AiPlayerbot.StateTree.Dead.Default -->
 <Root>
+  <!-- waits for a resurrection offered to the bot and accepts it -->
+  <Node name="Accept Resurrection">
+    <Conditions/>
+    <Task class="Task_AcceptResurrection"/>
+  </Node>
   <Node name="Idle">
     <Conditions/>
     <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->

@@ -40,25 +40,37 @@ namespace
         return value;
     }
 
-    Unit* GetTarget(const Task_GetInRangeContext& context)
+    // <Target value="dead"/>: the target is dead
+    bool ParseDead(const STAI_TaskConfig& config)
+    {
+        const std::optional<std::string> target = STAI_TaskFactory::GetSetting(config, "Target");
+        if (!target)
+            return false;
+        if (*target != "dead")
+            throw std::runtime_error("<Target value=\"" + *target + "\">: only \"dead\" is known");
+        return true;
+    }
+
+    Unit* GetTarget(const Task_GetInRangeContext& context, bool dead)
     {
         Player* bot = context.bot;
         if (context.target.IsEmpty() || !bot->IsInWorld())
             return nullptr;
 
         Unit* target = bot->GetMap()->GetUnit(context.target);
-        return target && target->IsInWorld() && sServerFacade.IsAlive(target) ? target : nullptr;
+        return target && target->IsInWorld() && sServerFacade.IsAlive(target) != dead ? target : nullptr;
     }
 }
 
 void Task_GetInRange::Validate(const STAI_TaskConfig& config)
 {
     ParseRange(config);
+    ParseDead(config);
 }
 
 std::unique_ptr<STAI_Task> Task_GetInRange::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<Task_GetInRange>(ParseRange(config), STAI_TaskFactory::GetBindingSource(config, "target"));
+    return std::make_unique<Task_GetInRange>(ParseRange(config), STAI_TaskFactory::GetBindingSource(config, "target"), ParseDead(config));
 }
 
 float Task_GetInRange::GetRange(const STAI_TaskContext& context) const
@@ -95,7 +107,7 @@ EActionRunStatus Task_GetInRange::OnTick(STAI_TaskContext& baseContext, uint32 e
     Player* bot = context.bot;
 
     // nothing to get to: the node finishes, the tree selects again
-    Unit* target = GetTarget(context);
+    Unit* target = GetTarget(context, dead);
     if (!target)
     {
         Stop(context);
