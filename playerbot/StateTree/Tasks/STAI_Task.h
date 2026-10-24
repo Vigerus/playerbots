@@ -5,6 +5,7 @@
 #include "World/ProfilingSubsystem.h"
 
 #include <functional>
+#include <memory>
 #include <new>
 #include <string>
 #include <type_traits>
@@ -18,6 +19,7 @@ class PlayerbotAI;
 namespace ai
 {
     class STAI_ActivityLog;
+    class STAI_TreeAsset;
     struct STAI_TaskContext;
 
     // result of a task's update: Running keeps it running, Succeeded / Failed finish it
@@ -229,6 +231,11 @@ namespace ai
 
         // tree files this task runs (relative to the config directory), checked when the trees are loaded
         virtual std::vector<std::string> GetReferencedTrees() const { return {}; }
+        // links the loaded trees of GetReferencedTrees into the task, once at server start when every tree is loaded
+        // (find has each of them: trees with a missing subtree are dropped before)
+        virtual void LinkReferencedTrees(const std::function<std::shared_ptr<const STAI_TreeAsset>(const std::string& file)>& find) {}
+        // the linked tree the task runs (Task_RunSubtree), nullptr when none: the debug views show its nodes
+        virtual const STAI_TreeAsset* GetLinkedTree() const { return nullptr; }
 
         // the task's runs get History entries; <Task class="..." show_log="false"> switches them off (e.g. an idle
         // Task_Wait that only waits for transitions), global tasks and subtrees have none by default

@@ -168,6 +168,10 @@ namespace ai
 
         // tree with one unconditional "Idle" node waiting forever (Task_Wait, Delay 0)
         static std::shared_ptr<const STAI_TreeAsset> MakeIdle(const std::string& name);
+
+        // the tree as the debug views show a tree that does not run (no bot's contexts): its nodes inactive,
+        // conditions not checked, with the trees its tasks run down to the leaves
+        StateNodeDebugTree GetDebugTree() const;
     };
 
     // Every STAI_*.xml of the statetree directory, preloaded and kept by file, plus the trees configured in

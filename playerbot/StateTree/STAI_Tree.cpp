@@ -550,6 +550,45 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeIdle(const std::string
     return asset;
 }
 
+StateNodeDebugTree STAI_TreeAsset::GetDebugTree() const
+{
+    StateNodeDebugTree tree;
+    tree.name = name;
+    for (const STAI_TaskDef& global : globalTasks)
+    {
+        tree.globalTasks.push_back(global.task->GetName());
+        tree.globalSpells.emplace_back();
+    }
+
+    for (const STAI_NodeDef& node : nodes)
+    {
+        StateNodeDebugChild child;
+        child.name = node.name;
+        child.taskClass = node.tasks.front().task->GetName();
+        child.info = node.tasks.front().task->GetDebugInfo();
+        for (const STAI_TransitionDef& transition : node.transitions)
+            child.transitions.push_back(transition.GetText());
+        for (size_t t = 0; t < node.tasks.size(); ++t)
+        {
+            const STAI_Task& task = *node.tasks[t].task;
+            child.tasks.push_back(task.GetName());
+            child.tasksDisabled.push_back(false);
+            child.taskInfos.push_back(task.GetDebugInfo());
+            if (const STAI_TreeAsset* subtree = task.GetLinkedTree())
+            {
+                child.subtrees.push_back(subtree->GetDebugTree());
+                child.subtrees.back().task = int(t);
+            }
+        }
+        for (const STAI_ConditionDef& condition : node.conditions.list)
+            child.conditions.emplace_back(condition.GetText(), StateNodeConditionResult::NotChecked);
+        child.conditionsAny = node.conditions.any;
+        child.conditionOverrides.assign(node.conditions.size(), 0);
+        tree.nodes.push_back(std::move(child));
+    }
+    return tree;
+}
+
 std::string STAI_TreeLibrary::GetFileKey(const std::string& file)
 {
     std::string key = STAI_TaskFactory::ResolvePath(file).generic_string();
@@ -713,6 +752,21 @@ void STAI_TreeLibrary::LoadFromConfig()
     }
 
     RemoveBrokenSubtrees(loaded->files, errors);
+
+    // every subtree a task runs is linked into it now: a bot entering the task only creates its contexts
+    auto find = [&loaded](const std::string& file) -> std::shared_ptr<const STAI_TreeAsset>
+    {
+        auto it = loaded->files.find(GetFileKey(file));
+        return it == loaded->files.end() ? nullptr : it->second;
+    };
+    for (const auto& [key, asset] : loaded->files)
+    {
+        for (const STAI_TaskDef& task : asset->globalTasks)
+            task.task->LinkReferencedTrees(find);
+        for (const STAI_NodeDef& node : asset->nodes)
+            for (const STAI_TaskDef& task : node.tasks)
+                task.task->LinkReferencedTrees(find);
+    }
 
     for (const Slot& slot : slots)
     {

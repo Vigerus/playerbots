@@ -415,6 +415,7 @@ namespace
         void RenderMessage(const std::wstring& text);
         void RenderStates();
         int RenderState(const StateMachineDebugView::State& state, int y);
+        int RenderSubtree(const StateNodeDebugTree& tree, int x, int y, const std::string& keyPrefix);
         void RenderStack(const std::vector<const StateMachineDebugView::State*>& states);
         void RenderHistory();
 
@@ -1438,6 +1439,11 @@ namespace
                 if (current && !disabled && !child.spells.empty())
                     SpellIcons(taskBox.right + 4 + 16 + 6, y + 1, child.spells, 16);
                 y += 18 + 2;
+
+                // the tree the task runs while it does not run, down to the leaves
+                for (const StateNodeDebugTree& subtree : child.subtrees)
+                    if (subtree.task == int(task))
+                        y = RenderSubtree(subtree, contentX + 14, y, key + "#" + std::to_string(task));
             }
 
             // where the tree goes when the node finished (none: back to the first node)
@@ -1455,6 +1461,99 @@ namespace
         // vertical trunk from Root down to the last node
         Fill(trunkX, trunkTop, 2, lastStubY - trunkTop + 2, Color::line);
         return y;
+    }
+
+    // a tree a task runs while it does not run (Task_RunSubtree): its file's nodes, collapsed until double-clicked,
+    // with the trees their tasks run; nothing to switch (the bot has no contexts for it until the task runs);
+    // the y below it
+    int DebugWindow::RenderSubtree(const StateNodeDebugTree& tree, int x, int y, const std::string& keyPrefix)
+    {
+        const int width = viewWidth;
+        y = DrawWrapped(x, y, (std::max)(width - x - 8, 60), L"¤ " + Wide(tree.name), Color::gold) + 2;
+
+        const int trunkX = x + 4;
+        const int trunkTop = y;
+        int lastStubY = trunkTop;
+        const int childX = x + 18;
+        if (tree.nodes.empty())
+        {
+            DrawLabel(childX, y, L"(no nodes)", Color::dark);
+            y += 16;
+        }
+
+        for (const StateNodeDebugChild& child : tree.nodes)
+        {
+            const std::string key = keyPrefix + "/" + tree.name + "/" + child.name;
+            auto found = expanded.find(key);
+            const bool isExpanded = found != expanded.end() && found->second;
+
+            Runs caption;
+            caption.push_back({ isExpanded ? L"− " : L"+ ", Color::marker });
+            caption.push_back({ Wide(child.name), Color::text });
+            if (!isExpanded)
+            {
+                caption.push_back({ L"  ", Color::dark });
+                for (size_t task = 0; task < child.tasks.size(); ++task)
+                    caption.push_back({ (task ? L" > " : L"") + Wide(child.tasks[task]), Color::dark });
+            }
+            const RECT box = Box(childX, y, caption, Color::childFill, Color::stateBorder, 18);
+            AddHit(childX, y, box.right - box.left, 18, nullptr, [this, key, isExpanded]() { expanded[key] = !isExpanded; },
+                L"Double-click to " + std::wstring(isExpanded ? L"collapse" : L"expand"));
+            Fill(trunkX, y + 8, childX - trunkX, 1, Color::line);
+            lastStubY = y + 8;
+            y += 18 + 3;
+
+            if (!isExpanded)
+                continue;
+
+            const int contentX = childX + 14;
+            if (child.conditions.empty())
+            {
+                DrawRuns(contentX, y, { { L"IF  ", Color::dim }, { L"(always)", Color::darker } });
+                y += 15;
+            }
+            for (size_t condition = 0; condition < child.conditions.size(); ++condition)
+            {
+                const wchar_t* prefix = condition == 0 ? L"IF" : child.conditionsAny ? L"OR" : L"AND";
+                const int textX = DrawLabel(contentX, y, prefix, Color::dim) + 6;
+                y = DrawWrapped(textX, y, (std::max)(width - textX - 8, 60), Wide(child.conditions[condition].first), Color::dark);
+            }
+            y += 2;
+
+            for (size_t task = 0; task < child.tasks.size(); ++task)
+            {
+                Runs runs;
+                runs.push_back({ L"T ", Color::task, 0, true });
+                if (child.tasks.size() > 1)
+                    runs.push_back({ std::to_wstring(task + 1) + L". ", Color::dark });
+                runs.push_back({ Wide(child.tasks[task]), Color::white });
+                const std::string info = task < child.taskInfos.size() ? child.taskInfos[task] : "";
+                if (!info.empty())
+                {
+                    runs.push_back({ L"  ", Color::gray });
+                    AppendMarkup(runs, info, Color::gray);
+                }
+                Box(contentX, y, runs, Color::taskFill, Color::taskBorder, 18);
+                y += 18 + 2;
+
+                for (const StateNodeDebugTree& subtree : child.subtrees)
+                    if (subtree.task == int(task))
+                        y = RenderSubtree(subtree, contentX + 14, y, key + "#" + std::to_string(task));
+            }
+
+            for (const std::string& transition : child.transitions)
+            {
+                std::string text = transition;
+                std::replace(text.begin(), text.end(), '|', '/');
+                const size_t space = text.find(' ');
+                const int textX = DrawLabel(contentX, y, Wide(space == std::string::npos ? text : text.substr(0, space)), Color::dim);
+                y = DrawWrapped(textX, y, (std::max)(width - textX - 8, 60),
+                    L"  » " + (space == std::string::npos ? std::wstring() : Wide(text.substr(space + 1))), Color::light);
+            }
+        }
+
+        Fill(trunkX, trunkTop, 1, lastStubY - trunkTop + 1, Color::line);
+        return y + 2;
     }
 
     // tree stacks of the shown states, bottom (initial tree) to top, with their global tasks; fixed left of the canvas

@@ -487,11 +487,19 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
         child.currentTask = node.current;
         for (const STAI_TransitionDef& transition : node.def->transitions)
             child.transitions.push_back(transition.GetText());
-        for (const TaskSlot& task : node.tasks)
+        for (size_t t = 0; t < node.tasks.size(); ++t)
         {
+            const TaskSlot& task = node.tasks[t];
             child.tasks.push_back(task.def->task->GetName());
             child.tasksDisabled.push_back(task.context->bDisabled);
             child.taskInfos.push_back(task.def->task->GetDebugInfo());
+            // a subtree that runs is on the stack above, else its file is shown down to the leaves
+            if (const STAI_TreeAsset* subtree = task.def->task->GetLinkedTree())
+                if (!task.def->task->HoldsActiveTree(*task.context))
+                {
+                    child.subtrees.push_back(subtree->GetDebugTree());
+                    child.subtrees.back().task = int(t);
+                }
         }
 
         for (size_t c = 0; c < node.def->conditions.size(); ++c)

@@ -161,6 +161,12 @@ static std::string SanitizeTransition(const std::string& text)
 //       of the node in the order they run, its transitions "<type> Root/<node>" in the order they are checked
 //       conditions: [ANY:]<result><condition>&&<result><condition>..., result + passed, - failed, ? not checked;
 //       ANY: one of them has to pass (<Conditions match="any">), else all
+//   U^<type>^<tree id>^<parent tree id>^<node index>^<task index>^<tree name>
+//       a tree a task of a node runs (Task_RunSubtree) while it does not run: the tree file's nodes (V records)
+//       down to the leaves; parent 0 is the top tree (its C records), else the U tree of that id; ids count from 1
+//       per state, a U record comes after the records of its parent tree; node / task index 0-based
+//   V^<type>^<tree id>^<node name>^<conditions>^<task;task;...>^<transition;transition;...>^<info;info;...>
+//       node of the U tree <tree id>, not running (conditions '?', not checked), fields as in C
 //   T^<from type or *>^<to type>^<condition label>
 // a task's debug info inside the ';' separated list of a node's tasks
 static std::string SanitizeTaskInfo(const std::string& info)
@@ -168,6 +174,44 @@ static std::string SanitizeTaskInfo(const std::string& info)
     std::string text = SanitizeDebugField(info);
     std::replace(text.begin(), text.end(), ';', ',');
     return text;
+}
+
+// conditions of a node for the snapshot: [ANY:]<result><condition>&&<result><condition>...
+static std::string FormatDebugConditions(const StateNodeDebugChild& child)
+{
+    std::string conditions = child.conditionsAny && !child.conditions.empty() ? "ANY:" : "";
+    for (const auto& [text, result] : child.conditions)
+    {
+        if (!conditions.empty() && conditions != "ANY:")
+            conditions += "&&";
+        conditions += result == StateNodeConditionResult::Passed ? '+' : result == StateNodeConditionResult::Failed ? '-' : '?';
+        conditions += SanitizeDebugField(text);
+    }
+    return conditions;
+}
+
+// U / V records of the subtrees of a tree's nodes (parent: the tree's id, 0 the top tree), depth first
+static void AppendDebugSubtrees(std::ostream& out, const char* type, const std::vector<StateNodeDebugChild>& nodes, int parent, int& nextId)
+{
+    for (size_t node = 0; node < nodes.size(); ++node)
+        for (const StateNodeDebugTree& subtree : nodes[node].subtrees)
+        {
+            const int id = ++nextId;
+            out << "~U^" << type << "^" << id << "^" << parent << "^" << node << "^" << subtree.task << "^" << SanitizeDebugField(subtree.name);
+            for (const StateNodeDebugChild& child : subtree.nodes)
+            {
+                out << "~V^" << type << "^" << id << "^" << SanitizeDebugField(child.name) << "^" << FormatDebugConditions(child) << "^";
+                for (size_t task = 0; task < child.tasks.size(); ++task)
+                    out << (task ? ";" : "") << SanitizeDebugField(child.tasks[task]);
+                out << "^";
+                for (size_t transition = 0; transition < child.transitions.size(); ++transition)
+                    out << (transition ? ";" : "") << SanitizeTransition(child.transitions[transition]);
+                out << "^";
+                for (size_t task = 0; task < child.taskInfos.size(); ++task)
+                    out << (task ? ";" : "") << SanitizeTaskInfo(child.taskInfos[task]);
+            }
+            AppendDebugSubtrees(out, type, subtree.nodes, id, nextId);
+        }
 }
 
 std::string StateMachine::BuildDebugSnapshot() const
@@ -203,15 +247,7 @@ std::string StateMachine::BuildDebugSnapshot() const
         static const std::vector<StateNodeDebugChild> noNodes;
         for (const StateNodeDebugChild& child : stack.empty() ? noNodes : stack.back().nodes)
         {
-            std::string conditions = child.conditionsAny && !child.conditions.empty() ? "ANY:" : "";
-            for (const auto& [text, result] : child.conditions)
-            {
-                if (!conditions.empty() && conditions != "ANY:")
-                    conditions += "&&";
-                conditions += result == StateNodeConditionResult::Passed ? '+' : result == StateNodeConditionResult::Failed ? '-' : '?';
-                conditions += SanitizeDebugField(text);
-            }
-
+            const std::string conditions = FormatDebugConditions(child);
             out << "~C^" << GetHLSStateTypeName(type) << "^" << (child.active ? 1 : 0)
                 << "^" << SanitizeDebugField(child.name) << "^" << SanitizeDebugField(child.taskClass)
                 << "^" << conditions << "^" << SanitizeDebugField(child.info) << "^" << child.currentTask << "^";
@@ -233,6 +269,9 @@ std::string StateMachine::BuildDebugSnapshot() const
             for (size_t condition = 0; condition < child.conditionOverrides.size(); ++condition)
                 out << (condition ? "," : "") << int(child.conditionOverrides[condition]);
         }
+
+        int nextSubtree = 0;
+        AppendDebugSubtrees(out, GetHLSStateTypeName(type), stack.empty() ? noNodes : stack.back().nodes, 0, nextSubtree);
     }
 
     // transitions are triggered from PlayerbotAI (OnCombatStarted, OnDeath, ...); Reaction runs next to every state

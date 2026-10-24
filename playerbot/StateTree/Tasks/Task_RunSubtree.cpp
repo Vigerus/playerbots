@@ -36,6 +36,11 @@ std::unique_ptr<STAI_Task> Task_RunSubtree::Create(const STAI_TaskConfig& config
     return std::make_unique<Task_RunSubtree>(GetSubtreeFile(config));
 }
 
+void Task_RunSubtree::LinkReferencedTrees(const std::function<std::shared_ptr<const STAI_TreeAsset>(const std::string& file)>& find)
+{
+    tree = find(file);
+}
+
 const STAI_TaskContextType& Task_RunSubtree::GetContextType() const
 {
     return STAI_TaskContextType::Of<Task_RunSubtreeContext>();
@@ -48,14 +53,13 @@ EActionRunStatus Task_RunSubtree::OnEnter(STAI_TaskContext& baseContext) const
     if (!context.created)
     {
         context.created = true;
-        std::shared_ptr<const STAI_TreeAsset> asset = sSTAITreeLibrary.Find(file);
-        if (!asset)
+        if (!tree)
             sLog.outError("StateTree: subtree %s is not loaded, the node of %s always fails", file.c_str(), context.bot->GetName());
         else
         {
             // the subtree's contexts share the bot, state and activity log of this node
             const STAI_TaskContext base(context.ai, context.bot, context.state, context.activity);
-            context.subtree = std::make_unique<STAI_TreeInstance>(base, std::move(asset));
+            context.subtree = std::make_unique<STAI_TreeInstance>(base, tree);
         }
     }
 

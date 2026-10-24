@@ -20,9 +20,10 @@ namespace ai
     //   <Task class="Task_RunSubtree">
     //     <Subtree filename="statetree/STAI_NonCombat.xml"/>
     //   </Task>
-    // The subtree is the shared tree of the library (every STAI_*.xml of the statetree directory is preloaded);
-    // a tree whose subtree is missing, fails to load or runs the tree itself again is not loaded.
-    // The bot's instance of the subtree is created on the first OnEnter. Runs have no History entries of their own,
+    // The subtree is the shared tree of the library (every STAI_*.xml of the statetree directory is preloaded), linked
+    // into the task at server start: entering the task loads and looks up nothing. A tree whose subtree is missing,
+    // fails to load or runs the tree itself again is not loaded.
+    // The bot's instance of the subtree (its contexts) is created on the first OnEnter. Runs have no History entries of their own,
     // the subtree's tasks log theirs.
     // The subtree is pushed on the tree stack: OnEnter starts it, OnTick ticks it (Running) until it finished
     // through a STAI_FinishTreeTask node (Succeeded, the subtree is popped); while it runs, the tree of this node
@@ -49,12 +50,15 @@ namespace ai
 
         virtual bool HoldsActiveTree(const STAI_TaskContext& context) const override;
         virtual std::vector<std::string> GetReferencedTrees() const override { return { file }; }
+        virtual void LinkReferencedTrees(const std::function<std::shared_ptr<const STAI_TreeAsset>(const std::string& file)>& find) override;
+        virtual const STAI_TreeAsset* GetLinkedTree() const override { return tree.get(); }
 
         virtual std::string GetDebugInfo() const override { return "Run " + file; }
         virtual void AppendDebugTreeStack(const STAI_TaskContext& context, std::vector<StateNodeDebugTree>& stack) const override;
         virtual STAI_TreeInstance* GetRunningSubtree(STAI_TaskContext& context) const override;
 
     private:
-        std::string file;   // relative to the config directory
+        std::string file;                               // relative to the config directory
+        std::shared_ptr<const STAI_TreeAsset> tree;     // the loaded file, linked at server start
     };
 }

@@ -26,6 +26,8 @@ enum class StateTreeSwitch : uint8
     Condition       // a condition of the node: value 0 checked normally, 1 forced to pass, 2 forced to fail
 };
 
+struct StateNodeDebugTree;
+
 // child node of a state, as shown by the StateTree debug view
 struct StateNodeDebugChild
 {
@@ -43,6 +45,9 @@ struct StateNodeDebugChild
     std::string info;
     std::vector<uint32_t> spells;                   // spells of the running task (the first one while inactive)
     bool active = false;
+    // the trees tasks of the node run (Task_RunSubtree) while they do not run: the loaded tree file's nodes, not
+    // running, down to the leaves (StateNodeDebugTree::task names the task)
+    std::vector<StateNodeDebugTree> subtrees;
 };
 
 // tree on the tree stack of a state, as shown by the StateTree debug view
@@ -53,6 +58,7 @@ struct StateNodeDebugTree
     std::vector<std::string> globalTasks;           // names of the scopeless <Global> tasks
     std::vector<std::vector<uint32_t>> globalSpells; // per global task, the spells it works with
     std::vector<StateNodeDebugChild> nodes;
+    int task = -1;                                  // a subtree of a node (StateNodeDebugChild::subtrees): the node's task running it
 };
 
 // NonCombat, Combat and Dead are the main states, one of them is active (StateMachine::TransitionTo);
