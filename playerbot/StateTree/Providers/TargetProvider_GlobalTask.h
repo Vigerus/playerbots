@@ -1,10 +1,12 @@
 #pragma once
 
+#include "playerbot/StateTree/Providers/STAI_TargetAuraWatch.h"
 #include "playerbot/StateTree/Providers/STAI_TargetIcons.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 
 #include "Entities/ObjectGuid.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -27,10 +29,25 @@ namespace ai
         ObjectGuid target;
         // WithThreat: the bot's threat on the chosen unit reached ThreatAmount of the highest other threat on it
         bool threatHigh = false;
+        // per <Aura spellid="..."/>: its stack on target (any rank, any caster), 0 without it, read by key:
+        //   <Condition binding="Root|TargetProvider_GlobalTask::auraStacks" key="7386" compare="lesser" value="5"/>
+        std::map<uint32, uint32> auraStacks;
+        // fired when an entry of auraStacks changed (also by a target change):
+        //   <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onAuraChanged" node="..."/>
+        FSTAI_Delegate onAuraChanged;
+        // TankRange: a living tank of the group is within TankRange of the chosen unit, or has been since it was
+        // chosen (true without TankRange, without a group or without another tank in it)
+        bool tankNear = true;
+        // fired when tankNear turned true:
+        //   <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTankNear" node="..."/>
+        FSTAI_Delegate onTankNear;
 
         ObjectGuid chosen;          // the chosen unit, also while target is held back by threat
         bool marked = false;        // chosen is an rti mark (not the fallback)
         uint32 iconsVersion = 0;    // PlayerbotTargetIcons::GetVersion of the last choice: a change chooses again
+        ObjectGuid tankNearUnit;    // the chosen unit a tank has come near (tankNear stays true while it is chosen)
+
+        STAI_TargetAuraWatch auraWatch;
 
         uint32 sinceCheckMs = 0;
     };
@@ -51,7 +68,12 @@ namespace ai
     //     <ThreatAmount value="90"/>     percent of the highest other threat on the unit (default 90)
     //     <AssistTank value="true"/>     without a mark, the unit a living tank of the group attacks first (melee:
     //                                    the bots gather on the tank's unit instead of the weakest one), default false
+    //     <TankRange value="10"/>        tankNear: a tank has come within 10 yards of the chosen unit (melee dps waits
+    //                                    while the tank pulls the unit to itself), off by default (tankNear true)
+    //     <Aura spellid="7386"/>         auraStacks[7386]: the stack of the aura on target (Sunder Armor), per aura
     //   </Task>
+    // The watched auras are an internal subscription (STAI_TargetAuraWatch): the target's aura events of the
+    // SpellAuraWorldSubsystem, moved along with the target.
     // With a living tank in the group, a creature whose threat list has the bot at ThreatAmount or more of the
     // highest other entry (the tank, usually; also before anybody else has threat) is not published: target is empty
     // and onTargetChanged fires, so dps nodes are not selected; it is published again (onTargetChanged) once the
@@ -59,8 +81,8 @@ namespace ai
     class TargetProvider_GlobalTask : public STAI_GlobalTask
     {
     public:
-        TargetProvider_GlobalTask(bool withThreat, float threatShare, bool assistTank)
-            : withThreat(withThreat), threatShare(threatShare), assistTank(assistTank) {}
+        TargetProvider_GlobalTask(bool withThreat, float threatShare, bool assistTank, float tankRange, std::vector<STAI_WatchedAura> auras)
+            : withThreat(withThreat), threatShare(threatShare), assistTank(assistTank), tankRange(tankRange), auras(std::move(auras)) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -92,9 +114,15 @@ namespace ai
         // publishes chosen as target unless the threat holds it back, fires onTargetChanged when target changed
         void Publish(TargetProvider_GlobalTaskContext& context, bool checkThreat) const;
         void Update(TargetProvider_GlobalTaskContext& context, bool choose) const;
+        // a living tank of the group other than the bot is within range of unit, or the group has none
+        static bool IsTankNear(const STAI_TaskContext& context, Unit* unit, float range);
+        void UpdateTankNear(TargetProvider_GlobalTaskContext& context, bool check) const;
+        void UpdateAuras(TargetProvider_GlobalTaskContext& context) const;
 
         bool withThreat;
         float threatShare;          // ThreatAmount / 100
         bool assistTank;
+        float tankRange;            // 0: tankNear is always true
+        std::vector<STAI_WatchedAura> auras;
     };
 }

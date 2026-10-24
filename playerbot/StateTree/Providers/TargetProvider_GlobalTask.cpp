@@ -82,6 +82,17 @@ namespace
             throw std::runtime_error("<ThreatAmount value=\"...\">: expected a percent greater than 0, got '" + value + "'");
         return float(percent / 100.0);
     }
+
+    // <TankRange value="10"/>, yards; 0 (the default) switches the tank check off
+    float ParseTankRange(const STAI_TaskConfig& config)
+    {
+        const std::string value = STAI_TaskFactory::GetSetting(config, "TankRange").value_or("0");
+        char* end = nullptr;
+        const double range = std::strtod(value.c_str(), &end);
+        if (value.empty() || *end || range < 0.0)
+            throw std::runtime_error("<TankRange value=\"...\">: expected yards, got '" + value + "'");
+        return float(range);
+    }
 }
 
 void TargetProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
@@ -89,11 +100,14 @@ void TargetProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseWithThreat(config);
     ParseThreatShare(config);
     ParseAssistTank(config);
+    ParseTankRange(config);
+    STAI_TargetAuraWatch::Parse(config);
 }
 
 std::unique_ptr<STAI_Task> TargetProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<TargetProvider_GlobalTask>(ParseWithThreat(config), ParseThreatShare(config), ParseAssistTank(config));
+    return std::make_unique<TargetProvider_GlobalTask>(ParseWithThreat(config), ParseThreatShare(config), ParseAssistTank(config),
+        ParseTankRange(config), STAI_TargetAuraWatch::Parse(config));
 }
 
 bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, Unit* unit, const std::vector<Unit*>& ccMarks)
@@ -182,6 +196,61 @@ bool TargetProvider_GlobalTask::IsThreatHigh(const STAI_TaskContext& context, Un
     return botThreat >= threatShare * highestThreat;
 }
 
+bool TargetProvider_GlobalTask::IsTankNear(const STAI_TaskContext& context, Unit* unit, float range)
+{
+    Player* bot = context.bot;
+    Group* group = bot->GetGroup();
+    if (!group)
+        return true;
+
+    bool hasTank = false;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->getSource();
+        if (!member || member == bot || !member->IsInMap(bot) || !sServerFacade.IsAlive(member) || !context.ai->IsTank(member))
+            continue;
+        if (member->IsWithinDistInMap(unit, range))
+            return true;
+        hasTank = true;
+    }
+    // nobody to wait for
+    return !hasTank;
+}
+
+void TargetProvider_GlobalTask::UpdateTankNear(TargetProvider_GlobalTaskContext& context, bool check) const
+{
+    const bool wasNear = context.tankNear;
+    if (tankRange <= 0.0f)
+        context.tankNear = true;
+    else if (context.chosen.IsEmpty())
+    {
+        context.tankNear = false;
+        context.tankNearUnit.Clear();
+    }
+    // once the tank has come near, the bot stays on the unit (also when the tank moves on with it)
+    else if (context.tankNearUnit == context.chosen)
+        context.tankNear = true;
+    else if (check)
+    {
+        Unit* chosen = context.bot->GetMap()->GetUnit(context.chosen);
+        context.tankNear = chosen && IsTankNear(context, chosen, tankRange);
+        if (context.tankNear)
+            context.tankNearUnit = context.chosen;
+    }
+    else
+        context.tankNear = false;
+
+    if (context.tankNear && !wasNear)
+        context.onTankNear.Broadcast();
+}
+
+void TargetProvider_GlobalTask::UpdateAuras(TargetProvider_GlobalTaskContext& context) const
+{
+    Unit* target = context.target.IsEmpty() ? nullptr : context.bot->GetMap()->GetUnit(context.target);
+    if (context.auraWatch.Update(target, auras, context.auraStacks))
+        context.onAuraChanged.Broadcast();
+}
+
 void TargetProvider_GlobalTask::SetChosen(TargetProvider_GlobalTaskContext& context, Unit* unit, bool marked)
 {
     const ObjectGuid guid = unit ? unit->GetObjectGuid() : ObjectGuid();
@@ -212,8 +281,11 @@ void TargetProvider_GlobalTask::Update(TargetProvider_GlobalTaskContext& context
 {
     const ObjectGuid previous = context.chosen;
     Choose(context, choose);
-    // the threat is checked with each choice, and right away for a new unit
-    Publish(context, choose || context.chosen != previous);
+    // the threat (and the tank's distance) is checked with each choice, and right away for a new unit
+    const bool check = choose || context.chosen != previous;
+    UpdateTankNear(context, check);
+    Publish(context, check);
+    UpdateAuras(context);
 }
 
 void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context, bool choose) const
@@ -261,6 +333,9 @@ EActionRunStatus TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContex
     context.chosen.Clear();
     context.threatHigh = false;
     context.marked = false;
+    context.tankNear = tankRange <= 0.0f;
+    context.tankNearUnit.Clear();
+    context.auraStacks.clear();
     context.sinceCheckMs = 0;
     context.iconsVersion = context.ai->GetTargetIcons().GetVersion();
     Update(context, true);
@@ -275,6 +350,9 @@ void TargetProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
     context.chosen.Clear();
     context.threatHigh = false;
     context.marked = false;
+    context.tankNearUnit.Clear();
+    context.auraWatch.Unsubscribe();
+    context.auraStacks.clear();
 }
 
 EActionRunStatus TargetProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
@@ -297,13 +375,19 @@ const std::vector<STAI_PropertyDef>& TargetProvider_GlobalTask::GetProperties() 
     static const std::vector<STAI_PropertyDef> properties = {
         STAI_PropertyDef::Of("target", &TargetProvider_GlobalTaskContext::target),
         STAI_PropertyDef::Of("threatHigh", &TargetProvider_GlobalTaskContext::threatHigh),
+        STAI_PropertyDef::Of("auraStacks", &TargetProvider_GlobalTaskContext::auraStacks),
+        STAI_PropertyDef::Of("tankNear", &TargetProvider_GlobalTaskContext::tankNear),
     };
     return properties;
 }
 
 const std::vector<STAI_DelegateDef>& TargetProvider_GlobalTask::GetDelegates() const
 {
-    static const std::vector<STAI_DelegateDef> delegates = { STAI_DelegateDef::Of("onTargetChanged", &TargetProvider_GlobalTaskContext::onTargetChanged) };
+    static const std::vector<STAI_DelegateDef> delegates = {
+        STAI_DelegateDef::Of("onTargetChanged", &TargetProvider_GlobalTaskContext::onTargetChanged),
+        STAI_DelegateDef::Of("onAuraChanged", &TargetProvider_GlobalTaskContext::onAuraChanged),
+        STAI_DelegateDef::Of("onTankNear", &TargetProvider_GlobalTaskContext::onTankNear),
+    };
     return delegates;
 }
 

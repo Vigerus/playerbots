@@ -30,8 +30,11 @@
     <Task class="BuffProvider_GlobalTask">
       <Buff spellid="6673" scope="self"/>  <!-- Battle Shout -->
     </Task>
-    <!-- the unit to hold: target, taunt, loose, mainTank; onTargetChanged, onLoose -->
-    <Task class="TankTargetProvider_GlobalTask"/>
+    <!-- the unit to hold: target, taunt, loose, mainTank, auraStacks[7386] (Sunder Armor on target); onTargetChanged,
+         onLoose -->
+    <Task class="TankTargetProvider_GlobalTask">
+      <Aura spellid="7386"/>  <!-- Sunder Armor -->
+    </Task>
     <!-- the bot against that unit: inMelee, attacking, targetAttacksBot, enemiesInMelee, inCombat, canCharge,
          swingQueued; onMeleeChanged, onCanCharge -->
     <Task class="MeleeProvider_GlobalTask">
@@ -155,6 +158,18 @@
       <Condition binding="Root|MeleeProvider_GlobalTask::attacking" negate="true"/>
     </Conditions>
     <Task class="Task_StartAttack">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <!-- Sunder Armor stacks first: up to 5 on the target (any warrior's); the filler below keeps them up -->
+  <Node name="Sunder Stacks">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|TankTargetProvider_GlobalTask::auraStacks" key="7386" compare="lesser" value="5"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="7386"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="15"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Sunder Armor">
       <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
     </Task>
   </Node>

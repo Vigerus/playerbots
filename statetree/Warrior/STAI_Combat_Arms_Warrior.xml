@@ -17,17 +17,22 @@
       <Spell id="5308"/>   <!-- Execute -->
       <Spell id="845"/>    <!-- Cleave -->
       <Spell id="78"/>     <!-- Heroic Strike -->
+      <Spell id="7386"/>   <!-- Sunder Armor -->
     </Task>
     <!-- Battle Shout on the bot (its party gets it with it): needs, onMissingBuff -->
     <Task class="BuffProvider_GlobalTask">
       <Buff spellid="6673" scope="self"/>  <!-- Battle Shout -->
     </Task>
     <!-- the unit to attack: the first living rti mark, else the unit the tank attacks; held back (empty, threatHigh)
-         while the bot's threat is at 90% of the tank's, also before the tank has any (the bot waits for the pull) -->
+         while the bot's threat is at 90% of the tank's, also before the tank has any (the bot waits for the pull);
+         tankNear once the tank has been within 10 yards of it (the tank pulls with a bow and waits out of sight for
+         the units to come); auraStacks[7386]: Sunder Armor on the target -->
     <Task class="TargetProvider_GlobalTask">
       <WithThreat value="true"/>
       <ThreatAmount value="90"/>
       <AssistTank value="true"/>
+      <TankRange value="10"/>
+      <Aura spellid="7386"/>  <!-- Sunder Armor -->
     </Task>
     <!-- the bot against that unit: inMelee, behind, attacking, targetHealthPct, enemiesInMelee, inCombat, canCharge,
          swingQueued; onMeleeChanged, onCanCharge -->
@@ -37,11 +42,15 @@
       <PullRadius value="15"/>
       <FightTime value="2000"/>
     </Task>
-    <!-- movement goal (MovementGoal_GlobalTask): in melee reach of the target, at its back -->
+    <!-- movement goal (MovementGoal_GlobalTask): in melee reach of the target, at its back; only once the tank is
+         near it (no rushing to a unit the tank pulls to itself) -->
     <Task class="MovementGoal_GlobalTask" name="Melee" priority="50" kind="range">
       <Range max="melee"/>
       <Side value="behind"/>
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      <Conditions>
+        <Condition binding="Root|TargetProvider_GlobalTask::tankNear"/>
+      </Conditions>
     </Task>
   </Global>
   <!-- the threat is too high (or the tank has none yet): stop hitting, stay where the bot is -->
@@ -75,10 +84,11 @@
     </Task>
   </Node>
   <!-- Charge (the bot out of combat) to a unit that has fought the group for 2s, 8 - 25 yards away, with nothing idle
-       near it or the bot -->
+       near it or the bot, once the tank is near it -->
   <Node name="Charge">
     <Conditions>
       <Condition binding="Root|MeleeProvider_GlobalTask::canCharge"/>
+      <Condition binding="Root|TargetProvider_GlobalTask::tankNear"/>
       <Condition binding="Root|MeleeProvider_GlobalTask::inCombat" negate="true"/>
       <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="100"/>
     </Conditions>
@@ -106,6 +116,19 @@
       <Condition binding="Root|MeleeProvider_GlobalTask::attacking" negate="true"/>
     </Conditions>
     <Task class="Task_StartAttack">
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <!-- Sunder Armor stacks first: up to 5 on the target (any warrior's), not in the execute phase -->
+  <Node name="Sunder Armor">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|TargetProvider_GlobalTask::auraStacks" key="7386" compare="lesser" value="5"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::targetHealthPct" compare="greater or equal" value="20"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="7386"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="15"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Sunder Armor">
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>
   </Node>
@@ -194,6 +217,7 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTankNear" node="Root"/>
       <Transition type="OnDelegate" source="Root|MeleeProvider_GlobalTask::onMeleeChanged" node="Root"/>
       <Transition type="OnDelegate" source="Root|MeleeProvider_GlobalTask::onCanCharge" node="Root|Charge"/>
       <Transition type="OnDelegate" source="Root|WarriorProvider_GlobalTask::onReactive" node="Root|Overpower"/>

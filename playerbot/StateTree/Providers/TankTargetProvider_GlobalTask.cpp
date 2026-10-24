@@ -189,7 +189,9 @@ EActionRunStatus TankTargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseCo
     context.sinceCheckMs = 0;
     context.roles.Subscribe(context.bot);
     context.roles.Update(context.bot, 0);
+    context.auraStacks.clear();
     Choose(context);
+    UpdateAuras(context);
     return EActionRunStatus::Running;
 }
 
@@ -204,6 +206,7 @@ EActionRunStatus TankTargetProvider_GlobalTask::OnTick(STAI_TaskContext& baseCon
         context.sinceCheckMs = 0;
         Choose(context);
     }
+    UpdateAuras(context);
     return EActionRunStatus::Running;
 }
 
@@ -212,9 +215,18 @@ void TankTargetProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
     TRACE_CPU_PROFILER_ENTRY_SCOPE(TankTargetProvider_GlobalTask::OnExit);
     TankTargetProvider_GlobalTaskContext& context = ContextAs<TankTargetProvider_GlobalTaskContext>(baseContext);
     context.roles.Unsubscribe();
+    context.auraWatch.Unsubscribe();
+    context.auraStacks.clear();
     context.target.Clear();
     context.taunt.Clear();
     context.loose.clear();
+}
+
+void TankTargetProvider_GlobalTask::UpdateAuras(TankTargetProvider_GlobalTaskContext& context) const
+{
+    Unit* target = context.target.IsEmpty() ? nullptr : context.bot->GetMap()->GetUnit(context.target);
+    if (context.auraWatch.Update(target, auras, context.auraStacks))
+        context.onAuraChanged.Broadcast();
 }
 
 const std::vector<STAI_PropertyDef>& TankTargetProvider_GlobalTask::GetProperties() const
@@ -225,6 +237,7 @@ const std::vector<STAI_PropertyDef>& TankTargetProvider_GlobalTask::GetPropertie
         STAI_PropertyDef::Of("taunt", &TankTargetProvider_GlobalTaskContext::taunt),
         STAI_PropertyDef::Of("loose", &TankTargetProvider_GlobalTaskContext::loose),
         STAI_PropertyDef::Of("mainTank", &TankTargetProvider_GlobalTaskContext::mainTank),
+        STAI_PropertyDef::Of("auraStacks", &TankTargetProvider_GlobalTaskContext::auraStacks),
     };
     return properties;
 }
@@ -235,6 +248,7 @@ const std::vector<STAI_DelegateDef>& TankTargetProvider_GlobalTask::GetDelegates
     {
         STAI_DelegateDef::Of("onTargetChanged", &TankTargetProvider_GlobalTaskContext::onTargetChanged),
         STAI_DelegateDef::Of("onLoose", &TankTargetProvider_GlobalTaskContext::onLoose),
+        STAI_DelegateDef::Of("onAuraChanged", &TankTargetProvider_GlobalTaskContext::onAuraChanged),
     };
     return delegates;
 }
