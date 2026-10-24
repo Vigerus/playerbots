@@ -49,6 +49,8 @@ namespace ai
     //   <Task class="TargetProvider_GlobalTask">
     //     <WithThreat value="true"/>     hold the target back while the bot nears aggro
     //     <ThreatAmount value="90"/>     percent of the highest other threat on the unit (default 90)
+    //     <AssistTank value="true"/>     without a mark, the unit a living tank of the group attacks first (melee:
+    //                                    the bots gather on the tank's unit instead of the weakest one), default false
     //   </Task>
     // With a living tank in the group, a creature whose threat list has the bot at ThreatAmount or more of the
     // highest other entry (the tank, usually; also before anybody else has threat) is not published: target is empty
@@ -57,7 +59,8 @@ namespace ai
     class TargetProvider_GlobalTask : public STAI_GlobalTask
     {
     public:
-        TargetProvider_GlobalTask(bool withThreat, float threatShare) : withThreat(withThreat), threatShare(threatShare) {}
+        TargetProvider_GlobalTask(bool withThreat, float threatShare, bool assistTank)
+            : withThreat(withThreat), threatShare(threatShare), assistTank(assistTank) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
@@ -81,16 +84,17 @@ namespace ai
         // alive, hostile, in sight, not crowd-controlled, not one of the bot's crowd-control marks (ccMarks)
         static bool IsValidTarget(const STAI_TaskContext& context, Unit* unit, const std::vector<Unit*>& ccMarks);
         static Unit* FindMarkedTarget(const TargetProvider_GlobalTaskContext& context, const std::vector<Unit*>& ccMarks);
-        static Unit* FindAssistTarget(const STAI_TaskContext& context, const std::vector<Unit*>& ccMarks);
+        static Unit* FindAssistTarget(const STAI_TaskContext& context, const std::vector<Unit*>& ccMarks, bool assistTank);
         // the bot's threat on unit is at threatShare or more of the highest other threat (with a living tank around)
         static bool IsThreatHigh(const STAI_TaskContext& context, Unit* unit, float threatShare);
         static void SetChosen(TargetProvider_GlobalTaskContext& context, Unit* unit, bool marked);
-        static void Choose(TargetProvider_GlobalTaskContext& context, bool choose);
+        void Choose(TargetProvider_GlobalTaskContext& context, bool choose) const;
         // publishes chosen as target unless the threat holds it back, fires onTargetChanged when target changed
         void Publish(TargetProvider_GlobalTaskContext& context, bool checkThreat) const;
         void Update(TargetProvider_GlobalTaskContext& context, bool choose) const;
 
         bool withThreat;
         float threatShare;          // ThreatAmount / 100
+        bool assistTank;
     };
 }

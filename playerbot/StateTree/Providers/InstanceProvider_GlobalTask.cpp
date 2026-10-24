@@ -101,6 +101,7 @@ const std::vector<STAI_PropertyDef>& InstanceProvider_GlobalTask::GetProperties(
         STAI_PropertyDef::Of("pathBlocked", &InstanceProvider_GlobalTaskContext::pathBlocked),
         STAI_PropertyDef::Of("stagePosition", &InstanceProvider_GlobalTaskContext::stagePosition),
         STAI_PropertyDef::Of("stagePositionFar", &InstanceProvider_GlobalTaskContext::stagePositionFar),
+        STAI_PropertyDef::Of("stagePositionFrom", &InstanceProvider_GlobalTaskContext::stagePositionFrom),
     };
     return properties;
 }
@@ -160,6 +161,7 @@ void InstanceProvider_GlobalTaskContext::SetMap(Map* map, bool arrived)
         masterStageCleared = true;
         pathBlocked = false;
         stagePosition = STAI_Position();
+        stagePositionFrom.clear();
         stagePositionFar = false;
         stageTimer = 0;
 
@@ -209,6 +211,7 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
     masterStageCleared = true;
     pathBlocked = false;
     stagePosition = STAI_Position();
+    stagePositionFrom.clear();
     stagePositionFar = false;
 
     Player* master = ai->GetMaster();
@@ -224,11 +227,23 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
     // (rtsc, entrance), else the stage's position for it
     if (masterStage >= 0)
     {
+        // where it comes from, for the movement goal: "<stage> cleared|uncleared, rtsc|entrance|stage file"
+        const std::vector<InstanceStageDef> stages = instances->GetStages(map->GetId());
+        const std::string stageName = uint32(masterStage) < stages.size() && !stages[masterStage].name.empty() ?
+            stages[masterStage].name : "stage " + std::to_string(masterStage);
+        const std::string which = stageName + (masterStageCleared ? " cleared, " : " uncleared, ");
+
         PlayerbotDungeonPositions::Position position;
         if (ai->GetDungeonPositions().Get(bot, map->GetId(), uint32(masterStage), masterStageCleared, position))
+        {
             stagePosition = { position.x, position.y, position.z, true };
+            stagePositionFrom = which + (masterStage == 0 ? "entrance / rtsc" : "rtsc");
+        }
         else if (instances->GetStagePosition(map->GetId(), uint32(masterStage), masterStageCleared, bot->getClass(), PlayerSpec::GetPlayerSpecTab(bot), position.x, position.y, position.z))
+        {
             stagePosition = { position.x, position.y, position.z, true };
+            stagePositionFrom = which + "stage file";
+        }
     }
 
     // the way to the stage position (an uncleared point lies in the master's stage, which does not block it), else

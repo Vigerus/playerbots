@@ -59,6 +59,17 @@ namespace
         throw std::runtime_error("<WithThreat value=\"...\">: expected true or false, got '" + value + "'");
     }
 
+    // <AssistTank value="true|false"/>, default false
+    bool ParseAssistTank(const STAI_TaskConfig& config)
+    {
+        const std::string value = STAI_TaskFactory::GetSetting(config, "AssistTank").value_or("false");
+        if (value == "true" || value == "1")
+            return true;
+        if (value == "false" || value == "0")
+            return false;
+        throw std::runtime_error("<AssistTank value=\"...\">: expected true or false, got '" + value + "'");
+    }
+
     // <ThreatAmount value="90"/>, percent of the highest other threat, default 90
     float ParseThreatShare(const STAI_TaskConfig& config)
     {
@@ -75,11 +86,12 @@ void TargetProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
 {
     ParseWithThreat(config);
     ParseThreatShare(config);
+    ParseAssistTank(config);
 }
 
 std::unique_ptr<STAI_Task> TargetProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<TargetProvider_GlobalTask>(ParseWithThreat(config), ParseThreatShare(config));
+    return std::make_unique<TargetProvider_GlobalTask>(ParseWithThreat(config), ParseThreatShare(config), ParseAssistTank(config));
 }
 
 bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, Unit* unit, const std::vector<Unit*>& ccMarks)
@@ -104,8 +116,25 @@ Unit* TargetProvider_GlobalTask::FindMarkedTarget(const TargetProvider_GlobalTas
     return nullptr;
 }
 
-Unit* TargetProvider_GlobalTask::FindAssistTarget(const STAI_TaskContext& context, const std::vector<Unit*>& ccMarks)
+Unit* TargetProvider_GlobalTask::FindAssistTarget(const STAI_TaskContext& context, const std::vector<Unit*>& ccMarks, bool assistTank)
 {
+    // the unit a living tank of the group attacks, when it fights the group
+    Player* bot = context.bot;
+    Group* group = bot->GetGroup();
+    if (assistTank && group)
+    {
+        const auto& attackers = context.ai->GetTeamAttackers();
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->getSource();
+            if (!member || member == bot || !member->IsInMap(bot) || !sServerFacade.IsAlive(member) || !context.ai->IsTank(member))
+                continue;
+            Unit* victim = member->GetVictim();
+            if (victim && attackers.find(victim->GetObjectGuid()) != attackers.end() && IsValidTarget(context, victim, ccMarks))
+                return victim;
+        }
+    }
+
     // the units on the threat lists of the bot and its group (TODO(strategy): was the legacy "possible attack
     // targets" value: units around the bot, its group and master)
     Unit* best = nullptr;
@@ -185,7 +214,7 @@ void TargetProvider_GlobalTask::Update(TargetProvider_GlobalTaskContext& context
     Publish(context, choose || context.chosen != previous);
 }
 
-void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context, bool choose)
+void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context, bool choose) const
 {
     Player* bot = context.bot;
     if (!bot->IsInWorld() || !sServerFacade.IsAlive(bot))
@@ -219,7 +248,7 @@ void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context
     // without marks: keep a valid fallback target, else the dps assist choice
     if (currentValid && !context.marked)
         return;
-    SetChosen(context, FindAssistTarget(context, ccMarks), false);
+    SetChosen(context, FindAssistTarget(context, ccMarks, assistTank), false);
 }
 
 EActionRunStatus TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const

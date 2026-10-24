@@ -64,8 +64,10 @@ namespace ai
         void HandleCommand(PlayerbotAI* ai, Player* requester, const std::string& command);
         void HandleSpell(PlayerbotAI* ai, Player* requester, const WorldPosition& position, bool anySelected);
         void MoveTo(PlayerbotAI* ai, Player* requester, const WorldPosition& position);
-        // in a dungeon with stages: the spot as the bot's cleared / uncleared point for the requester's stage
-        void SaveDungeonPosition(PlayerbotAI* ai, Player* requester, const WorldPosition& position);
+        // in a dungeon with stages: the spot as the bot's cleared / uncleared point for the requester's stage (the
+        // Position Yourself movement goal walks the bot there); false when nothing was saved (no stages, the requester
+        // in no stage): the caller moves the bot itself
+        bool SaveDungeonPosition(PlayerbotAI* ai, Player* requester, const WorldPosition& position);
         static void ShowMarker(Player* bot, const WorldPosition& position);
         void SetSelected(PlayerbotAI* ai, Player* requester, bool select);
 

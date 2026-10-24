@@ -1,7 +1,7 @@
 #pragma once
 
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
-#include "playerbot/StateTree/Tasks/Task_MoveToPosition.h"
+#include "playerbot/StateTree/STAI_Navigation.h"
 
 #include <vector>
 

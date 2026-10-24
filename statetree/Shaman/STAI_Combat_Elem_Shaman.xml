@@ -17,6 +17,23 @@
     <Task class="TotemProvider_GlobalTask">
       <Range value="30"/>
     </Task>
+    <!-- movement goal (MovementGoal_GlobalTask): in spell range and sight of the target -->
+    <Task class="MovementGoal_GlobalTask" name="Attack Range" priority="40" kind="range">
+      <Range max="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <!-- the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
+         by rtsc), stagePositionFrom, pathBlocked -->
+    <Task class="InstanceProvider_GlobalTask"/>
+    <!-- movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range) -->
+    <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="45" kind="position">
+      <Radius value="2"/>
+      <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
+      <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
+      <Conditions>
+        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+      </Conditions>
+    </Task>
   </Global>
   <!-- Earth Shock only interrupts, it is not part of the rotation -->
   <Node name="Interrupt">
@@ -47,10 +64,6 @@
     <Conditions>
       <Condition binding="Root|TotemProvider_GlobalTask::needs"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="spell"/>
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
     <Task class="Task_CastTotem">
       <Binding local="needs" external="Root|TotemProvider_GlobalTask::needs"/>
     </Task>
@@ -62,11 +75,8 @@
   <Node name="Attack Target">
     <Conditions>
       <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="spell"/>
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Lightning Bolt">
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>

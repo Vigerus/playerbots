@@ -9,6 +9,18 @@
     <Task class="TotemProvider_GlobalTask">
       <Range value="30"/>
     </Task>
+    <!-- the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
+         by rtsc), stagePositionFrom, pathBlocked -->
+    <Task class="InstanceProvider_GlobalTask"/>
+    <!-- movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range) -->
+    <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="45" kind="position">
+      <Radius value="2"/>
+      <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
+      <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
+      <Conditions>
+        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+      </Conditions>
+    </Task>
   </Global>
   <!-- low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s) -->
   <Node name="Mana Potion">

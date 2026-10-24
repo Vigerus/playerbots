@@ -209,8 +209,8 @@ void PlayerbotRtsc::HandleSpell(PlayerbotAI* ai, Player* requester, const WorldP
             if (selected)
             {
                 SetSelected(ai, requester, false);
-                SaveDungeonPosition(ai, requester, position);
-                MoveTo(ai, requester, position);
+                if (!SaveDungeonPosition(ai, requester, position))
+                    MoveTo(ai, requester, position);
             }
         }
         else if (position.getMapId() == bot->GetMapId() &&
@@ -221,8 +221,8 @@ void PlayerbotRtsc::HandleSpell(PlayerbotAI* ai, Player* requester, const WorldP
 
     if (nextAction == "move")
     {
-        SaveDungeonPosition(ai, requester, position);
-        MoveTo(ai, requester, position);
+        if (!SaveDungeonPosition(ai, requester, position))
+            MoveTo(ai, requester, position);
         return;
     }
 
@@ -247,24 +247,25 @@ void PlayerbotRtsc::MoveTo(PlayerbotAI* ai, Player* requester, const WorldPositi
 
     if (bot->IsSitState())
         bot->SetStandState(UNIT_STAND_STATE_STAND);
-    // the path comes from the PathfindingWorker; the trees' movement (Follow player) takes over when it runs again
-    bot->GetMotionMaster()->MovePointAsync(0, position.getX(), position.getY(), position.getZ());
+    // outside dungeon stages (inside them the saved stage point is the Position Yourself goal's): the path comes from the
+    // PathfindingWorker, the bot's movement yields to it and the Follow Master goal takes over again once it is over
+    bot->GetMotionMaster()->MovePointAsync(0, position.getX(), position.getY(), position.getZ(), FORCED_MOVEMENT_RUN);
 }
 
-void PlayerbotRtsc::SaveDungeonPosition(PlayerbotAI* ai, Player* requester, const WorldPosition& position)
+bool PlayerbotRtsc::SaveDungeonPosition(PlayerbotAI* ai, Player* requester, const WorldPosition& position)
 {
     Player* bot = ai->GetBot();
     InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>();
     if (!instances || !bot->IsInWorld() || position.getMapId() != bot->GetMapId() || !instances->HasStages(bot->GetMapId()))
-        return;
+        return false;
 
     // the point of the stage the master stands in, the cleared or the uncleared one by the stage's state now; nothing
     // while the master is outside every stage
     if (requester->GetMapId() != bot->GetMapId())
-        return;
+        return false;
     const int32 stage = instances->FindStage(bot->GetMapId(), requester->GetPositionX(), requester->GetPositionY(), requester->GetPositionZ());
     if (stage < 0)
-        return;
+        return false;
 
     const bool cleared = instances->IsStageCleared(bot->GetMap(), uint32(stage));
     ai->GetDungeonPositions().Set(bot, bot->GetMapId(), uint32(stage), cleared, { position.getX(), position.getY(), position.getZ() });
@@ -274,6 +275,7 @@ void PlayerbotRtsc::SaveDungeonPosition(PlayerbotAI* ai, Player* requester, cons
     if (uint32(stage) < stages.size())
         out << " (" << stages[stage].name << ")";
     ai->TellPlayer(requester, out.str());
+    return true;
 }
 
 void PlayerbotRtsc::Load(Player* bot)

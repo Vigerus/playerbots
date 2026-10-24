@@ -19,6 +19,18 @@ namespace ai
         bool operator!=(const STAI_Location& other) const { return !(*this == other); }
     };
 
+    // a spot on the bot's map, as a task property (InstanceProvider_GlobalTask::stagePosition,
+    // HazardProvider_GlobalTask::safePosition); unset while !valid
+    struct STAI_Position
+    {
+        float x = 0.0f, y = 0.0f, z = 0.0f;
+        bool valid = false;
+
+        bool IsEmpty() const { return !valid; }
+        bool operator==(const STAI_Position& other) const { return valid == other.valid && x == other.x && y == other.y && z == other.z; }
+        bool operator!=(const STAI_Position& other) const { return !(*this == other); }
+    };
+
     // a path calculated by the PathfindingWorker (Task_MakePath::path, walked by Task_MoveTo): its legs on each
     // map, joined by navlinks (dungeon portals); shared, so binding it copies no points. Unset until it is ready.
     struct STAI_Path

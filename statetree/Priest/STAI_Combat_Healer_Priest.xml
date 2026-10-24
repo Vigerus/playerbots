@@ -29,16 +29,42 @@
       <WithThreat value="true"/>
       <ThreatAmount value="90"/>
     </Task>
+    <!-- movement goals (MovementGoal_GlobalTask, the highest wanted one drives the bot): in heal range of the most
+         wounded member, else close to the main tank when it is out of range, else in spell range of the target -->
+    <Task class="MovementGoal_GlobalTask" name="Heal Range" priority="60" kind="range">
+      <Range max="35"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Follow Tank" priority="50" kind="range">
+      <Range max="25"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::mainTank"/>
+      <Conditions>
+        <Condition binding="Root|HealProvider_GlobalTask::tankOutOfRange"/>
+      </Conditions>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Attack Range" priority="40" kind="range">
+      <Range max="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <!-- the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
+         by rtsc), stagePositionFrom, pathBlocked -->
+    <Task class="InstanceProvider_GlobalTask"/>
+    <!-- movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Follow Tank and Attack Range, below Heal Range (it leaves the point only to reach a member to heal) -->
+    <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="55" kind="position">
+      <Radius value="2"/>
+      <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
+      <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
+      <Conditions>
+        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+      </Conditions>
+    </Task>
   </Global>
   <!-- below 20%: a shield first (skipped while Weakened Soul is on them: the node fails and waits 3s), then Flash Heal -->
   <Node name="Shield Critical">
     <Conditions>
       <Condition binding="Root|HealProvider_GlobalTask::critical"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="35"/>
-      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Power Word: Shield">
       <SkipAura spellid="6788"/>  <!-- Weakened Soul -->
       <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::critical"/>
@@ -47,11 +73,8 @@
   <Node name="Critical Heal">
     <Conditions>
       <Condition binding="Root|HealProvider_GlobalTask::critical"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="35"/>
-      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
-    </Task>
     <!-- the fastest heal the bot knows: Flash Heal from level 20, before that Heal / Lesser Heal -->
     <Task class="Task_CastSpell" spellid="Flash Heal">
       <Fallback spellid="Heal"/>
@@ -84,11 +107,8 @@
   <Node name="Shield Low">
     <Conditions>
       <Condition binding="Root|HealProvider_GlobalTask::low"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="35"/>
-      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Power Word: Shield">
       <SkipAura spellid="6788"/>  <!-- Weakened Soul -->
       <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::low"/>
@@ -97,11 +117,8 @@
   <Node name="Low Heal">
     <Conditions>
       <Condition binding="Root|HealProvider_GlobalTask::low"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="35"/>
-      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Greater Heal">
       <Fallback spellid="Heal"/>
       <Fallback spellid="Lesser Heal"/>
@@ -131,11 +148,8 @@
   <Node name="Medium Heal">
     <Conditions>
       <Condition binding="Root|HealProvider_GlobalTask::medium"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="35"/>
-      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Heal">
       <Fallback spellid="Lesser Heal"/>
       <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::medium"/>
@@ -145,11 +159,8 @@
   <Node name="Renew">
     <Conditions>
       <Condition binding="Root|HealProvider_GlobalTask::almostFull"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="35"/>
-      <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Renew">
       <SkipAura own="true"/>
       <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::almostFull"/>
@@ -178,27 +189,14 @@
       <Binding local="whoNeeds" external="Root|CCProvider_GlobalTask::whoNeeds"/>
     </Task>
   </Node>
-  <!-- nobody to heal: stay within heal range and sight of the tank -->
-  <Node name="Follow Tank">
-    <Conditions>
-      <Condition binding="Root|HealProvider_GlobalTask::tankOutOfRange"/>
-    </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="25"/>
-      <Binding local="target" external="Root|HealProvider_GlobalTask::mainTank"/>
-    </Task>
-  </Node>
   <!-- mana to spare: some damage, one cast per visit (the heal nodes above come first after each); the damage over
        time spells are skipped (the node fails, 3s) while the bot's own is on the target -->
   <Node name="Shadow Word: Pain">
     <Conditions>
       <Condition binding="Root|TargetProvider_GlobalTask::target"/>
       <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="spell"/>
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Shadow Word: Pain">
       <SkipAura own="true"/>
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
@@ -208,11 +206,8 @@
     <Conditions>
       <Condition binding="Root|TargetProvider_GlobalTask::target"/>
       <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="spell"/>
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Holy Fire">
       <SkipAura own="true"/>
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
@@ -222,11 +217,8 @@
     <Conditions>
       <Condition binding="Root|TargetProvider_GlobalTask::target"/>
       <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="spell"/>
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Smite">
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>
@@ -235,11 +227,8 @@
   <Node name="Wand">
     <Conditions>
       <Condition binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="spell"/>
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
     <Task class="Task_Shoot">
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>

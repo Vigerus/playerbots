@@ -11,6 +11,7 @@
 #include "PlayerbotDungeonPositions.h"
 #include "PlayerbotTargetIcons.h"
 #include "PlayerbotTotems.h"
+#include "PlayerbotMovement.h"
 #include "PlayerbotRtsc.h"
 #include "PlayerbotPremadeSpecs.h"
 
@@ -613,7 +614,10 @@ public:
     bool IsSafe(Player* player) { return player && player->GetMapId() == bot->GetMapId() && player->GetInstanceId() == bot->GetInstanceId() && !player->IsBeingTeleported(); }
     // in a dungeon with stages: the bot must not go to the point, a stage there is not cleared
     // (InstanceSubsystem::IsEntryBlocked: out of combat, or in combat for boxes that can not be entered)
-    bool IsStageEntryBlocked(float x, float y, float z) const;
+    bool IsStageEntryBlocked(float x, float y, float z) const { return IsStageEntryBlocked(x, y, z, bot->IsInCombat()); }
+    // the same with the combat state given: inCombat lets the bot into the boxes that may be entered in combat (melee
+    // after a unit its group fights), false blocks every box of a stage that is not cleared (charges)
+    bool IsStageEntryBlocked(float x, float y, float z, bool inCombat) const;
     bool IsSafe(WorldObject* obj) { return obj && obj->GetMapId() == bot->GetMapId() && obj->GetInstanceId() == bot->GetInstanceId() && (!obj->IsPlayer() || !((Player*)obj)->IsBeingTeleported()); }
 
     //Returns a semi-random (cycling) number that is fixed for each bot.
@@ -650,6 +654,8 @@ public:
     ai::PlayerbotTargetIcons& GetTargetIcons() { return targetIcons; }
     // the totems a shaman keeps up, outdoor and per dungeon stage (ai_playerbot_totems)
     ai::PlayerbotTotems& GetTotems() { return totems; }
+    // the bot's movement: drives the trees' MovementGoal_GlobalTask goals (the only code that moves the bot)
+    ai::PlayerbotMovement& GetMovement() { return movement; }
 
     WorldPosition GetJumpDestination() { return jumpDestination; }
     void SetJumpDestination(const WorldPosition& pos) { jumpDestination = pos; }
@@ -833,6 +839,7 @@ protected:
     ai::PlayerbotDungeonPositions dungeonPositions;
     ai::PlayerbotTargetIcons targetIcons;
     ai::PlayerbotTotems totems;
+    ai::PlayerbotMovement movement;
     // RTS control: "rtsc ..." commands and the master's Aedm casts, run in UpdateAI
     ai::PlayerbotRtsc rtsc;
     // "rti ..." chat commands (the text after "rti", the player to answer): set from chat, run in UpdateAI

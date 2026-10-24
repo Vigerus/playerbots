@@ -15,87 +15,75 @@
     <!-- the dead members of the group (bodies that are not released, no resurrection offered yet): dead,
          resurrectTarget; onDead -->
     <Task class="HealProvider_GlobalTask"/>
-  </Global>
-  <Node name="Follow player">
-    <Conditions>
-      <Condition binding="Root|MasterDistance_GlobalTask::masterFar"/>
-      <!-- the master is in a cleared room: the bot stays put while the master is between rooms or in one that is not
-           cleared -->
-      <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
-      <!-- the way to the master does not cross a room that is not cleared -->
-      <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
-      <!-- with a point for the bot in the master's room it goes there instead (Position Yourself) -->
-      <Condition binding="Root|InstanceProvider_GlobalTask::stagePosition" negate="true"/>
-    </Conditions>
-    <!-- the path to the master on the PathfindingWorker (across the dungeon portals), then walk it -->
-    <Task class="Task_MakePath">
-      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
-    </Task>
-    <Task class="Task_MoveTo">
-      <AcceptableRadius value="follow"/>
-      <Binding local="path" external="Root|Follow player|Task_MakePath::path"/>
-      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
-    </Task>
-    <Transitions>
-      <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|Idle">
-        <Conditions match="any">
-          <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared" negate="true"/>
-          <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked"/>
-        </Conditions>
-      </Transition>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
-    </Transitions>
-  </Node>
-  <Node name="Position Yourself">
-    <Conditions>
-      <!-- the master is in a room with a point for the bot, its cleared or uncleared one by the room's state (its rtsc /
-           entrance override, else the room's position) and the bot is away from it -->
-      <Condition binding="Root|InstanceProvider_GlobalTask::stagePositionFar"/>
-      <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
-    </Conditions>
-    <Task class="Task_MoveToPosition">
-      <AcceptableRadius value="2"/>
+    <!-- movement goals (MovementGoal_GlobalTask, the highest wanted one drives the bot): the bot's point in the master's
+         room (its rtsc / entrance override, else the room's position; the reason says which), reached at it, while the way
+         is open -->
+    <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="35" kind="position">
+      <Radius value="2"/>
       <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
+      <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
+      <Conditions>
+        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+      </Conditions>
     </Task>
-    <Transitions>
-      <!-- the master went into a room that is not cleared, or the way crosses one: stop and wait -->
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStageBlocked" node="Root|Idle">
-        <Conditions match="any">
-          <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared" negate="true"/>
-          <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked"/>
-        </Conditions>
-      </Transition>
-      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
-    </Transitions>
-  </Node>
+    <!-- after the master (a path across dungeon portals), reached within follow range: not while the master is in a
+         room that is not cleared or between rooms, not through such a room, not with a point for the bot in the master's
+         room -->
+    <Task class="MovementGoal_GlobalTask" name="Follow Master" priority="10" kind="location">
+      <Radius value="follow"/>
+      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
+      <Conditions>
+        <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
+        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+        <Condition binding="Root|InstanceProvider_GlobalTask::stagePosition" negate="true"/>
+      </Conditions>
+    </Task>
+    <!-- to the body of a dead member (or the corpse of a released one) for the resurrection -->
+    <Task class="MovementGoal_GlobalTask" name="Resurrect Range" priority="40" kind="range">
+      <Range max="25"/>
+      <Dead value="true"/>
+      <Binding local="target" external="Root|HealProvider_GlobalTask::resurrectTarget"/>
+      <Conditions>
+        <Condition binding="Root|HealProvider_GlobalTask::dead"/>
+      </Conditions>
+    </Task>
+  </Global>
   <!-- a member died: walk to the body and resurrect it (bodies that are not released, no resurrection offered yet) -->
   <Node name="Resurrect">
     <Conditions>
       <Condition binding="Root|HealProvider_GlobalTask::dead"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Resurrect Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="25"/>
-      <Target value="dead"/>
-      <Binding local="target" external="Root|HealProvider_GlobalTask::resurrectTarget"/>
-    </Task>
     <Task class="Task_CastSpell" spellid="Ancestral Spirit">
       <Target value="dead"/>
       <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::dead"/>
     </Task>
   </Node>
+  <!-- eating and drinking while the bot stands (its movement goal "reached"); moving again leaves the node -->
   <Node name="Eat and Drink">
-    <Conditions match="any">
+    <Conditions>
       <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
     </Conditions>
     <Task class="Task_EatAndDrink">
       <Health until="100"/>
       <Mana until="100"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
+      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
+    </Transitions>
+  </Node>
+  <Node name="Drink and Eat">
+    <Conditions>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
+    </Conditions>
+    <Task class="Task_EatAndDrink">
+      <Health until="100"/>
+      <Mana until="100"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
     </Transitions>
   </Node>
   <Node name="Idle">
@@ -105,19 +93,19 @@
       <Delay value="0"/>
     </Task>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|MasterDistance_GlobalTask::onMasterFar" node="Root|Follow player"/>
       <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Eat and Drink">
         <Conditions>
           <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
         </Conditions>
       </Transition>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Eat and Drink">
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Drink and Eat">
         <Conditions>
           <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
         </Conditions>
       </Transition>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
       <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onDead" node="Root|Resurrect"/>
+      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Resurrect Range]::onArrived" node="Root"/>
     </Transitions>
   </Node>
 </Root>

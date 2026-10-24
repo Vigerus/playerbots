@@ -4,6 +4,12 @@
   <Global>
     <!-- where the body is: released, corpseLocation, corpseFar, onCorpseFar -->
     <Task class="CorpseProvider_GlobalTask"/>
+    <!-- movement goal (MovementGoal_GlobalTask): the ghost runs back to its body (a body in a dungeon through its
+         portal, where the core resurrects the ghost; outdoors the Reaction tree reclaims the body once in reach) -->
+    <Task class="MovementGoal_GlobalTask" name="Corpse Run" priority="10" kind="location">
+      <Radius value="10"/>
+      <Binding local="location" external="Root|CorpseProvider_GlobalTask::corpseLocation"/>
+    </Task>
   </Global>
   <!-- Reincarnation: the core offers it when the bot dies while it is off cooldown and an Ankh is in the bags (gone
        once released); fails without it (the node waits its retry delay) -->
@@ -23,29 +29,11 @@
     </Conditions>
     <Task class="Task_ReleaseSpirit"/>
   </Node>
-  <!-- the ghost runs back to its body: a body in a dungeon through its portal, where the core resurrects the ghost;
-       outdoors the Reaction tree reclaims the body once in reach (Reclaim Corpse) -->
-  <Node name="Corpse Run">
-    <Conditions>
-      <Condition binding="Root|CorpseProvider_GlobalTask::corpseFar"/>
-    </Conditions>
-    <Task class="Task_MakePath">
-      <Binding local="location" external="Root|CorpseProvider_GlobalTask::corpseLocation"/>
-    </Task>
-    <Task class="Task_MoveTo">
-      <AcceptableRadius value="10"/>
-      <Binding local="path" external="Root|Corpse Run|Task_MakePath::path"/>
-      <Binding local="location" external="Root|CorpseProvider_GlobalTask::corpseLocation"/>
-    </Task>
-  </Node>
   <Node name="Idle">
     <Conditions/>
     <!-- at the body (the Reaction tree reclaims it) or waiting: selects again every second -->
     <Task class="Task_Wait">
       <Delay value="1000"/>
     </Task>
-    <Transitions>
-      <Transition type="OnDelegate" source="Root|CorpseProvider_GlobalTask::onCorpseFar" node="Root|Corpse Run"/>
-    </Transitions>
   </Node>
 </Root>

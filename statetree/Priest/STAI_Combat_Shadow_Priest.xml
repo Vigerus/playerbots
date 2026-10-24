@@ -10,6 +10,23 @@
       <WithThreat value="true"/>
       <ThreatAmount value="90"/>
     </Task>
+    <!-- movement goal (MovementGoal_GlobalTask): in spell range and sight of the target -->
+    <Task class="MovementGoal_GlobalTask" name="Attack Range" priority="40" kind="range">
+      <Range max="spell"/>
+      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+    </Task>
+    <!-- the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
+         by rtsc), stagePositionFrom, pathBlocked -->
+    <Task class="InstanceProvider_GlobalTask"/>
+    <!-- movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range) -->
+    <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="45" kind="position">
+      <Radius value="2"/>
+      <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
+      <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
+      <Conditions>
+        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+      </Conditions>
+    </Task>
   </Global>
   <!-- low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s) -->
   <Node name="Mana Potion">
@@ -30,11 +47,8 @@
     <Conditions>
       <Condition binding="Root|TargetProvider_GlobalTask::target"/>
       <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </Conditions>
-    <Task class="Task_GetInRange">
-      <Range value="spell"/>
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
     <Task class="Task_Shoot">
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>

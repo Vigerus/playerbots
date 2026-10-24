@@ -1,11 +1,267 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat subtree for Prot Warrior bots (run by STAI_Combat_Warrior.xml) -->
+<!-- Combat subtree for Prot Warrior bots (run by STAI_Combat_Warrior.xml): defensive stance (battle below 10), holds
+     the units fighting the group (TankTargetProvider_GlobalTask: loose units first; as off tank not the main tank's),
+     faces them where they stand, taunts loose units, Revenge / Shield Block / Shield Slam / Sunder Armor for threat;
+     Charge (out of combat) only when it pulls nothing -->
 <Root>
+  <Global>
+    <!-- health of the bot: healthPct, onHealthChanged -->
+    <Task class="HealthProvider_GlobalTask"/>
+    <!-- rage, stance, Revenge: rage, stance, revenge, knowsDefensive, onReactive -->
+    <Task class="WarriorProvider_GlobalTask"/>
+    <!-- known and off cooldown: ready[<spell id>] (an unknown spell is never ready) -->
+    <Task class="CooldownProvider_GlobalTask">
+      <Spell id="12975"/>  <!-- Last Stand -->
+      <Spell id="871"/>    <!-- Shield Wall -->
+      <Spell id="355"/>    <!-- Taunt -->
+      <Spell id="23922"/>  <!-- Shield Slam -->
+      <Spell id="6572"/>   <!-- Revenge -->
+      <Spell id="2565"/>   <!-- Shield Block -->
+      <Spell id="2687"/>   <!-- Bloodrage -->
+      <Spell id="100"/>    <!-- Charge -->
+      <Spell id="7386"/>   <!-- Sunder Armor -->
+      <Spell id="1160"/>   <!-- Demoralizing Shout -->
+      <Spell id="845"/>    <!-- Cleave -->
+      <Spell id="78"/>     <!-- Heroic Strike -->
+    </Task>
+    <!-- interruptible casts of the enemies that Shield Bash reaches now (needs a shield): whoNeeds, onInterruptNeeded -->
+    <Task class="InterruptProvider_GlobalTask" spellid="Shield Bash"/>
+    <!-- Battle Shout on the bot (its party gets it with it): needs, onMissingBuff -->
+    <Task class="BuffProvider_GlobalTask">
+      <Buff spellid="6673" scope="self"/>  <!-- Battle Shout -->
+    </Task>
+    <!-- the unit to hold: target, taunt, loose, mainTank; onTargetChanged, onLoose -->
+    <Task class="TankTargetProvider_GlobalTask"/>
+    <!-- the bot against that unit: inMelee, attacking, targetAttacksBot, enemiesInMelee, inCombat, canCharge,
+         swingQueued; onMeleeChanged, onCanCharge -->
+    <Task class="MeleeProvider_GlobalTask">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+      <ChargeRange min="8" max="25"/>
+      <PullRadius value="15"/>
+      <FightTime value="2000"/>
+    </Task>
+    <!-- movement goal (MovementGoal_GlobalTask): in melee reach of the target, where it stands (the tank does not go behind) -->
+    <Task class="MovementGoal_GlobalTask" name="Melee" priority="50" kind="range">
+      <Range max="melee"/>
+      <Side value="front"/>
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Global>
+  <Node name="Last Stand">
+    <Conditions>
+      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="25"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="12975"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Last Stand">
+      <Target value="self"/>
+    </Task>
+  </Node>
+  <Node name="Shield Wall">
+    <Conditions>
+      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="defensive"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="871"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Shield Wall">
+      <Target value="self"/>
+    </Task>
+  </Node>
+  <!-- low health: the best healing potion of the bags (fails while none can be used, not selected again for 3s) -->
+  <Node name="Health Potion">
+    <Conditions>
+      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
+    </Conditions>
+    <Task class="Task_UseItem">
+      <Item id="13446"/>  <!-- Major Healing Potion -->
+      <Item id="3928"/>   <!-- Superior Healing Potion -->
+      <Item id="1710"/>   <!-- Greater Healing Potion -->
+      <Item id="929"/>    <!-- Healing Potion -->
+      <Item id="858"/>    <!-- Lesser Healing Potion -->
+      <Item id="118"/>    <!-- Minor Healing Potion -->
+    </Task>
+  </Node>
+  <!-- Charge (the bot out of combat, battle stance for it) to a unit that has fought the group for 2s, 8 - 25 yards
+       away, with nothing idle near it or the bot; back to defensive below -->
+  <Node name="Charge">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::canCharge"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inCombat" negate="true"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="100"/>
+    </Conditions>
+    <Task class="Task_Stance">
+      <Stance value="battle"/>
+    </Task>
+    <Task class="Task_CastSpell" spellid="Charge">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <Node name="Defensive Stance">
+    <Conditions>
+      <Condition binding="Root|WarriorProvider_GlobalTask::knowsDefensive"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="defensive" negate="true"/>
+    </Conditions>
+    <Task class="Task_Stance">
+      <Stance value="defensive"/>
+    </Task>
+  </Node>
+  <!-- below 10 (no Defensive Stance yet): battle stance -->
+  <Node name="Battle Stance">
+    <Conditions>
+      <Condition binding="Root|WarriorProvider_GlobalTask::knowsDefensive" negate="true"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="battle" negate="true"/>
+    </Conditions>
+    <Task class="Task_Stance">
+      <Stance value="battle"/>
+    </Task>
+  </Node>
+  <!-- a unit attacks a member that is no tank (it is the target: Start Attack below moves the attack to it, the
+       Melee goal walks the bot there): taunt it once in 20 yards -->
+  <Node name="Taunt">
+    <Conditions>
+      <Condition binding="Root|TankTargetProvider_GlobalTask::taunt"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="defensive"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="355"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::targetDistance" compare="lesser or equal" value="20"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Taunt">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::taunt"/>
+    </Task>
+  </Node>
+  <Node name="Interrupt">
+    <Conditions>
+      <Condition binding="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Shield Bash">
+      <Binding local="whoNeeds" external="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+    </Task>
+  </Node>
+  <Node name="Bloodrage">
+    <Conditions>
+      <Condition binding="Root|TankTargetProvider_GlobalTask::target"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="2687"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="lesser" value="20"/>
+      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="greater" value="40"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Bloodrage">
+      <Target value="self"/>
+    </Task>
+  </Node>
+  <!-- the auto attack on the target (also out of reach: the swings start in reach); the Melee movement goal
+       walks the bot to it and keeps it in front of it -->
+  <Node name="Start Attack">
+    <Conditions>
+      <Condition binding="Root|TankTargetProvider_GlobalTask::target"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::attacking" negate="true"/>
+    </Conditions>
+    <Task class="Task_StartAttack">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <Node name="Revenge">
+    <Conditions>
+      <Condition binding="Root|WarriorProvider_GlobalTask::revenge"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="defensive"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="6572"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="5"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Revenge">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <!-- the unit hits the bot: block (and Revenge from the blocks) -->
+  <Node name="Shield Block">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::targetAttacksBot"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="defensive"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="2565"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Shield Block">
+      <Target value="self"/>
+    </Task>
+  </Node>
+  <Node name="Shield Slam">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="23922"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="20"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Shield Slam">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <!-- the units around the bot without the bot's shout (fails while they all have it: not selected again for 3s) -->
+  <Node name="Demoralizing Shout">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="1160"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Demoralizing Shout">
+      <SkipAura own="true"/>
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <Node name="Battle Shout">
+    <Conditions>
+      <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
+    </Conditions>
+    <Task class="Task_CastBuff">
+      <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
+    </Task>
+  </Node>
+  <!-- rage to spare: on the next swing (once queued, it waits for the swing) -->
+  <Node name="Cleave">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::enemiesInMelee" compare="greater or equal" value="2"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::swingQueued" negate="true"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="845"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="40"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Cleave">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <!-- the threat filler -->
+  <Node name="Sunder Armor">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="7386"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="15"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Sunder Armor">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
+  <Node name="Heroic Strike">
+    <Conditions>
+      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition binding="Root|MeleeProvider_GlobalTask::swingQueued" negate="true"/>
+      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="78"/>
+      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="45"/>
+    </Conditions>
+    <Task class="Task_CastSpell" spellid="Heroic Strike">
+      <Binding local="target" external="Root|TankTargetProvider_GlobalTask::target"/>
+    </Task>
+  </Node>
   <Node name="Idle">
     <Conditions/>
-    <!-- placeholder until the spec's combat exists: waits forever, leaves only through a transition -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
+    <!-- nothing to hold: waits briefly, sooner on the delegates -->
+    <Task class="Task_Wait" show_log="false">
+      <Delay value="200"/>
     </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|TankTargetProvider_GlobalTask::onTargetChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|TankTargetProvider_GlobalTask::onLoose" node="Root"/>
+      <Transition type="OnDelegate" source="Root|MeleeProvider_GlobalTask::onMeleeChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|MeleeProvider_GlobalTask::onCanCharge" node="Root|Charge"/>
+      <Transition type="OnDelegate" source="Root|WarriorProvider_GlobalTask::onReactive" node="Root|Revenge"/>
+      <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
+    </Transitions>
   </Node>
 </Root>

@@ -11,27 +11,29 @@
 #include "playerbot/StateTree/Providers/InterruptProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/UIInteractionProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/MasterDistance_GlobalTask.h"
+#include "playerbot/StateTree/Providers/MeleeProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/MovementGoal_GlobalTask.h"
 #include "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/TargetProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/TankTargetProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/TeamProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/TotemProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/WarriorProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/Task_AcceptResurrection.h"
+#include "playerbot/StateTree/Tasks/Task_Attack.h"
 #include "playerbot/StateTree/Tasks/Task_CastBuff.h"
 #include "playerbot/StateTree/Tasks/Task_CastSpell.h"
 #include "playerbot/StateTree/Tasks/Task_CastTotem.h"
 #include "playerbot/StateTree/Tasks/Task_Corpse.h"
 #include "playerbot/StateTree/Tasks/Task_EatAndDrink.h"
-#include "playerbot/StateTree/Tasks/Task_MakePath.h"
-#include "playerbot/StateTree/Tasks/Task_MoveTo.h"
-#include "playerbot/StateTree/Tasks/Task_MoveToPosition.h"
-#include "playerbot/StateTree/Tasks/Task_GetInRange.h"
 #include "playerbot/StateTree/Tasks/Task_RollForItem.h"
 #include "playerbot/StateTree/Tasks/Task_RunSubtree.h"
 #include "playerbot/StateTree/Tasks/Task_SelfResurrect.h"
 #include "playerbot/StateTree/Tasks/Task_Shoot.h"
+#include "playerbot/StateTree/Tasks/Task_Stance.h"
 #include "playerbot/StateTree/Tasks/Task_Trade.h"
 #include "playerbot/StateTree/Tasks/Task_UseItem.h"
 #include "playerbot/StateTree/Tasks/Task_Wait.h"
@@ -40,9 +42,6 @@ namespace ai
 {
     void RegisterBuiltinStateTreeTasks(STAI_TaskFactory& factory)
     {
-        factory.RegisterTask("Task_MakePath", { &Task_MakePath::Validate, &Task_MakePath::Create });
-        factory.RegisterTask("Task_MoveTo", { &Task_MoveTo::Validate, &Task_MoveTo::Create });
-        factory.RegisterTask("Task_MoveToPosition", { &Task_MoveToPosition::Validate, &Task_MoveToPosition::Create });
         factory.RegisterTask("STAI_FinishTreeTask", { &STAI_FinishTreeTask::Validate, &STAI_FinishTreeTask::Create });
         factory.RegisterTask("STAI_GlobalTask", { &STAI_GlobalTask::Validate, &STAI_GlobalTask::Create });
         factory.RegisterTask("Task_RunSubtree", { &Task_RunSubtree::Validate, &Task_RunSubtree::Create });
@@ -64,7 +63,6 @@ namespace ai
         factory.RegisterTask("Task_Wait", { &Task_Wait::Validate, &Task_Wait::Create });
         factory.RegisterTask("CCProvider_GlobalTask", { &CCProvider_GlobalTask::Validate, &CCProvider_GlobalTask::Create });
         factory.RegisterTask("TargetProvider_GlobalTask", { &TargetProvider_GlobalTask::Validate, &TargetProvider_GlobalTask::Create });
-        factory.RegisterTask("Task_GetInRange", { &Task_GetInRange::Validate, &Task_GetInRange::Create });
         factory.RegisterTask("InterruptProvider_GlobalTask", { &InterruptProvider_GlobalTask::Validate, &InterruptProvider_GlobalTask::Create });
         factory.RegisterTask("CooldownProvider_GlobalTask", { &CooldownProvider_GlobalTask::Validate, &CooldownProvider_GlobalTask::Create });
         factory.RegisterTask("SpecProvider_GlobalTask", { &SpecProvider_GlobalTask::Validate, &SpecProvider_GlobalTask::Create });
@@ -80,5 +78,12 @@ namespace ai
         factory.RegisterTask("CorpseProvider_GlobalTask", { &CorpseProvider_GlobalTask::Validate, &CorpseProvider_GlobalTask::Create });
         factory.RegisterTask("Task_ReleaseSpirit", { &Task_ReleaseSpirit::Validate, &Task_ReleaseSpirit::Create });
         factory.RegisterTask("Task_ReclaimCorpse", { &Task_ReclaimCorpse::Validate, &Task_ReclaimCorpse::Create });
+        factory.RegisterTask("MeleeProvider_GlobalTask", { &MeleeProvider_GlobalTask::Validate, &MeleeProvider_GlobalTask::Create });
+        factory.RegisterTask("WarriorProvider_GlobalTask", { &WarriorProvider_GlobalTask::Validate, &WarriorProvider_GlobalTask::Create });
+        factory.RegisterTask("TankTargetProvider_GlobalTask", { &TankTargetProvider_GlobalTask::Validate, &TankTargetProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_Stance", { &Task_Stance::Validate, &Task_Stance::Create });
+        factory.RegisterTask("Task_StopAttack", { &Task_StopAttack::Validate, &Task_StopAttack::Create });
+        factory.RegisterTask("MovementGoal_GlobalTask", { &MovementGoal_GlobalTask::Validate, &MovementGoal_GlobalTask::Create });
+        factory.RegisterTask("Task_StartAttack", { &Task_StartAttack::Validate, &Task_StartAttack::Create });
     }
 }

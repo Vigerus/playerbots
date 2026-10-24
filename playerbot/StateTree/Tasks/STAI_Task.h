@@ -139,6 +139,10 @@ namespace ai
         bool bDisabled = false;
         // set by a task (STAI_FinishTreeTask): once it succeeded, the tree of its node finishes
         bool bFinishTree = false;
+        // a global task's <Conditions> passed in this update (always true without conditions, and for node tasks)
+        bool bActive = true;
+        // the file stem of the tree that runs the task (STAI_TreeAsset::name), for tasks that report where they come from
+        const std::string* tree = nullptr;
     };
 
     // {spell:<id>} in a task's debug info: the addon shows the spell's icon and name

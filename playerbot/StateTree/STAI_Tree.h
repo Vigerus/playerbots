@@ -12,7 +12,8 @@
 namespace ai
 {
     // A property or delegate of a task of the tree, by path: Root|<TaskClass>::<name> for a global task,
-    // Root|<node name>|<TaskClass>::<name> for a task of a node (the first task of that class)
+    // Root|<node name>|<TaskClass>::<name> for a task of a node (the first task of that class);
+    // <TaskClass>[<task name>] picks the task of that class with name="<task name>" (several goals of a tree)
     struct STAI_MemberRef
     {
         std::string path;
@@ -78,10 +79,13 @@ namespace ai
         using std::runtime_error::runtime_error;
     };
 
-    // <Task class="..."> task settings </Task>
+    // <Task class="..."> task settings </Task>; a global task may have <Conditions> (same as a node's): the tree
+    // checks them before every tick of the task and sets its context's bActive (MovementGoal_GlobalTask)
     struct STAI_TaskDef
     {
         std::string taskClass;
+        std::string name;                            // name="..." on the <Task>: Root|<TaskClass>[<name>]::<member> picks it
+        STAI_ConditionsDef conditions;               // global tasks only
         STAI_TaskConfig taskConfig;                  // without the <Binding> elements
         std::vector<STAI_BindingDef> bindings;
         std::unique_ptr<STAI_Task> task;             // shared by every bot running the tree

@@ -84,7 +84,10 @@ void STAI_TreeInstance::ResolveMembers()
             slot.bindings.push_back({ binding.localProperty->get(*slot.context), binding.externalProperty->get(*GetContext(binding.external)), binding.localProperty });
     };
     for (TaskSlot& global : globals)
+    {
         resolveBindings(global);
+        ResolveConditions(global.conditions, global.def->conditions, global.def->taskClass);
+    }
 
     for (RuntimeNode& node : nodes)
     {
@@ -130,6 +133,11 @@ EActionRunStatus STAI_TreeInstance::EnterTask(const TaskSlot& slot)
     ApplyBindings(slot);
     slot.context->bFinishTree = false;
     return slot.def->task->OnEnter(*slot.context);
+}
+
+void STAI_TreeInstance::CheckGlobalConditions(const TaskSlot& slot)
+{
+    slot.context->bActive = CheckConditions(slot.conditions);
 }
 
 EActionRunStatus STAI_TreeInstance::TickTask(const TaskSlot& slot, uint32 elapsed, bool minimal)
@@ -205,7 +213,10 @@ void STAI_TreeInstance::CreateContexts()
     contextStorage.reset(new std::max_align_t[(size + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t)]);
     std::byte* memory = reinterpret_cast<std::byte*>(contextStorage.get());
     for (size_t i = 0; i < slots.size(); ++i)
+    {
         slots[i]->context = slots[i]->def->task->GetContextType().construct(memory + offsets[i], context);
+        slots[i]->context->tree = &asset->name;
+    }
 }
 
 bool STAI_TreeInstance::CanEnter(RuntimeNode& node, uint32 now, bool ignoreFailedDelay)
@@ -271,7 +282,10 @@ void STAI_TreeInstance::EnterGlobals()
 
     running = true;
     for (TaskSlot& global : globals)
+    {
+        CheckGlobalConditions(global);
         EnterTask(global);
+    }
 }
 
 void STAI_TreeInstance::ExitGlobals()
@@ -318,6 +332,7 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
     {
         if (global.def->task->IsTickable())
         {
+            CheckGlobalConditions(global);
             TickTask(global, elapsed, minimal);
         }
     }

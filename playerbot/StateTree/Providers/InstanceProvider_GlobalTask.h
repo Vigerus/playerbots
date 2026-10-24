@@ -1,7 +1,7 @@
 #pragma once
 
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
-#include "playerbot/StateTree/Tasks/Task_MoveToPosition.h"
+#include "playerbot/StateTree/STAI_Navigation.h"
 
 #include <string>
 #include <vector>
@@ -48,11 +48,15 @@ namespace ai
         //     uncleared one (the bot's override from rtsc / its first arrival at the entrance, else the stage's
         //     position for its class / spec); unset without one
         //   stagePositionFar: stagePosition is set and the bot is more than 2 yards away
+        //   stagePositionFrom: where stagePosition comes from: "<stage name> cleared|uncleared, rtsc" (the bot's override
+        //     saved by rtsc), "..., entrance" (its first arrival, stage 0), "..., stage file" (the stage's position);
+        //     empty without one (the movement goal's reason)
         int32 stage = -1;
         int32 masterStage = -1;
         bool masterStageCleared = true;
         bool pathBlocked = false;
         STAI_Position stagePosition;
+        std::string stagePositionFrom;
         bool stagePositionFar = false;
 
         bool hasStages = false;     // the map has stages

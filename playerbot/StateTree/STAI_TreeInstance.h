@@ -69,19 +69,20 @@ namespace ai
             const STAI_PropertyDef* property = nullptr;
         };
 
+        // the bot's resolved conditions of a node, a transition or a global task
+        struct RuntimeConditions
+        {
+            const STAI_ConditionsDef* def = nullptr;
+            std::vector<const void*> boundValues;                 // per condition, the bound property
+        };
+
         // a task of the tree with the bot's context of it (in contextStorage)
         struct TaskSlot
         {
             const STAI_TaskDef* def = nullptr;
             STAI_TaskContext* context = nullptr;
             std::vector<RuntimeBinding> bindings;
-        };
-
-        // the bot's resolved conditions of a node or a transition
-        struct RuntimeConditions
-        {
-            const STAI_ConditionsDef* def = nullptr;
-            std::vector<const void*> boundValues;                 // per condition, the bound property
+            RuntimeConditions conditions;                         // a global task's <Conditions> (sets context->bActive)
         };
 
         struct RuntimeNode
@@ -122,6 +123,8 @@ namespace ai
         static void ApplyBindings(const TaskSlot& slot);
         static EActionRunStatus EnterTask(const TaskSlot& slot);
         static EActionRunStatus TickTask(const TaskSlot& slot, uint32 elapsed, bool minimal);
+        // a global task's conditions into its context's bActive, before it is entered / ticked
+        static void CheckGlobalConditions(const TaskSlot& slot);
         // the running node takes its transition of a fired delegate: true when the node was left
         bool TakeDelegateTransition(uint32 now);
 

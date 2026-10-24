@@ -445,6 +445,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     ApplyTotemCommands();
     rtsc.Update(this);
     StateMachine.Update(elapsed, minimal);
+    // the goals the trees submitted in this update
+    movement.Update(this);
     UpdateUpkeep();
     SendStateTreeDebug();
     SendInventory();
@@ -3553,14 +3555,15 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, uint8 effectMask, b
     if (!target)
         target = bot;
 
-    // charges (charge, intercept, feral charge) would take the bot into a dungeon stage that is not cleared
+    // charges (charge, intercept, feral charge) would take the bot into a dungeon stage that is not cleared: never, also
+    // not into the boxes that may be entered in combat (a charge lands next to the room's other units)
     if (target != bot && target->IsInWorld())
     {
         if (SpellEntry const* spellInfo = sServerFacade.LookupSpellInfo(spellid))
         {
             for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
             {
-                if (spellInfo->Effect[i] == SPELL_EFFECT_CHARGE && IsStageEntryBlocked(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ()))
+                if (spellInfo->Effect[i] == SPELL_EFFECT_CHARGE && IsStageEntryBlocked(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), false))
                 {
                     if (checkResult)
                     {
@@ -5839,7 +5842,29 @@ void PlayerbotAI::SendStateTreeDebug()
     // addon messages are limited to 255 chars, so the snapshot goes out in chunks:
     // "BOTST\tS<seq>:<index>/<count>:<payload part>" (index is 1-based)
     static constexpr size_t chunkSize = 220;
-    const std::string snapshot = stateTreeDebugHistory ? StateMachine.BuildDebugHistory() : StateMachine.BuildDebugSnapshot();
+    std::string snapshot = stateTreeDebugHistory ? StateMachine.BuildDebugHistory() : StateMachine.BuildDebugSnapshot();
+
+    // the movement (PlayerbotMovement): M^<active goal>^<source "tree | goal">^<state>^<yards to the destination, -1 none>
+    // ^<priority>; the last goal (reached / stopped) while none is wanted, Stay before the first one
+    if (!stateTreeDebugHistory)
+    {
+        auto field = [](std::string text)
+        {
+            std::replace(text.begin(), text.end(), '^', ' ');
+            std::replace(text.begin(), text.end(), '~', ' ');
+            return text;
+        };
+        const ai::MovementGoalRequest& goal = movement.GetActive();
+        const ai::STAI_Location& destination = movement.GetDestination();
+        const float distance = destination.valid && destination.mapId == bot->GetMapId() ?
+            bot->GetDistance(destination.x, destination.y, destination.z) : -1.0f;
+        std::ostringstream out;
+        out.setf(std::ios::fixed);
+        out.precision(1);
+        out << "~M^" << field(goal.name) << "^" << field(goal.source) << "^" << movement.GetStateName()
+            << "^" << distance << "^" << goal.priority;
+        snapshot += out.str();
+    }
     const size_t count = std::max<size_t>(1, (snapshot.size() + chunkSize - 1) / chunkSize);
     const uint32 seq = ++stateTreeDebugSeq;
 
@@ -6200,7 +6225,7 @@ void PlayerbotAI::SendInventory()
     }
 }
 
-bool PlayerbotAI::IsStageEntryBlocked(float x, float y, float z) const
+bool PlayerbotAI::IsStageEntryBlocked(float x, float y, float z, bool inCombat) const
 {
     if (!bot->IsInWorld())
         return false;
@@ -6212,7 +6237,7 @@ bool PlayerbotAI::IsStageEntryBlocked(float x, float y, float z) const
 
     // the stage the bot is in never blocks: it can always move inside it and leave it
     const int32 stage = instances->FindStage(map->GetId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
-    return instances->IsEntryBlocked(map, x, y, z, bot->IsInCombat(), stage);
+    return instances->IsEntryBlocked(map, x, y, z, inCombat, stage);
 }
 
 std::string PlayerbotAI::HandleRemoteCommand(std::string command)

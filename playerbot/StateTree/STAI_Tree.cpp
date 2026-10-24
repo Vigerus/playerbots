@@ -161,10 +161,12 @@ namespace
         return def;
     }
 
-    // <Task class="..."> settings </Task>: validated and created (shared by every bot)
-    void ParseTask(const ptree& task, const std::string& where, STAI_TaskDef& def)
+    // <Task class="..."> settings </Task>: validated and created (shared by every bot); <Conditions> only for global
+    // tasks
+    void ParseTask(const ptree& task, const std::string& where, STAI_TaskDef& def, bool global)
     {
         def.taskClass = Attribute(task, "class");
+        def.name = Attribute(task, "name");
         const STAI_TaskFactory::TaskClass* taskClass = sSTAITaskFactory.FindTask(def.taskClass);
         if (!taskClass)
             throw std::runtime_error(where + ": unknown task class '" + def.taskClass + "'");
@@ -172,6 +174,13 @@ namespace
         // <Binding>s are handled by the tree, the task only sees its own settings
         def.taskConfig = task;
         def.taskConfig.erase("Binding");
+        def.taskConfig.erase("Conditions");
+        if (const auto conditions = task.get_child_optional("Conditions"))
+        {
+            if (!global)
+                throw std::runtime_error(where + " (" + def.taskClass + "): <Conditions> in a <Task> only in <Global> (a node has its own)");
+            def.conditions = ParseConditions(*conditions, where);
+        }
         for (const auto& [key, binding] : task)
         {
             if (key != "Binding")
@@ -255,7 +264,7 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
 
                 ++globalIndex;
                 STAI_TaskDef def;
-                ParseTask(task, file + " global task #" + std::to_string(globalIndex), def);
+                ParseTask(task, file + " global task #" + std::to_string(globalIndex), def, true);
                 asset->globalTasks.push_back(std::move(def));
             }
             continue;
@@ -280,7 +289,7 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
             {
                 // tasks of a node run one after another, in file order
                 STAI_TaskDef task;
-                ParseTask(child, where + " task #" + std::to_string(def.tasks.size() + 1), task);
+                ParseTask(child, where + " task #" + std::to_string(def.tasks.size() + 1), task, false);
                 def.tasks.push_back(std::move(task));
             }
             else if (childKey == "Transitions")
@@ -344,17 +353,29 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
         const size_t member = rest.find("::");
         if (member == std::string::npos || member == 0 || member + 2 == rest.size())
             throw fail("expected <TaskClass>::<name>");
-        const std::string taskClass = rest.substr(0, member);
+        std::string taskClass = rest.substr(0, member);
         ref.member = rest.substr(member + 2);
+
+        // <TaskClass>[<task name>]
+        std::string taskName;
+        const size_t open = taskClass.find('[');
+        if (open != std::string::npos)
+        {
+            if (taskClass.back() != ']')
+                throw fail("expected <TaskClass>[<task name>]::<name>");
+            taskName = taskClass.substr(open + 1, taskClass.size() - open - 2);
+            taskClass = taskClass.substr(0, open);
+        }
 
         for (size_t i = 0; i < tasks->size(); ++i)
         {
-            if ((*tasks)[i].taskClass != taskClass)
+            if ((*tasks)[i].taskClass != taskClass || (open != std::string::npos && (*tasks)[i].name != taskName))
                 continue;
             ref.task = int(i);
             return *(*tasks)[i].task;
         }
-        throw fail("no task of class '" + taskClass + "' in " + (ref.node < 0 ? "<Global>" : "the node"));
+        throw fail("no task of class '" + taskClass + "'" + (open != std::string::npos ? " named '" + taskName + "'" : "") + " in " +
+            (ref.node < 0 ? "<Global>" : "the node"));
     };
 
     auto resolveBindings = [&](STAI_TaskDef& task, const std::string& where)
@@ -373,8 +394,38 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
         }
     };
 
+    auto resolveConditions = [&](STAI_ConditionsDef& conditions, const std::string& where)
+    {
+        for (STAI_ConditionDef& condition : conditions.list)
+        {
+            condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
+            if (!condition.property)
+                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
+            if (condition.hasKey)
+            {
+                if (!condition.property->lookup)
+                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' with a key is not a map of numbers");
+                continue;
+            }
+            if (condition.isText)
+            {
+                if (!condition.property->toText)
+                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a text, it cannot be compared with '" + condition.text + "'");
+                continue;
+            }
+            if (condition.compare == STAI_ConditionDef::Compare::None && !condition.property->isSet)
+                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
+            if (condition.compare != STAI_ConditionDef::Compare::None && !condition.property->toNumber)
+                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a number, it cannot be compared");
+        }
+    };
+
     for (size_t i = 0; i < asset->globalTasks.size(); ++i)
-        resolveBindings(asset->globalTasks[i], file + " global task #" + std::to_string(i + 1));
+    {
+        const std::string where = file + " global task #" + std::to_string(i + 1);
+        resolveBindings(asset->globalTasks[i], where);
+        resolveConditions(asset->globalTasks[i].conditions, where);
+    }
 
     for (size_t i = 0; i < asset->nodes.size(); ++i)
     {
@@ -382,37 +433,11 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
         for (STAI_TaskDef& task : asset->nodes[i].tasks)
             resolveBindings(task, where);
 
-        auto resolveConditions = [&](STAI_ConditionsDef& conditions)
-        {
-            for (STAI_ConditionDef& condition : conditions.list)
-            {
-                condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
-                if (!condition.property)
-                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
-                if (condition.hasKey)
-                {
-                    if (!condition.property->lookup)
-                        throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' with a key is not a map of numbers");
-                    continue;
-                }
-                if (condition.isText)
-                {
-                    if (!condition.property->toText)
-                        throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a text, it cannot be compared with '" + condition.text + "'");
-                    continue;
-                }
-                if (condition.compare == STAI_ConditionDef::Compare::None && !condition.property->isSet)
-                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
-                if (condition.compare != STAI_ConditionDef::Compare::None && !condition.property->toNumber)
-                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a number, it cannot be compared");
-            }
-        };
-
-        resolveConditions(asset->nodes[i].conditions);
+        resolveConditions(asset->nodes[i].conditions, where);
 
         for (STAI_TransitionDef& transition : asset->nodes[i].transitions)
         {
-            resolveConditions(transition.conditions);
+            resolveConditions(transition.conditions, where);
             if (transition.type != STAI_TransitionDef::Type::OnDelegate)
                 continue;
             transition.delegate = resolve(transition.source, where).FindDelegate(transition.source.member);
