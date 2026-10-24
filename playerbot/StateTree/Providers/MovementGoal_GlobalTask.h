@@ -17,7 +17,7 @@ namespace ai
         STAI_Location location;
         STAI_Position position;
         ObjectGuid target;
-        // bound, optional: why the goal wants its spot, shown after the goal in its source ("<tree> | <goal> (<reason>)"),
+        // bound, optional: why the goal wants its spot, shown after the goal in its source ("<goal> (<reason>)"),
         // e.g. InstanceProvider_GlobalTask::stagePositionFrom (the stage point saved by rtsc, the stage file's)
         std::string reason;
 
@@ -35,7 +35,7 @@ namespace ai
         //   active: it is the goal that drives the bot (the highest priority of the wanted goals)
         //   inRange: the bot is where the goal wants it (location / position: within the radius; range: in range and
         //     sight of the target), also while another goal drives; the nodes using the spot check it
-        //   activeGoal / activeSource: the goal that drives the bot now, whichever it is ("<tree> | <goal name>"; Stay
+        //   activeGoal / activeSource: the goal that drives the bot now, whichever it is (source "<goal name> (<reason>)"; Stay
         //     without a wanted goal)
         //   movement: what the bot's movement does ("moving", "reached", "blocked", "yielding", "stopped", "none" while dead),
         //     e.g. eat only while "reached": <Condition binding="Root|MovementGoal_GlobalTask[Follow Master]::movement"

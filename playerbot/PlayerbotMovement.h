@@ -26,7 +26,7 @@ namespace ai
     {
         const void* owner = nullptr;    // the goal's context: the same goal in the next update
         std::string name;               // name="..." of the goal
-        std::string source;             // "<tree> | <goal name>"
+        std::string source;             // "<goal name>" or "<goal name> (<reason>)"
         int32 priority = 0;             // the highest one is driven
         MovementGoalKind kind = MovementGoalKind::Position;
         STAI_Location location;         // Location
@@ -96,7 +96,7 @@ namespace ai
         {
             MovementGoalRequest goal;
             goal.name = "Stay";
-            goal.source = "PlayerbotMovement | no goal yet";
+            goal.source = "no goal yet";
             goal.priority = 0;
             return goal;
         }

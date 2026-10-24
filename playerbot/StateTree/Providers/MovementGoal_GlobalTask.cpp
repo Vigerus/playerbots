@@ -117,7 +117,7 @@ void MovementGoal_GlobalTask::Update(MovementGoal_GlobalTaskContext& context) co
     MovementGoalRequest goal;
     goal.owner = &context;
     goal.name = settings.name;
-    goal.source = (context.tree ? *context.tree : std::string("?")) + " | " + settings.name;
+    goal.source = settings.name;
     if (!context.reason.empty())
         goal.source += " (" + context.reason + ")";
     goal.priority = settings.priority;
