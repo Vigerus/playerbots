@@ -138,9 +138,13 @@ void PlayerbotMovement::Update(PlayerbotAI* ai)
         if (!best || request.priority > best->priority)
             best = &request;
 
+    // a living bot or a ghost (the Dead tree's corpse run) moves, a body does not; a ghost is not IsAlive (its death
+    // state is DEAD)
+    const bool canMove = bot->IsInWorld() && (sServerFacade.IsAlive(bot) || bot->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST));
+
     // no wanted goal: the bot stands where it is (the movement the controller gave stops); the last goal stays shown,
     // reached or stopped before it was
-    if (!best || !bot->IsInWorld() || !sServerFacade.IsAlive(bot))
+    if (!best || !canMove)
     {
         StopOwn(bot);
         if (hasActive)
@@ -150,7 +154,7 @@ void PlayerbotMovement::Update(PlayerbotAI* ai)
                 state = MovementState::Stopped;
         }
         hasActive = false;
-        if (!bot->IsInWorld() || !sServerFacade.IsAlive(bot))
+        if (!canMove)
             state = MovementState::None;
         else if (!hasLast)
             state = MovementState::Arrived;
