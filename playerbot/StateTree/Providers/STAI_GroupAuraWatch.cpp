@@ -1,5 +1,7 @@
 #include "STAI_GroupAuraWatch.h"
 
+#include "playerbot/StateTree/STAI_SameMap.h"
+
 #include "Groups/Group.h"
 #include "Groups/TeamSubsystem.h"
 #include "Spells/SpellAuraWorldSubsystem.h"
@@ -80,7 +82,7 @@ std::vector<Player*> STAI_GroupAuraWatchContext::GetReachableMembers(Group* left
         for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
             Player* member = itr->getSource();
-            if (member && member->IsInWorld() && member->IsAlive() && member->GetMap() == bot->GetMap())
+            if (member && member->IsAlive() && IsOnSameMap(member, bot))
                 members.push_back(member);
         }
     }
@@ -92,13 +94,13 @@ std::vector<Player*> STAI_GroupAuraWatchContext::GetReachableMembers(Group* left
 void STAI_GroupAuraWatchContext::OnAuraApplied(Unit* target, SpellAuraHolder* holder)
 {
     // members on other maps change their auras on another thread, and are out of reach anyway
-    if (target->GetMap() == bot->GetMap() && IsWatchedAura(holder))
+    if (IsOnSameMap(target, bot) && IsWatchedAura(holder))
         Evaluate();
 }
 
 void STAI_GroupAuraWatchContext::OnAuraRemoved(Unit* target, SpellAuraHolder* holder, AuraRemoveMode mode)
 {
-    if (target->GetMap() == bot->GetMap() && IsWatchedAura(holder))
+    if (IsOnSameMap(target, bot) && IsWatchedAura(holder))
         Evaluate();
 }
 

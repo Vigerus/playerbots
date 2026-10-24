@@ -1,5 +1,7 @@
 #include "STAI_TeamRoles.h"
 
+#include "playerbot/StateTree/STAI_SameMap.h"
+
 #include "playerbot/PlayerSpec.h"
 #include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
 
@@ -82,7 +84,7 @@ void STAI_TeamRoles::Read(Player* bot)
         for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
             Player* member = itr->getSource();
-            if (member && member->IsInWorld() && member->GetMap() == bot->GetMap())
+            if (IsOnSameMap(member, bot))
                 players.push_back(member);
         }
     }

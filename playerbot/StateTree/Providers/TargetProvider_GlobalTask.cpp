@@ -1,5 +1,7 @@
 #include "TargetProvider_GlobalTask.h"
 
+#include "playerbot/StateTree/STAI_SameMap.h"
+
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/ServerFacade.h"
@@ -97,7 +99,7 @@ std::unique_ptr<STAI_Task> TargetProvider_GlobalTask::Create(const STAI_TaskConf
 bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, Unit* unit, const std::vector<Unit*>& ccMarks)
 {
     Player* bot = context.bot;
-    if (!unit || !unit->IsInWorld() || !sServerFacade.IsAlive(unit) || unit->GetMap() != bot->GetMap())
+    if (!unit || !sServerFacade.IsAlive(unit) || !IsOnSameMap(unit, bot))
         return false;
     if (!sServerFacade.IsHostileTo(bot, unit) || !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance))
         return false;

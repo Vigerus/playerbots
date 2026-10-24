@@ -1,5 +1,7 @@
 #include "TankTargetProvider_GlobalTask.h"
 
+#include "playerbot/StateTree/STAI_SameMap.h"
+
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/ServerFacade.h"
@@ -75,7 +77,7 @@ void TankTargetProvider_GlobalTask::Choose(TankTargetProvider_GlobalTaskContext&
     for (const auto& [guid, victims] : context.ai->GetTeamAttackers())
     {
         Unit* unit = context.ai->GetUnit(guid);
-        if (!unit || unit->IsPlayer() || !unit->IsInWorld() || !sServerFacade.IsAlive(unit) || unit->GetMap() != bot->GetMap())
+        if (!unit || unit->IsPlayer() || !sServerFacade.IsAlive(unit) || !IsOnSameMap(unit, bot))
             continue;
         if (!sServerFacade.IsHostileTo(bot, unit) || !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance))
             continue;

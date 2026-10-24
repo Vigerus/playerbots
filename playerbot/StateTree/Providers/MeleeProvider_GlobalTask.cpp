@@ -1,5 +1,7 @@
 #include "MeleeProvider_GlobalTask.h"
 
+#include "playerbot/StateTree/STAI_SameMap.h"
+
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/StateTree/STAI_TaskFactory.h"
@@ -82,7 +84,7 @@ uint32 MeleeProvider_GlobalTask::CountEnemiesNear(PlayerbotAI* ai, Player* bot, 
     for (const auto& [guid, victims] : ai->GetTeamAttackers())
     {
         Unit* unit = ai->GetUnit(guid);
-        if (unit && unit->IsInWorld() && unit->IsAlive() && unit->GetMap() == bot->GetMap() && bot->IsWithinDistInMap(unit, range))
+        if (unit && unit->IsAlive() && IsOnSameMap(unit, bot) && bot->IsWithinDistInMap(unit, range))
             ++count;
     }
     return count;

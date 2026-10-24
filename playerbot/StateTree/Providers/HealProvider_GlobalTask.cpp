@@ -1,5 +1,7 @@
 #include "HealProvider_GlobalTask.h"
 
+#include "playerbot/StateTree/STAI_SameMap.h"
+
 #include "playerbot/ServerFacade.h"
 #include "playerbot/StateTree/Providers/TeamProvider_GlobalTask.h"
 #include "playerbot/StateTree/STAI_TaskFactory.h"
@@ -41,7 +43,7 @@ namespace
             for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
                 Player* member = itr->getSource();
-                if (member && member->IsInWorld() && member->GetMap() == bot->GetMap())
+                if (IsOnSameMap(member, bot))
                     members.push_back(member);
             }
         }
@@ -177,7 +179,7 @@ void HealProvider_GlobalTask::Evaluate(HealProvider_GlobalTaskContext& context) 
         for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
             Player* member = itr->getSource();
-            if (member && member != bot && member->IsInWorld() && member->GetMap() != bot->GetMap())
+            if (member && member != bot && member->IsInWorld() && !IsOnSameMap(member, bot))
                 if (Corpse* corpse = GetResurrectableCorpse(bot, member))
                     context.dead.push_back(corpse->GetObjectGuid());
         }
