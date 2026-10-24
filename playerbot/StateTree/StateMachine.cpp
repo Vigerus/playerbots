@@ -245,6 +245,21 @@ std::string StateMachine::BuildDebugSnapshot() const
     return out.str();
 }
 
+void StateMachine::GetDebugView(StateMachineDebugView& view) const
+{
+    view.active = active ? GetHLSStateTypeName(active->GetStateType()) : "";
+    view.msInState = active ? WorldTimer::getMSTimeDiff(activeSinceMs, WorldTimer::getMSTime()) : 0;
+    view.states.clear();
+    for (const auto& [type, node] : nodes)
+    {
+        StateMachineDebugView::State& state = view.states.emplace_back();
+        state.type = GetHLSStateTypeName(type);
+        state.name = node->GetName();
+        state.running = node.get() == active || node.get() == reaction;
+        state.stack = node->GetDebugTreeStack();
+    }
+}
+
 bool StateMachine::SetDebugSwitch(const std::string& state, StateTreeSwitch what, const std::string& tree, int node, int index, int value)
 {
     for (const auto& [type, stateNode] : nodes)
@@ -267,12 +282,22 @@ std::string StateMachine::BuildDebugHistory()
     const uint32 now = WorldTimer::getMSTime();
     const std::deque<STAI_ActivityLog::Entry>& entries = activityLog.GetEntries();
 
+    // the log may keep an hour (the server's debug window), the addon shows the last minute
+    auto inAddonRange = [now](const STAI_ActivityLog::Entry& entry)
+    {
+        return entry.open || WorldTimer::getMSTimeDiff(entry.endMs, now) < STAI_ActivityLog::addonRetentionMs;
+    };
+
     std::ostringstream out;
-    out << "Y^" << entries.size();
+    out << "Y^" << std::count_if(entries.begin(), entries.end(), inAddonRange);
 
     size_t sent = 0;
-    for (auto it = entries.rbegin(); it != entries.rend() && sent < maxEntries; ++it, ++sent)
+    for (auto it = entries.rbegin(); it != entries.rend() && sent < maxEntries; ++it)
     {
+        if (!inAddonRange(*it))
+            continue;
+        ++sent;
+
         const uint32 age = WorldTimer::getMSTimeDiff(it->startMs, now);
         const bool running = it->open || WorldTimer::getMSTimeDiff(it->startMs, it->endMs) > age;
         const uint32 duration = running ? age : WorldTimer::getMSTimeDiff(it->startMs, it->endMs);

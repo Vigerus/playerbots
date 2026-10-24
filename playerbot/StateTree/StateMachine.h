@@ -10,6 +10,23 @@
 
 namespace ai
 {
+    // every state of a StateMachine, for the server's debug window (PlayerbotDebugWindow): what the snapshot of
+    // BuildDebugSnapshot holds, not serialized
+    struct StateMachineDebugView
+    {
+        struct State
+        {
+            std::string type;                       // NonCombat, Combat, Reaction, Dead
+            std::string name;
+            bool running = false;                   // the active main state, or Reaction
+            std::vector<StateNodeDebugTree> stack;  // bottom (initial tree) to top (the tree selecting nodes)
+        };
+
+        std::string active;                         // type of the active main state, empty none
+        uint32 msInState = 0;
+        std::vector<State> states;
+    };
+
     // The bot's high level states. One main state is active at a time and switched with TransitionTo: NonCombat
     // (where it starts), Combat or Dead. Reaction is additive: it is not a state the bot is in but runs next to the
     // active main state on every update, for what the bot does independent of its movement and actions (talking,
@@ -41,6 +58,8 @@ namespace ai
 
         // serialized tree state for the client-side StateTree visualizer addon (see BotStateTree addon)
         std::string BuildDebugSnapshot() const;
+        // the same, for the server's debug window
+        void GetDebugView(StateMachineDebugView& view) const;
         // serialized recent activity (history tab of the addon)
         std::string BuildDebugHistory();
         // the addon's switches: state type name, tree name, node and task / condition index of the snapshot's top tree

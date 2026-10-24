@@ -6,14 +6,19 @@
 namespace ai
 {
     // Recent activity of one bot (tree nodes, executed actions) for the StateTree debug view.
-    // Entries older than the retention are dropped. Written and read from the bot's own update.
+    // Entries older than the retention (a minute, an hour with the server's debug window) are dropped. Written and
+    // read from the bot's own update.
     // A run of the same kind, name and source as the newest entry (a node picked over and over, an action executed
     // again and again) is merged into it instead of flooding the log: the entry counts the runs and sums their time,
     // its start / end are the latest run's.
     class STAI_ActivityLog
     {
     public:
-        static constexpr uint32 retentionMs = 60000;
+        // what the BotStateTree addon shows (its History tab: the last minute)
+        static constexpr uint32 addonRetentionMs = 60000;
+        // how long entries are kept, for every bot (PlayerbotDebugWindow: AiPlayerbot.DebugWindow.HistoryMinutes)
+        static void SetRetention(uint32 ms) { retentionMs = ms < addonRetentionMs ? addonRetentionMs : ms; }
+        static uint32 GetRetention() { return retentionMs; }
 
         struct Entry
         {
@@ -55,5 +60,9 @@ namespace ai
 
         std::deque<Entry> entries;
         uint64 nextId = 1;
+        // with an hour of entries a prune on every Begin would scan them all: at most once a second
+        uint32 lastPruneMs = 0;
+
+        static inline uint32 retentionMs = addonRetentionMs;
     };
 }

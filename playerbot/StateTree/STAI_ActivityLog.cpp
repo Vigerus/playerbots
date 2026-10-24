@@ -112,6 +112,10 @@ STAI_ActivityLog::Entry* STAI_ActivityLog::Find(uint64 id)
 
 void STAI_ActivityLog::Prune(uint32 now)
 {
+    if (lastPruneMs && WorldTimer::getMSTimeDiff(lastPruneMs, now) < 1000)
+        return;
+    lastPruneMs = now;
+
     // open entries (a running node) are kept even when they started long ago
     entries.erase(std::remove_if(entries.begin(), entries.end(), [now](const Entry& entry)
     {

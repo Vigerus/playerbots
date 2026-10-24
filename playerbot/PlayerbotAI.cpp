@@ -13,6 +13,7 @@
 #include "Grids/CellImpl.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "PlayerbotAI.h"
+#include "playerbot/PlayerbotDebugWindow.h"
 #include "playerbot/PlayerbotFactory.h"
 #include "PlayerbotSecurity.h"
 #include "Groups/Group.h"
@@ -147,6 +148,7 @@ PlayerbotAI::~PlayerbotAI()
     // the bot's subscriptions (the bot-less AI of the shared value context made none)
     if (bot)
     {
+        sPlayerbotDebugWindow.OnBotRemoved(bot->GetObjectGuid().GetRawValue());
         if (TeamSubsystem* teams = sWorld.GetSubsystem<TeamSubsystem>())
             teams->RemoveAll(bot->GetObjectGuid(), this);
         if (InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>())
@@ -450,6 +452,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     UpdateUpkeep();
     SendStateTreeDebug();
     SendInventory();
+    sPlayerbotDebugWindow.OnBotUpdate(this);
 }
 
 void PlayerbotAI::SetActionDuration(uint32 duration)

@@ -1062,6 +1062,14 @@ AiPlayerbot.UseKnockback = 1
 
 AiPlayerbot.PerfMonEnabled = 0
 
+# Server-side BotStateTree window (Windows only): opened when the server starts, a drop-down of the active bots,
+# their state trees and activity history. Spell icons are downloaded from wowhead into spellicons/.
+# Default: 1 (on)
+AiPlayerbot.DebugWindow = 1
+
+# Minutes every bot keeps its activity log (the window's History tab) while the window runs. Default: 60
+AiPlayerbot.DebugWindow.HistoryMinutes = 60
+
 
 ##################################################################################
 #                                                                                #

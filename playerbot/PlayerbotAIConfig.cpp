@@ -9,6 +9,7 @@
 
 #include "playerbot/TravelMgr.h"
 #include "playerbot/StateTree/STAI_Tree.h"
+#include "playerbot/PlayerbotDebugWindow.h"
 #include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
 
 #include "instancebot/GuildProgressSubsystem.h"
@@ -773,6 +774,10 @@ bool PlayerbotAIConfig::Initialize()
         sLog.outString("Loading state trees...");
         sSTAITreeLibrary.LoadFromConfig();
     }
+
+    // the server's StateTree debug window (Windows), opened once: a config reload keeps it
+    if (config.GetBoolDefault("AiPlayerbot.DebugWindow", true) && !sPlayerbotDebugWindow.IsRunning())
+        sPlayerbotDebugWindow.Start(std::max(1, config.GetIntDefault("AiPlayerbot.DebugWindow.HistoryMinutes", 60)));
 
     sLog.outString("---------------------------------------");
     sLog.outString("        AI Playerbot initialized       ");

@@ -79,6 +79,7 @@ namespace ai
 {
     class WorldPosition;
     class GuidPosition;
+    class PlayerbotDebugWindow;
     class IterateItemsVisitor;
     class FindItemVisitor;
 
@@ -365,6 +366,8 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnBotTradeStatus, uint32 /*status*/);
 
 class PlayerbotAI : public PlayerbotAIBase
 {
+    // reads the StateMachine and queues switches on the bot's update (OnBotUpdate)
+    friend class ai::PlayerbotDebugWindow;
 public:
 	PlayerbotAI();
 	PlayerbotAI(Player* bot);
@@ -822,6 +825,8 @@ protected:
     std::mutex stateTreeToggleLock;
     std::vector<StateTreeToggle> stateTreeToggles;
     uint8 stateTreeDebugSeq = 0;
+    // last listing / view / history copy for the server's debug window (PlayerbotDebugWindow::OnBotUpdate)
+    uint32 debugWindowListedMs = 0, debugWindowViewMs = 0, debugWindowHistoryMs = 0;
     // player waiting for the bot's gear and bags ("BOT\tinventory" addon request of WoWAddonInspectBot) and the
     // addon's equip / unequip requests ("BOT\tequip <bag> <slot> <inventory slot>", "BOT\tunequip <inventory slot>",
     // client numbering: bags 0-4, slots from 1, inventory slots 1-19); set from chat, run in UpdateAI
