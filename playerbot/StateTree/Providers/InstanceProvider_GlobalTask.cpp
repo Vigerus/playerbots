@@ -88,7 +88,7 @@ namespace
     }
 
     // the creature of the dungeon's packs that would aggro on the bot along the way: alive, hostile, not fighting yet,
-    // within its aggro range (+ AGGRO_MARGIN) of the way. Not one the bot is in range of already (it does not aggro,
+    // within its aggro range (+ AGGRO_MARGIN) of the way and in its line of sight there. Not one the bot is in range of already (it does not aggro,
     // passive) nor, for a spot the master chose (chosen), one in range of the spot. Null when none.
     Creature* AggroOnPath(Player* bot, const Movement::PointsArray& points, bool chosen)
     {
@@ -124,8 +124,10 @@ namespace
         Creature* found = nullptr;
         AnySample(points, [&](const Vector3& point)
         {
+            // in its aggro range and in its sight there (a creature on another floor or behind a wall does not aggro)
             for (const auto& [creature, radius] : nearby)
-                if (creature->GetDistance(point.x, point.y, point.z) <= radius)
+                if (creature->GetDistance(point.x, point.y, point.z) <= radius &&
+                    creature->IsWithinLOS(point.x, point.y, point.z + bot->GetCollisionHeight()))
                 {
                     found = creature;
                     return true;
