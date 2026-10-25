@@ -52,9 +52,11 @@
       <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
     </Task>
   </Node>
+  <!-- not at low mana: the buffs wait for Eat and Drink instead of failing every time -->
   <Node name="Check Missing Buffs">
     <Conditions>
       <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
     </Conditions>
     <Task class="Task_CastBuff">
       <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
@@ -85,7 +87,11 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" node="Root|Check Decurse"/>
-      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Missing Buffs"/>
+      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Missing Buffs">
+        <Conditions>
+          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+        </Conditions>
+      </Transition>
       <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Eat and Drink">
         <Conditions>
           <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>

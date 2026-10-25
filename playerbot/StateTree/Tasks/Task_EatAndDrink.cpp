@@ -113,11 +113,11 @@ namespace
             if (!pSpellInfo)
                 return false;
 
+            // cast by the core, not PlayerbotAI::CastSpell: that one stands a sitting bot up and fails, which would end
+            // the food when the drink starts; the aura sits the bot down
             ai->Unmount();
             ai->InterruptSpell();
-            const bool cast = ai->CastSpell(spellId, bot);
-            bot->RemoveSpellCooldown(*pSpellInfo);
-            return cast;
+            return bot->CastSpell(bot, pSpellInfo, TRIGGERED_OLD_TRIGGERED) == SPELL_CAST_OK;
         }
 
         const std::list<Item*> items = ai->InventoryParseItems(food ? "food" : "drink", IterateItemsMask::ITERATE_ITEMS_IN_BAGS);

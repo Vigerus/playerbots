@@ -112,9 +112,11 @@
       <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::disease"/>
     </Task>
   </Node>
+  <!-- not at low mana: the buffs wait for Eat and Drink instead of failing every time -->
   <Node name="Check Missing Buffs">
     <Conditions>
       <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
+      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
     </Conditions>
     <Task class="Task_CastBuff">
       <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
@@ -157,7 +159,11 @@
       <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onDead" node="Root|Resurrect"/>
       <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onNeedsHeal" node="Root|Heal Group"/>
       <Transition type="OnDelegate" source="Root|DispelProvider_GlobalTask::onNeedsHelp" node="Root"/>
-      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Missing Buffs"/>
+      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Missing Buffs">
+        <Conditions>
+          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+        </Conditions>
+      </Transition>
       <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
       <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Resurrect Range]::onArrived" node="Root"/>
       <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Heal Range]::onArrived" node="Root"/>

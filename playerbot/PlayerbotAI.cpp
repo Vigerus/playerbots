@@ -1728,6 +1728,12 @@ void PlayerbotAI::UpdateUpkeep()
         }
     }
 
+    // eating / drinking (an aura that standing up ends): the bot keeps sitting, whatever the master does
+    bool seated = false;
+    for (const auto& holder : bot->GetSpellAuraHolderMap())
+        if (holder.second->GetSpellProto()->AuraInterruptFlags & AURA_INTERRUPT_FLAG_STANDING_CANCELS)
+            seated = true;
+
     if (master && master->IsInWorld())
 	{
 		if (master->m_movementInfo.HasMovementFlag(MOVEFLAG_WALK_MODE) && sServerFacade.GetDistance2d(bot, master) < 20.0f) bot->m_movementInfo.AddMovementFlag(MOVEFLAG_WALK_MODE);
@@ -1738,7 +1744,7 @@ void PlayerbotAI::UpdateUpkeep()
             if (!sServerFacade.isMoving(bot) && sServerFacade.GetDistance2d(bot, master) < 10.0f)
                 bot->SetStandState(UNIT_STAND_STATE_SIT);
         }
-        else if (aiInternalUpdateDelay < 1000)
+        else if (aiInternalUpdateDelay < 1000 && !seated)
             bot->SetStandState(UNIT_STAND_STATE_STAND);
 
         if (!group && sRandomPlayerbotMgr.IsFreeBot(bot) && !IsRealPlayer())
@@ -1747,7 +1753,7 @@ void PlayerbotAI::UpdateUpkeep()
         }
 	}
 	else if (bot->m_movementInfo.HasMovementFlag(MOVEFLAG_WALK_MODE)) bot->m_movementInfo.RemoveMovementFlag(MOVEFLAG_WALK_MODE);
-    else if ((aiInternalUpdateDelay < 1000) && bot->IsSitState()) bot->SetStandState(UNIT_STAND_STATE_STAND);
+    else if ((aiInternalUpdateDelay < 1000) && bot->IsSitState() && !seated) bot->SetStandState(UNIT_STAND_STATE_STAND);
 
 #ifndef MANGOSBOT_ZERO
     if (bot->IsFlying() && !bot->IsFreeFlying())
