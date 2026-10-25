@@ -100,7 +100,24 @@ namespace
         return def;
     }
 
-    // <Conditions match="all|any"> <Condition .../> ... </Conditions>
+    // <Any> <Condition .../> ... </Any>: one condition, passes when one of them passes
+    STAI_ConditionDef ParseAny(const ptree& any, const std::string& where)
+    {
+        STAI_ConditionDef def;
+        for (const auto& [conditionKey, condition] : any)
+        {
+            if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
+                continue;
+            if (conditionKey != "Condition")
+                throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Any> (expected <Condition binding=\"...\"/>)");
+            def.anyOf.push_back(ParseCondition(condition, where));
+        }
+        if (def.anyOf.empty())
+            throw std::runtime_error(where + ": <Any> without a <Condition>");
+        return def;
+    }
+
+    // <Conditions match="all|any"> <Condition .../> <Any>...</Any> ... </Conditions>
     STAI_ConditionsDef ParseConditions(const ptree& conditions, const std::string& where)
     {
         STAI_ConditionsDef def;
@@ -115,9 +132,12 @@ namespace
         {
             if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
                 continue;
-            if (conditionKey != "Condition")
-                throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition binding=\"...\"/>)");
-            def.list.push_back(ParseCondition(condition, where));
+            if (conditionKey == "Any")
+                def.list.push_back(ParseAny(condition, where));
+            else if (conditionKey == "Condition")
+                def.list.push_back(ParseCondition(condition, where));
+            else
+                throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition binding=\"...\"/> or <Any>)");
         }
         return def;
     }
@@ -394,29 +414,37 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
         }
     };
 
+    auto resolveCondition = [&](STAI_ConditionDef& condition, const std::string& where)
+    {
+        condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
+        if (!condition.property)
+            throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
+        if (condition.hasKey)
+        {
+            if (!condition.property->lookup)
+                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' with a key is not a map of numbers");
+            return;
+        }
+        if (condition.isText)
+        {
+            if (!condition.property->toText)
+                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a text, it cannot be compared with '" + condition.text + "'");
+            return;
+        }
+        if (condition.compare == STAI_ConditionDef::Compare::None && !condition.property->isSet)
+            throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
+        if (condition.compare != STAI_ConditionDef::Compare::None && !condition.property->toNumber)
+            throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a number, it cannot be compared");
+    };
+
     auto resolveConditions = [&](STAI_ConditionsDef& conditions, const std::string& where)
     {
         for (STAI_ConditionDef& condition : conditions.list)
         {
-            condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
-            if (!condition.property)
-                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
-            if (condition.hasKey)
-            {
-                if (!condition.property->lookup)
-                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' with a key is not a map of numbers");
-                continue;
-            }
-            if (condition.isText)
-            {
-                if (!condition.property->toText)
-                    throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a text, it cannot be compared with '" + condition.text + "'");
-                continue;
-            }
-            if (condition.compare == STAI_ConditionDef::Compare::None && !condition.property->isSet)
-                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
-            if (condition.compare != STAI_ConditionDef::Compare::None && !condition.property->toNumber)
-                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a number, it cannot be compared");
+            if (condition.anyOf.empty())
+                resolveCondition(condition, where);
+            for (STAI_ConditionDef& member : condition.anyOf)
+                resolveCondition(member, where);
         }
     };
 
@@ -468,7 +496,18 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
     return asset;
 }
 
-bool STAI_ConditionDef::Passes(const void* boundValue) const
+bool STAI_ConditionDef::Passes(const std::vector<const void*>& boundValues) const
+{
+    if (anyOf.empty())
+        return PassesValue(boundValues[0]);
+
+    for (size_t i = 0; i < anyOf.size(); ++i)
+        if (anyOf[i].PassesValue(boundValues[i]))
+            return true;
+    return false;
+}
+
+bool STAI_ConditionDef::PassesValue(const void* boundValue) const
 {
     if (isText)
         return (property->toText(boundValue) == text) != negate;
@@ -495,6 +534,15 @@ bool STAI_ConditionDef::Passes(const void* boundValue) const
 
 std::string STAI_ConditionDef::GetText() const
 {
+    // <Any>: "(a OR b)"
+    if (!anyOf.empty())
+    {
+        std::string text = "(";
+        for (size_t i = 0; i < anyOf.size(); ++i)
+            text += (i ? " OR " : "") + anyOf[i].GetText();
+        return text + ")";
+    }
+
     std::string text = binding.path;
     if (hasKey)
     {

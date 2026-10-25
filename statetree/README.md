@@ -92,7 +92,8 @@ container not empty, else its bool value), or while it is not set with `negate="
 binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>`), other compares need numbers.
 `key="<number>"` reads the entry of a map property instead (`CooldownProvider_GlobalTask::ready`): it passes while the
 entry is set (non-zero), `compare` / `negate` work on the entry, a missing key is not set (compared as 0).
-`<Conditions match="any">` passes when one condition passes (default `all`). The debug addon shows each condition
+`<Conditions match="any">` passes when one condition passes (default `all`). `<Any> <Condition .../> ... </Any>` in `<Conditions>` is
+one condition that passes when one of its conditions passes (`IF (a OR b) AND c`: Eat and Drink). The debug addon shows each condition
 green (passed), red (failed) or gray (not checked in the last update). (The legacy trigger conditions,
 `<Condition trigger="..."/>`, went with the strategy engine.)
 
@@ -382,9 +383,9 @@ In every dungeon the way to `stagePosition` / the master is also blocked (`pathB
 within aggro range (+3 yards) of a living hostile creature of the packs that is not fighting yet (not one the bot is in
 range of already, nor one in range of a chosen spot); the bot tells its master which creature, at most every 15s.
 
-Every NonCombat tree eats and drinks through Eat and Drink (below 80% health) and Drink and Eat (below 90% mana), above
+Every NonCombat tree eats and drinks through Eat and Drink (below 80% health or below 90% mana, an `<Any>`), above
 Idle and below the buff / decurse nodes, only while the bot stands (the movement "reached";
-`onMovementChanged` leaves the nodes): Idle goes there when health / mana changed that low, and `Task_EatAndDrink` restores
+`onMovementChanged` leaves the node): Idle goes there when health / mana changed that low, and `Task_EatAndDrink` restores
 both to 100%.
 The Priest NonCombat trees (Dungeon and Outdoors, every spec) also, above Eat and Drink: Resurrect (Resurrection on
 `dead` once the Resurrect Range goal, 25 yards of `HealProvider_GlobalTask::resurrectTarget`, has the bot in range), Heal

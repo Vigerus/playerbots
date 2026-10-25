@@ -73,7 +73,7 @@ namespace ai
         struct RuntimeConditions
         {
             const STAI_ConditionsDef* def = nullptr;
-            std::vector<const void*> boundValues;                 // per condition, the bound property
+            std::vector<std::vector<const void*>> boundValues;    // per condition, the bound property (per member of an <Any>)
         };
 
         // a task of the tree with the bot's context of it (in contextStorage)

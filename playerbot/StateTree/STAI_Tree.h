@@ -31,6 +31,8 @@ namespace ai
     // map does not have is not set (compared as 0).
     // <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>: a text property
     // equal to the value (only compare="equal").
+    // <Any> <Condition .../> ... </Any> in <Conditions>: one condition that passes when one of its conditions passes
+    // (health or mana low, AND the other conditions of the list).
     struct STAI_ConditionDef
     {
         enum class Compare : uint8 { None, Equal, Lesser, LesserOrEqual, Greater, GreaterOrEqual };
@@ -45,9 +47,12 @@ namespace ai
         bool isText = false;        // compare="equal" with a value that is no number: compares a text property
         std::string text;
         double key = 0.0;
+        std::vector<STAI_ConditionDef> anyOf;   // <Any>: its conditions (no binding of its own), empty: a plain condition
 
-        // a bound condition on the value of its property
-        bool Passes(const void* boundValue) const;
+        // the bound values: the property of a plain condition, one per <Any> condition
+        bool Passes(const std::vector<const void*>& boundValues) const;
+        // a plain condition on the value of its property
+        bool PassesValue(const void* boundValue) const;
         std::string GetText() const;
     };
 

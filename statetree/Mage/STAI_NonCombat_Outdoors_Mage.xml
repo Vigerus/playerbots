@@ -63,20 +63,10 @@
   <!-- eating and drinking while the bot stands (its movement goal "reached"); moving again leaves the node -->
   <Node name="Eat and Drink">
     <Conditions>
-      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
-      <Condition binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
-    </Conditions>
-    <Task class="Task_EatAndDrink">
-      <Health until="100"/>
-      <Mana until="100"/>
-    </Task>
-    <Transitions>
-      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
-    </Transitions>
-  </Node>
-  <Node name="Drink and Eat">
-    <Conditions>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+      <Any>
+        <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+        <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+      </Any>
       <Condition binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
     </Conditions>
     <Task class="Task_EatAndDrink">
@@ -101,7 +91,7 @@
           <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
         </Conditions>
       </Transition>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Drink and Eat">
+      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Eat and Drink">
         <Conditions>
           <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
         </Conditions>

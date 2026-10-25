@@ -49,8 +49,12 @@ void STAI_TreeInstance::ResolveConditions(RuntimeConditions& conditions, const S
     conditions.def = &def;
     for (const STAI_ConditionDef& condition : def.list)
     {
-        // bound conditions read the property in its context
-        conditions.boundValues.push_back(condition.property->get(*GetContext(condition.binding)));
+        // bound conditions read the property in its context; an <Any> condition the properties of its conditions
+        std::vector<const void*>& values = conditions.boundValues.emplace_back();
+        if (condition.anyOf.empty())
+            values.push_back(condition.property->get(*GetContext(condition.binding)));
+        for (const STAI_ConditionDef& member : condition.anyOf)
+            values.push_back(member.property->get(*GetContext(member.binding)));
     }
 }
 
