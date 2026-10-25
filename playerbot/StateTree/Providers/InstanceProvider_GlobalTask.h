@@ -2,7 +2,9 @@
 
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
 #include "playerbot/StateTree/STAI_Navigation.h"
+#include "Entities/ObjectGuid.h"
 
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -37,20 +39,35 @@ namespace ai
         // fired on every check while the bot is away from its stagePosition (and its way there is not blocked)
         //   <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onStagePositionFar" node="Root|Position Yourself"/>
         FSTAI_Delegate onStagePositionFar;
+        // fired when the master selected another preset or none, its preset was saved or deleted, or the active pull
+        // moved (Next / Prev in the DungeonStage addon; DungeonPlannerSubsystem OnPlanChanged)
+        //   <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onPlanChanged" node="Root|Position Yourself"/>
+        FSTAI_Delegate onPlanChanged;
 
         // properties:
         //   stage / masterStage: index of the stage the bot / master stands in, -1 none or no stages on the map
         //   masterStageCleared: the master stands in a cleared stage, the bot may follow it (true while the master is
         //     not on the bot's map or the map has no stages; false while it stands outside every stage)
         //   pathBlocked: the bot's way to its destination (stagePosition, else the master) crosses a stage that is
-        //     not cleared (other than the one the bot is in and the master's); only checked while the bot is away
+        //     not cleared (other than the one the bot is in and the master's), or passes within aggro range of a
+        //     creature not fighting yet (blockedBy); only checked while the bot is away
         //   stagePosition: the bot's point in the master's stage, the cleared one once the stage is cleared, else the
         //     uncleared one (the bot's override from rtsc / its first arrival at the entrance, else the stage's
-        //     position for its class / spec); unset without one
+        //     position for its class / spec); unset without one. While the bot stands in a stage that is not cleared
+        //     other than the master's: where it last stood outside such a stage (PlayerbotAI::GetStageWayBack), it
+        //     leaves the way it came instead of crossing the stage
         //   stagePositionFar: stagePosition is set and the bot is more than 2 yards away
         //   stagePositionFrom: where stagePosition comes from: "<stage name> cleared|uncleared, rtsc" (the bot's override
-        //     saved by rtsc), "..., entrance" (its first arrival, stage 0), "..., stage file" (the stage's position);
-        //     empty without one (the movement goal's reason)
+        //     saved by rtsc), "..., entrance" (its first arrival, stage 0), "..., stage file" (the stage's position),
+        //     "<bot's stage> uncleared, way back"; empty without one (the movement goal's reason)
+        //   preset / presetName: the master's Bot Dungeon Planner preset for the dungeon (DungeonPlannerSubsystem), 0
+        //     none: then the stages of the map give the bot's point
+        //   activePull / activePullName: the active pull of the preset (1 based, 0 none); it sets stagePosition: the
+        //     next waypoint of its path, then the bot's rtsc spot for it and its state, else the preset's waiting /
+        //     cleared position
+        //   blockedBy: the creature that would aggro on the bot's way (pathBlocked), empty when none
+        // Every dungeon checks the way against the aggro range of the living creatures of its packs (DungeonPacks),
+        // stages or not; the stage checks only run on maps with stages.
         int32 stage = -1;
         int32 masterStage = -1;
         bool masterStageCleared = true;
@@ -58,6 +75,12 @@ namespace ai
         STAI_Position stagePosition;
         std::string stagePositionFrom;
         bool stagePositionFar = false;
+        int32 preset = 0;
+        std::string presetName;
+        int32 activePull = 0;
+        std::string activePullName;
+        std::string blockedBy;
+        uint32 lastBlockedTell = 0;     // WorldTimer ms the master was last told of a creature in the way
 
         bool hasStages = false;     // the map has stages
         uint32 stageTimer = 0;      // ms since the stages were checked
@@ -67,6 +90,7 @@ namespace ai
         STAI_Position entrance;
 
         bool subscribed = false;
+        std::atomic<bool> planChanged{false};   // OnPlanChanged came (any thread), handled by the next tick
 
         void Subscribe();
         void Unsubscribe();
@@ -75,6 +99,7 @@ namespace ai
         void SetMap(Map* map, bool arrived);
 
         void OnPlayerEnterMap(Player* player, Map* map);
+        void OnPlanChanged(ObjectGuid self, ObjectGuid selector, uint32 changedMapId);
         // finds the stages of the bot and its master, the stage position and whether the way is blocked; fires
         // onStageCleared / onStageBlocked / onStagePositionFar
         void UpdateStages();

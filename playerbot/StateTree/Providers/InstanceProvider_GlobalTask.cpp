@@ -4,9 +4,11 @@
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/ServerFacade.h"
 
+#include "Maps/DungeonPlannerSubsystem.h"
 #include "Maps/InstanceSubsystem.h"
 #include "Maps/Map.h"
 #include "MotionGenerators/PathFinder.h"
+#include "Util/Timer.h"
 #include "World/World.h"
 
 #include <iomanip>
@@ -21,18 +23,39 @@ namespace
     const float STAGE_POSITION_RADIUS = 2.0f;     // yards: the bot stands at its stage position
     const float PATH_SAMPLE_STEP = 2.0f;          // yards between the points of the way tested against the stages
 
-    // the way of the bot to the spot crosses a stage that is not cleared, other than the stage the bot is in and
-    // targetStage (the master's stage when the spot is its uncleared point)
-    bool CrossesUnclearedStage(InstanceSubsystem* instances, Player* bot, int32 botStage, int32 targetStage, float x, float y, float z)
+    // the stage's name for the reasons, "stage <index>" without one
+    std::string StageName(const std::vector<InstanceStageDef>& stages, int32 stage)
+    {
+        return uint32(stage) < stages.size() && !stages[stage].name.empty() ? stages[stage].name : "stage " + std::to_string(stage);
+    }
+
+    // creatures that would aggro count from this far beyond their aggro range
+    const float AGGRO_MARGIN = 3.0f;
+    // a bot tells its master that a creature blocks its way at most this often
+    const uint32 BLOCKED_TELL_INTERVAL = 15000;   // ms
+
+    // a waypoint of a plan's path counts as reached this close
+    const float PATH_WAYPOINT_RADIUS = 3.0f;
+
+    // the ground at a planned point: its height comes from the planner's map (estimated), the map's height below a bit
+    // above it when that is close
+    float SnapHeight(Map* map, const DungeonPlanPoint& point)
+    {
+        const float height = map->GetHeight(point.x, point.y, point.z + 5.0f);
+        return height > INVALID_HEIGHT && std::abs(height - point.z) < 15.0f ? height : point.z;
+    }
+
+    Movement::PointsArray PathTo(Player* bot, float x, float y, float z)
     {
         PathFinder path(bot);
         path.calculate(x, y, z);
-        const Movement::PointsArray& points = path.getPath();
-        if (points.size() < 2)
-            return false;
+        return path.getPath();
+    }
 
-        Map* map = bot->GetMap();
-        std::map<int32, bool> cleared;
+    // calls check for points along the way every PATH_SAMPLE_STEP yards, until it returns true; true then
+    template <class Check>
+    bool AnySample(const Movement::PointsArray& points, Check check)
+    {
         for (size_t i = 1; i < points.size(); ++i)
         {
             const Vector3& from = points[i - 1];
@@ -40,20 +63,76 @@ namespace
             const float length = (to - from).length();
             const uint32 samples = std::max<uint32>(1, uint32(length / PATH_SAMPLE_STEP));
             for (uint32 j = 1; j <= samples; ++j)
-            {
-                const Vector3 point = from + (to - from) * (float(j) / samples);
-                const int32 stage = instances->FindStage(map->GetId(), point.x, point.y, point.z);
-                if (stage < 0 || stage == botStage || stage == targetStage)
-                    continue;
-
-                auto itr = cleared.find(stage);
-                if (itr == cleared.end())
-                    itr = cleared.emplace(stage, instances->IsStageCleared(map, uint32(stage))).first;
-                if (!itr->second)
+                if (check(from + (to - from) * (float(j) / samples)))
                     return true;
-            }
         }
         return false;
+    }
+
+    // the way crosses a stage that is not cleared, other than the stage the bot is in and targetStage (the master's
+    // stage when the spot is its uncleared point)
+    bool CrossesUnclearedStage(InstanceSubsystem* instances, Map* map, const Movement::PointsArray& points, int32 botStage, int32 targetStage)
+    {
+        std::map<int32, bool> cleared;
+        return AnySample(points, [&](const Vector3& point)
+        {
+            const int32 stage = instances->FindStage(map->GetId(), point.x, point.y, point.z);
+            if (stage < 0 || stage == botStage || stage == targetStage)
+                return false;
+
+            auto itr = cleared.find(stage);
+            if (itr == cleared.end())
+                itr = cleared.emplace(stage, instances->IsStageCleared(map, uint32(stage))).first;
+            return !itr->second;
+        });
+    }
+
+    // the creature of the dungeon's packs that would aggro on the bot along the way: alive, hostile, not fighting yet,
+    // within its aggro range (+ AGGRO_MARGIN) of the way. Not one the bot is in range of already (it does not aggro,
+    // passive) nor, for a spot the master chose (chosen), one in range of the spot. Null when none.
+    Creature* AggroOnPath(Player* bot, const Movement::PointsArray& points, bool chosen)
+    {
+        if (points.size() < 2)
+            return nullptr;
+
+        Map* map = bot->GetMap();
+        DungeonPlannerSubsystem* planner = sWorld.GetSubsystem<DungeonPlannerSubsystem>();
+        if (!planner)
+            return nullptr;
+        float length = 0.0f;
+        for (size_t i = 1; i < points.size(); ++i)
+            length += (points[i] - points[i - 1]).length();
+        const Vector3& end = points.back();
+
+        std::vector<std::pair<Creature*, float>> nearby;
+        for (const DungeonPack& pack : *planner->GetPacks(map->GetId()))
+            for (const DungeonPackSpawn& spawn : pack.spawns)
+            {
+                Creature* creature = map->GetCreature(spawn.dbGuid);
+                if (!creature || !creature->IsAlive() || creature->IsInCombat() || !creature->IsEnemy(bot))
+                    continue;
+                const float radius = creature->GetAttackDistance(bot) + AGGRO_MARGIN;
+                if (bot->GetDistance(creature) > length + radius || bot->GetDistance(creature) <= radius)
+                    continue;
+                if (chosen && creature->GetDistance(end.x, end.y, end.z) <= radius)
+                    continue;
+                nearby.emplace_back(creature, radius);
+            }
+        if (nearby.empty())
+            return nullptr;
+
+        Creature* found = nullptr;
+        AnySample(points, [&](const Vector3& point)
+        {
+            for (const auto& [creature, radius] : nearby)
+                if (creature->GetDistance(point.x, point.y, point.z) <= radius)
+                {
+                    found = creature;
+                    return true;
+                }
+            return false;
+        });
+        return found;
     }
 }
 
@@ -79,8 +158,19 @@ EActionRunStatus InstanceProvider_GlobalTask::OnTick(STAI_TaskContext& baseConte
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(InstanceProvider_GlobalTask::OnTick);
     InstanceProvider_GlobalTaskContext& context = ContextAs<InstanceProvider_GlobalTaskContext>(baseContext);
-    if (!context.hasStages)
+    if (!context.hasStages && !context.inDungeon)
+    {
+        context.planChanged = false;
         return EActionRunStatus::Running;
+    }
+
+    // another preset / pull of the master's plan: at once
+    if (context.planChanged.exchange(false))
+    {
+        context.UpdateStages();
+        context.onPlanChanged.Broadcast();
+        return EActionRunStatus::Running;
+    }
 
     context.stageTimer += elapsed;
     if (context.stageTimer >= STAGE_CHECK_INTERVAL)
@@ -102,6 +192,11 @@ const std::vector<STAI_PropertyDef>& InstanceProvider_GlobalTask::GetProperties(
         STAI_PropertyDef::Of("stagePosition", &InstanceProvider_GlobalTaskContext::stagePosition),
         STAI_PropertyDef::Of("stagePositionFar", &InstanceProvider_GlobalTaskContext::stagePositionFar),
         STAI_PropertyDef::Of("stagePositionFrom", &InstanceProvider_GlobalTaskContext::stagePositionFrom),
+        STAI_PropertyDef::Of("preset", &InstanceProvider_GlobalTaskContext::preset),
+        STAI_PropertyDef::Of("presetName", &InstanceProvider_GlobalTaskContext::presetName),
+        STAI_PropertyDef::Of("activePull", &InstanceProvider_GlobalTaskContext::activePull),
+        STAI_PropertyDef::Of("activePullName", &InstanceProvider_GlobalTaskContext::activePullName),
+        STAI_PropertyDef::Of("blockedBy", &InstanceProvider_GlobalTaskContext::blockedBy),
     };
     return properties;
 }
@@ -114,6 +209,7 @@ const std::vector<STAI_DelegateDef>& InstanceProvider_GlobalTask::GetDelegates()
         STAI_DelegateDef::Of("onStageCleared", &InstanceProvider_GlobalTaskContext::onStageCleared),
         STAI_DelegateDef::Of("onStageBlocked", &InstanceProvider_GlobalTaskContext::onStageBlocked),
         STAI_DelegateDef::Of("onStagePositionFar", &InstanceProvider_GlobalTaskContext::onStagePositionFar),
+        STAI_DelegateDef::Of("onPlanChanged", &InstanceProvider_GlobalTaskContext::onPlanChanged),
     };
     return delegates;
 }
@@ -128,6 +224,8 @@ void InstanceProvider_GlobalTaskContext::Subscribe()
     subscribed = true;
     if (InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>())
         instances->AddOnPlayerEnterMap(bot->GetObjectGuid(), this, &InstanceProvider_GlobalTaskContext::OnPlayerEnterMap);
+    if (DungeonPlannerSubsystem* planner = sWorld.GetSubsystem<DungeonPlannerSubsystem>())
+        planner->AddOnPlanChanged(bot->GetObjectGuid(), this, &InstanceProvider_GlobalTaskContext::OnPlanChanged);
 }
 
 void InstanceProvider_GlobalTaskContext::Unsubscribe()
@@ -138,6 +236,8 @@ void InstanceProvider_GlobalTaskContext::Unsubscribe()
     subscribed = false;
     if (InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>())
         instances->RemoveAll(bot->GetObjectGuid(), this);
+    if (DungeonPlannerSubsystem* planner = sWorld.GetSubsystem<DungeonPlannerSubsystem>())
+        planner->RemoveAll(bot->GetObjectGuid(), this);
 }
 
 void InstanceProvider_GlobalTaskContext::SetMap(Map* map, bool arrived)
@@ -182,15 +282,21 @@ void InstanceProvider_GlobalTaskContext::OnPlayerEnterMap(Player* player, Map* m
     SetMap(map, true);
 }
 
+void InstanceProvider_GlobalTaskContext::OnPlanChanged(ObjectGuid self, ObjectGuid selector, uint32 changedMapId)
+{
+    // from the selector's map thread: the tick takes it over
+    planChanged = true;
+}
+
 void InstanceProvider_GlobalTaskContext::UpdateStages()
 {
     stageTimer = 0;
     InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>();
-    if (!hasStages || !instances || !bot->IsInWorld())
+    if ((!hasStages && !inDungeon) || !instances || !bot->IsInWorld())
         return;
 
     Map* map = bot->GetMap();
-    stage = instances->FindStage(map->GetId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
+    stage = hasStages ? instances->FindStage(map->GetId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()) : -1;
 
     // the entrance is always cleared: the bot's first arrival is both of its points there
     if (entrancePending)
@@ -199,24 +305,37 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
         PlayerbotDungeonPositions& positions = ai->GetDungeonPositions();
         PlayerbotDungeonPositions::Position existing;
         for (bool cleared : { true, false })
-            if (!positions.Get(bot, map->GetId(), 0, cleared, existing))
-                positions.Set(bot, map->GetId(), 0, cleared, { entrance.x, entrance.y, entrance.z });
+            if (!positions.Get(bot, map->GetId(), 0, 0, cleared, existing))
+                positions.Set(bot, map->GetId(), 0, 0, cleared, { entrance.x, entrance.y, entrance.z });
     }
 
     // blocked: the bot can go neither to a stage point nor after the master
     const bool wasBlocked = pathBlocked || (!masterStageCleared && !stagePosition.valid);
     const bool wasCleared = masterStageCleared;
     const int32 lastMasterStage = masterStage;
+    const std::string lastBlockedBy = blockedBy;
     masterStage = -1;
     masterStageCleared = true;
     pathBlocked = false;
     stagePosition = STAI_Position();
     stagePositionFrom.clear();
     stagePositionFar = false;
+    preset = 0;
+    presetName.clear();
+    activePull = 0;
+    activePullName.clear();
+    blockedBy.clear();
 
     Player* master = ai->GetMaster();
     const bool hasMaster = master && master != bot && master->IsInWorld() && master->GetMap() == map;
-    if (hasMaster)
+
+    // the master's Bot Dungeon Planner preset for the dungeon (DungeonPlannerSubsystem) replaces the stages: its active
+    // pull gives the bot's point; without one the stages of the map do
+    DungeonActivePull pull;
+    DungeonPlannerSubsystem* planner = sWorld.GetSubsystem<DungeonPlannerSubsystem>();
+    const bool hasPreset = hasMaster && planner && planner->GetActivePull(master, map, pull);
+    const bool useStages = hasStages && !hasPreset;
+    if (hasMaster && useStages)
     {
         masterStage = instances->FindStage(map->GetId(), master->GetPositionX(), master->GetPositionY(), master->GetPositionZ());
         // outside every stage (corridors between them) the master is not followed either: the bot stays
@@ -225,16 +344,14 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
 
     // the bot's point in the master's stage, the cleared or the uncleared one by the stage's state: its own override
     // (rtsc, entrance), else the stage's position for it
+    const std::vector<InstanceStageDef> stages = useStages ? instances->GetStages(map->GetId()) : std::vector<InstanceStageDef>();
     if (masterStage >= 0)
     {
         // where it comes from, for the movement goal: "<stage> cleared|uncleared, rtsc|entrance|stage file"
-        const std::vector<InstanceStageDef> stages = instances->GetStages(map->GetId());
-        const std::string stageName = uint32(masterStage) < stages.size() && !stages[masterStage].name.empty() ?
-            stages[masterStage].name : "stage " + std::to_string(masterStage);
-        const std::string which = stageName + (masterStageCleared ? " cleared, " : " uncleared, ");
+        const std::string which = StageName(stages, masterStage) + (masterStageCleared ? " cleared, " : " uncleared, ");
 
         PlayerbotDungeonPositions::Position position;
-        if (ai->GetDungeonPositions().Get(bot, map->GetId(), uint32(masterStage), masterStageCleared, position))
+        if (ai->GetDungeonPositions().Get(bot, map->GetId(), 0, uint32(masterStage), masterStageCleared, position))
         {
             stagePosition = { position.x, position.y, position.z, true };
             stagePositionFrom = which + (masterStage == 0 ? "entrance / rtsc" : "rtsc");
@@ -246,16 +363,120 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
         }
     }
 
+    // the active pull of the preset: before its creatures are dead the waypoints of its path, then the waiting
+    // position; once dead the cleared position. The bot's rtsc spot for the pull and state wins over the preset's
+    // position; without either the bot follows the master
+    if (hasPreset)
+    {
+        preset = int32(pull.presetId);
+        presetName = pull.presetName;
+        activePull = int32(pull.index);
+        activePullName = pull.name;
+        const std::string which = "pull " + std::to_string(pull.index) + " " + pull.name + (pull.cleared ? " cleared, " : ", ");
+        PlayerbotDungeonPositions::Position position;
+        if (ai->GetDungeonPositions().Get(bot, map->GetId(), pull.presetId, pull.id, pull.cleared, position))
+        {
+            stagePosition = { position.x, position.y, position.z, true };
+            stagePositionFrom = which + "rtsc";
+        }
+        else if (pull.hasPosition)
+        {
+            stagePosition = { pull.position.x, pull.position.y, SnapHeight(map, pull.position), true };
+            stagePositionFrom = which + (pull.cleared ? "planned" : "waiting");
+        }
+
+        // the path: from the waypoint nearest to the bot when the pull became active, each one reached in turn
+        PlayerbotAI::PlanPathProgress& progress = ai->GetPlanPathProgress();
+        if (!pull.path.empty() && stagePosition.valid)
+        {
+            if (!progress.valid || progress.pullId != pull.id || progress.mapId != map->GetId() || progress.instanceId != map->GetInstanceId())
+            {
+                uint32 nearest = 0;
+                for (uint32 i = 1; i < pull.path.size(); ++i)
+                    if (bot->GetDistance(pull.path[i].x, pull.path[i].y, pull.path[i].z) < bot->GetDistance(pull.path[nearest].x, pull.path[nearest].y, pull.path[nearest].z))
+                        nearest = i;
+                progress = { map->GetId(), map->GetInstanceId(), pull.id, nearest, true };
+            }
+            while (progress.index < pull.path.size())
+            {
+                const DungeonPlanPoint& point = pull.path[progress.index];
+                if (bot->GetDistance(point.x, point.y, SnapHeight(map, point)) > PATH_WAYPOINT_RADIUS)
+                    break;
+                ++progress.index;
+            }
+            if (progress.index < pull.path.size())
+            {
+                const DungeonPlanPoint& point = pull.path[progress.index];
+                stagePosition = { point.x, point.y, SnapHeight(map, point), true };
+                stagePositionFrom = which + "path " + std::to_string(progress.index + 1) + "/" + std::to_string(pull.path.size());
+            }
+        }
+        else if (pull.cleared)
+            progress.valid = false;
+    }
+
+    // the way back: a bot that got into a stage that is not cleared other than the master's (knocked back, feared,
+    // after a unit) leaves it where it last stood outside such a stage, the way it came, instead of crossing it to its
+    // point; outside one that point is kept every check
+    PlayerbotAI::StageWayBack& wayBack = ai->GetStageWayBack();
+    if (wayBack.mapId != map->GetId() || wayBack.instanceId != map->GetInstanceId())
+        wayBack.valid = false;
+    if (!useStages || stage < 0 || stage == masterStage || instances->IsStageCleared(map, uint32(stage)))
+        wayBack = { map->GetId(), map->GetInstanceId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), true };
+    else if (wayBack.valid)
+    {
+        stagePosition = { wayBack.x, wayBack.y, wayBack.z, true };
+        stagePositionFrom = StageName(stages, stage) + " uncleared, way back";
+    }
+
     // the way to the stage position (an uncleared point lies in the master's stage, which does not block it), else
-    // to the master while it is out of follow range
+    // to the master while it is out of follow range: not through a stage that is not cleared, nor within aggro range
+    // of a creature of the dungeon's packs (but one at the chosen spot itself)
+    bool check = false;
+    bool chosen = false;
+    float x = 0.0f, y = 0.0f, z = 0.0f;
+    int32 targetStage = -1;
     if (stagePosition.valid)
     {
         stagePositionFar = bot->GetDistance(stagePosition.x, stagePosition.y, stagePosition.z) > STAGE_POSITION_RADIUS;
-        if (stagePositionFar)
-            pathBlocked = CrossesUnclearedStage(instances, bot, stage, masterStage, stagePosition.x, stagePosition.y, stagePosition.z);
+        check = stagePositionFar;
+        chosen = true;
+        x = stagePosition.x;
+        y = stagePosition.y;
+        z = stagePosition.z;
+        targetStage = masterStage;
     }
     else if (hasMaster && masterStageCleared && sServerFacade.GetDistance2d(bot, master) > ai->GetRange("follow"))
-        pathBlocked = CrossesUnclearedStage(instances, bot, stage, -1, master->GetPositionX(), master->GetPositionY(), master->GetPositionZ());
+    {
+        check = true;
+        x = master->GetPositionX();
+        y = master->GetPositionY();
+        z = master->GetPositionZ();
+    }
+    if (check)
+    {
+        const Movement::PointsArray points = PathTo(bot, x, y, z);
+        pathBlocked = useStages && CrossesUnclearedStage(instances, map, points, stage, targetStage);
+        if (!pathBlocked && inDungeon)
+        {
+            if (Creature* creature = AggroOnPath(bot, points, chosen))
+            {
+                pathBlocked = true;
+                blockedBy = creature->GetName();
+            }
+        }
+    }
+
+    // a creature newly in the way: the master hears it (not every check)
+    if (!blockedBy.empty() && blockedBy != lastBlockedBy && hasMaster)
+    {
+        const uint32 now = WorldTimer::getMSTime();
+        if (!lastBlockedTell || WorldTimer::getMSTimeDiff(lastBlockedTell, now) >= BLOCKED_TELL_INTERVAL)
+        {
+            lastBlockedTell = now;
+            ai->TellPlayer(master, "I wait here: " + blockedBy + " would aggro on my way" + (stagePosition.valid ? " to " + stagePositionFrom : " to you"));
+        }
+    }
 
     if (!wasBlocked && (pathBlocked || (!masterStageCleared && !stagePosition.valid)))
         onStageBlocked.Broadcast();

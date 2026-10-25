@@ -30,10 +30,12 @@ namespace ai
     //   rtsc go <name>          moves to the saved location
     //   rtsc last               moves to the last cast's spot
     // Without a pending command: while none of the master's bots is selected a cast within 10 yards of a bot selects
-    // it; while some are, a cast moves the selected bots there and deselects them, and selects no other bot. In a
-    // dungeon with stages a move also saves the spot as the bot's point for the stage the master stands in, the
-    // cleared or the uncleared one by the stage's state (PlayerbotDungeonPositions, "Position Yourself" of the Dungeon
-    // trees); nothing while the master is outside every stage.
+    // it; while some are, a cast moves the selected bots there and deselects them, and selects no other bot. While the
+    // master has a Bot Dungeon Planner preset for the dungeon (DungeonPlannerSubsystem) a move also saves the spot as
+    // the bot's point for the preset's active pull, the cleared or the waiting one by its state; else in a dungeon with
+    // stages as its point for the stage the master stands in, the cleared or the uncleared one by the stage's state
+    // (PlayerbotDungeonPositions, "Position Yourself" of the Dungeon trees); nothing while the master is outside every
+    // stage.
     // Saved locations are kept in ai_playerbot_db_store as the legacy values ("RTSC saved location::<name>>map|x|y|z|o").
     // Commands and casts are queued from the chat / the master's session and run in the bot's update (Update).
     class PlayerbotRtsc

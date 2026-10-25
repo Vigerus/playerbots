@@ -4,6 +4,7 @@
 
 #include "Database/DatabaseEnv.h"
 #include "Entities/Player.h"
+#include "Maps/DungeonPlannerSubsystem.h"
 #include "Maps/InstanceSubsystem.h"
 #include "MotionGenerators/MotionMaster.h"
 #include "Spells/Spell.h"
@@ -256,19 +257,34 @@ bool PlayerbotRtsc::SaveDungeonPosition(PlayerbotAI* ai, Player* requester, cons
 {
     Player* bot = ai->GetBot();
     InstanceSubsystem* instances = sWorld.GetSubsystem<InstanceSubsystem>();
-    if (!instances || !bot->IsInWorld() || position.getMapId() != bot->GetMapId() || !instances->HasStages(bot->GetMapId()))
+    if (!instances || !bot->IsInWorld() || position.getMapId() != bot->GetMapId())
+        return false;
+
+    if (requester->GetMapId() != bot->GetMapId())
+        return false;
+
+    // the bot's spot for the active pull of the master's preset (Bot Dungeon Planner), the cleared or the waiting one
+    // by the pull's state
+    DungeonActivePull pull;
+    DungeonPlannerSubsystem* planner = sWorld.GetSubsystem<DungeonPlannerSubsystem>();
+    if (planner && requester->GetMap() == bot->GetMap() && planner->GetActivePull(requester, bot->GetMap(), pull))
+    {
+        ai->GetDungeonPositions().Set(bot, bot->GetMapId(), pull.presetId, pull.id, pull.cleared, { position.getX(), position.getY(), position.getZ() });
+        ai->TellPlayer(requester, std::string(pull.cleared ? "Cleared" : "Waiting") + " position saved for pull " + std::to_string(pull.index) + " (" + pull.name + ")");
+        return true;
+    }
+
+    if (!instances->HasStages(bot->GetMapId()))
         return false;
 
     // the point of the stage the master stands in, the cleared or the uncleared one by the stage's state now; nothing
     // while the master is outside every stage
-    if (requester->GetMapId() != bot->GetMapId())
-        return false;
     const int32 stage = instances->FindStage(bot->GetMapId(), requester->GetPositionX(), requester->GetPositionY(), requester->GetPositionZ());
     if (stage < 0)
         return false;
 
     const bool cleared = instances->IsStageCleared(bot->GetMap(), uint32(stage));
-    ai->GetDungeonPositions().Set(bot, bot->GetMapId(), uint32(stage), cleared, { position.getX(), position.getY(), position.getZ() });
+    ai->GetDungeonPositions().Set(bot, bot->GetMapId(), 0, uint32(stage), cleared, { position.getX(), position.getY(), position.getZ() });
     std::ostringstream out;
     out << "Dungeon " << (cleared ? "cleared" : "uncleared") << " position saved for stage " << stage;
     const std::vector<InstanceStageDef> stages = instances->GetStages(bot->GetMapId());

@@ -71,3 +71,9 @@ Look here before writing the STAI replacement of a behaviour; most of these solv
   overrides) in `ai_playerbot_db_store`.
 - **Debugging**: strategy based debug output (`debug move`, `debug spell`, `debug loot`, `debug log`...), the
   remote "debug" commands (`state`, `target`, `values`, `travel`, `budget` in `snapshots/playerbot/PlayerbotAI.cpp`).
+
+## PlayerbotPulls (`playerbot/PlayerbotPulls.*`)
+
+The first dungeon plan: a per-master plan uploaded by the Bot Dungeon Planner addon and kept in the bot module
+(`PlayerbotPullPlan`, `pull` / `plan` chat commands, record mode in an earlier version). Replaced by the core
+`DungeonPlannerSubsystem` (presets in the database, shared by every character). Its pack generation moved there.

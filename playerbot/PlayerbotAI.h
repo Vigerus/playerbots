@@ -653,6 +653,27 @@ public:
     PlayerbotSecurity* GetSecurity() { return &security; }
     // where the bot stands in dungeon stages (rtsc overrides, ai_playerbot_dungeon_positions)
     ai::PlayerbotDungeonPositions& GetDungeonPositions() { return dungeonPositions; }
+    // where the bot last stood outside every stage that is not cleared, other than its master's
+    // (InstanceProvider_GlobalTask, every 500ms of any tree): its way back out of such a stage it got into
+    struct StageWayBack
+    {
+        uint32 mapId = 0;
+        uint32 instanceId = 0;
+        float x = 0.0f, y = 0.0f, z = 0.0f;
+        bool valid = false;
+    };
+    StageWayBack& GetStageWayBack() { return stageWayBack; }
+    // how far the bot walked the path of its master's active plan pull (InstanceProvider_GlobalTask): the next
+    // waypoint; started at the waypoint nearest to the bot when the pull became active
+    struct PlanPathProgress
+    {
+        uint32 mapId = 0;
+        uint32 instanceId = 0;
+        uint32 pullId = 0;
+        uint32 index = 0;
+        bool valid = false;
+    };
+    PlanPathProgress& GetPlanPathProgress() { return planPathProgress; }
     // the raid target icons the bot attacks / crowd-controls (rti / rti cc, ai_playerbot_db_store)
     ai::PlayerbotTargetIcons& GetTargetIcons() { return targetIcons; }
     // the totems a shaman keeps up, outdoor and per dungeon stage (ai_playerbot_totems)
@@ -842,6 +863,8 @@ protected:
     std::vector<InventoryCommand> inventoryCommands;
     uint8 inventorySeq = 0;
     ai::PlayerbotDungeonPositions dungeonPositions;
+    StageWayBack stageWayBack;
+    PlanPathProgress planPathProgress;
     ai::PlayerbotTargetIcons targetIcons;
     ai::PlayerbotTotems totems;
     ai::PlayerbotMovement movement;
