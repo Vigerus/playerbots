@@ -36,50 +36,36 @@ uint32 DispelProvider_GlobalTask::ParseDispelMask(const STAI_TaskConfig& config,
     return mask ? mask : fallback;
 }
 
-std::vector<uint32> DispelProvider_GlobalTask::ParseAuras(const STAI_TaskConfig& config)
+void DispelProvider_GlobalTask::ValidateChildren(const STAI_TaskConfig& config)
 {
-    std::vector<uint32> auras;
     for (const auto& [key, child] : config)
-    {
-        if (key == "<xmlattr>" || key == "<xmlcomment>" || key == "Dispel")
-            continue;
-        if (key != "Aura")
-            throw std::runtime_error("unexpected <" + key + "> (expected <Dispel type=\"...\"/> or <Aura spellid=\"...\"/>)");
-
-        const std::string idText = child.get<std::string>("<xmlattr>.spellid", "");
-        const uint32 spellId = uint32(std::strtoul(idText.c_str(), nullptr, 10));
-        if (!spellId || !sSpellTemplate.LookupEntry<SpellEntry>(spellId))
-            throw std::runtime_error("<Aura spellid=\"" + idText + "\">: unknown spell");
-
-        const uint32 firstSpellId = sSpellMgr.GetFirstSpellInChain(spellId);
-        if (std::find(auras.begin(), auras.end(), firstSpellId) == auras.end())
-            auras.push_back(firstSpellId);
-    }
-    return auras;
+        if (key != "<xmlattr>" && key != "<xmlcomment>" && key != "Dispel" && key != "Observe" && key != "Ignore")
+            throw std::runtime_error("unexpected <" + key + "> (expected <Dispel type=\"...\"/>, <Observe spellid=\"...\"/> or <Ignore spellid=\"...\"/>)");
+    STAI_SpellFilter::Parse(config);
 }
 
 void DispelProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
 {
     if (!ParseDispelMask(config, 0))
         throw std::runtime_error("needs at least one <Dispel type=\"...\"/>");
-    ParseAuras(config);
+    ValidateChildren(config);
 }
 
 std::unique_ptr<STAI_Task> DispelProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<DispelProvider_GlobalTask>(ParseDispelMask(config, 0), ParseAuras(config));
+    return std::make_unique<DispelProvider_GlobalTask>(ParseDispelMask(config, 0), STAI_SpellFilter::Parse(config));
 }
 
 void CurseProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
 {
     if (ParseDispelMask(config, curseMask) != curseMask)
         throw std::runtime_error("only watches curses: use DispelProvider_GlobalTask for other types");
-    ParseAuras(config);
+    ValidateChildren(config);
 }
 
 std::unique_ptr<STAI_Task> CurseProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<CurseProvider_GlobalTask>(curseMask, ParseAuras(config));
+    return std::make_unique<CurseProvider_GlobalTask>(curseMask, STAI_SpellFilter::Parse(config));
 }
 
 EActionRunStatus DispelProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
@@ -102,6 +88,7 @@ void DispelProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
     context.curse.clear();
     context.disease.clear();
     context.poison.clear();
+    context.causes.clear();
 }
 
 const std::vector<STAI_PropertyDef>& DispelProvider_GlobalTask::GetProperties() const
@@ -113,6 +100,7 @@ const std::vector<STAI_PropertyDef>& DispelProvider_GlobalTask::GetProperties() 
         STAI_PropertyDef::Of("curse", &DispelProvider_GlobalTaskContext::curse),
         STAI_PropertyDef::Of("disease", &DispelProvider_GlobalTaskContext::disease),
         STAI_PropertyDef::Of("poison", &DispelProvider_GlobalTaskContext::poison),
+        STAI_PropertyDef::Of("causes", &DispelProvider_GlobalTaskContext::causes),
     };
     return properties;
 }
@@ -126,17 +114,22 @@ const std::vector<STAI_DelegateDef>& DispelProvider_GlobalTask::GetDelegates() c
 bool DispelProvider_GlobalTask::IsWatchedHolder(const SpellAuraHolder* holder) const
 {
     const SpellEntry* spellInfo = holder->GetSpellProto();
-    if (spellInfo->Dispel >= 32 || !(dispelMask & (1 << spellInfo->Dispel)) || holder->IsPositive())
-        return false;
-    return auras.empty() || std::find(auras.begin(), auras.end(), sSpellMgr.GetFirstSpellInChain(spellInfo->Id)) != auras.end();
+    return spellInfo->Dispel < 32 && (dispelMask & (1 << spellInfo->Dispel)) && !holder->IsPositive() && filter.Allows(spellInfo->Id);
 }
 
-uint32 DispelProvider_GlobalTask::GetWatchedDispels(const Unit* unit) const
+uint32 DispelProvider_GlobalTask::GetWatchedDispels(const Unit* unit, STAI_SpellCauses& causes) const
 {
     uint32 found = 0;
     for (const auto& [spellId, holder] : unit->GetSpellAuraHolderMap())
-        if (!holder->IsDeleted() && IsWatchedHolder(holder))
-            found |= 1 << holder->GetSpellProto()->Dispel;
+    {
+        if (holder->IsDeleted() || !IsWatchedHolder(holder))
+            continue;
+
+        const uint32 dispel = holder->GetSpellProto()->Dispel;
+        if (!(found & (1 << dispel)))
+            causes.push_back({ unit->GetObjectGuid(), holder->GetId(), dispel });
+        found |= 1 << dispel;
+    }
     return found;
 }
 
@@ -149,9 +142,10 @@ void DispelProvider_GlobalTaskContext::Evaluate(Group* leftGroup)
     curse.clear();
     disease.clear();
     poison.clear();
+    causes.clear();
     for (Player* member : GetReachableMembers(leftGroup))
     {
-        const uint32 found = task->GetWatchedDispels(member);
+        const uint32 found = task->GetWatchedDispels(member, causes);
         if (!found)
             continue;
 

@@ -35,7 +35,7 @@ struct StateNodeDebugChild
     std::string taskClass;                          // the running task (the first one while the node is inactive)
     std::vector<std::string> tasks;                 // task classes of the node, run one after another
     std::vector<bool> tasksDisabled;                // per task: switched off (STAI_TaskContext::bDisabled)
-    std::vector<std::string> taskInfos;             // per task: its static debug info (STAI_Task::GetDebugInfo)
+    std::vector<std::string> taskInfos;             // per task: its static debug info (STAI_Task::GetDebugInfo), the running task its GetActivityInfo
     int currentTask = -1;                           // index into tasks while the node is active
     std::vector<std::string> transitions;           // "<type> Root|<node>", in the order they are checked
     std::vector<std::pair<std::string, StateNodeConditionResult>> conditions;

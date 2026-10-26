@@ -1,6 +1,7 @@
 #pragma once
 
 #include "playerbot/StateTree/STAI_TaskFactory.h"
+#include "playerbot/StateTree/Tasks/STAI_SpellCause.h"
 #include "playerbot/StateTree/Tasks/STAI_SpellConfig.h"
 
 #include "Entities/ObjectGuid.h"
@@ -15,7 +16,9 @@ namespace ai
     {
         ObjectGuid target;                  // property "target": one unit, e.g. bound to TargetProvider_GlobalTask::target
         std::vector<ObjectGuid> whoNeeds;   // property "whoNeeds": units on the bot's map, e.g. bound to CurseProvider_GlobalTask::whoNeeds
+        STAI_SpellCauses causes;            // property "causes": why the units need the cast, e.g. bound to CurseProvider_GlobalTask::causes
         uint32 spellId = 0;                 // 0: nothing was cast
+        uint32 causeSpellId = 0;            // the cause of the cast on castTarget, 0 none
         ObjectGuid castTarget;
         uint32 castStartMs = 0;
         bool resultAtStart = false;         // instant / channeled: successful once started
@@ -26,6 +29,7 @@ namespace ai
     // global cooldown:
     //   <Task class="Task_CastSpell" spellid="Remove Lesser Curse">     spell id, or a name (the highest known rank)
     //     <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
+    //     <Binding local="causes" external="Root|CurseProvider_GlobalTask::causes"/>     optional, for the debug view
     //   </Task>
     //   <Task class="Task_CastSpell" spellid="Frostbolt">
     //     <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
@@ -54,7 +58,9 @@ namespace ai
     // Its History entries ("Cast <spell>") are successful when the spell went off: instant and channeled spells (Fire
     // Blast, Blizzard, Arcane Missiles: no cast time / channel attributes) as soon as they started, spells with a
     // cast time when the server sent their spell go; a failure, no spell go, or a cast left unfinished (the node
-    // left, the tree finished) is a failed run.
+    // left, the tree finished) is a failed run. With causes bound, the entry and the running task's info in the debug
+    // view also show the cause of the cast on its target: the aura the dispel removes (of a type the spell dispels),
+    // the spell the interrupt stops.
     class Task_CastSpell : public STAI_Task
     {
     public:
@@ -85,12 +91,24 @@ namespace ai
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
         virtual std::string GetDebugInfo() const override { return "Cast " + STAI_SpellMarkup(spell.spellId); }
+        // the rank the run casts (a fallback, a lower rank than the highest one) and its cause, the configured spell
+        // before it cast
+        virtual std::string GetActivityInfo(const STAI_TaskContext& context) const override
+        {
+            const Task_CastSpellContext& cast = ContextAs<Task_CastSpellContext>(context);
+            if (!cast.spellId)
+                return GetDebugInfo();
+            const std::string info = "Cast " + STAI_SpellMarkup(cast.spellId);
+            return cast.causeSpellId ? info + " (cause " + STAI_SpellMarkup(cast.causeSpellId) + ")" : info;
+        }
         // every cast gets its own History entry
         virtual bool AreConsecutiveLogsStacked() const override { return false; }
 
     private:
         // the cast's spell go / failure since it started: 1 went off, 0 failed, -1 neither yet
         static int8 CastResult(const Task_CastSpellContext& context);
+        // the bound cause of casting spellId on target, 0 none
+        static uint32 FindCause(const Task_CastSpellContext& context, ObjectGuid target, uint32 spellId);
         static std::vector<SkipAura> ParseSkipAuras(const STAI_TaskConfig& config);
         static std::vector<STAI_ConfiguredSpell> ParseFallbacks(const STAI_TaskConfig& config);
         // the spell's rank the bot casts, else the first <Fallback> it knows; 0 when it knows none

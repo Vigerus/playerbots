@@ -114,6 +114,7 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastSpell::OnEnter);
     Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
     context.spellId = 0;
+    context.causeSpellId = 0;
     context.castTarget.Clear();
     context.resultAtStart = false;
     context.result = -1;
@@ -177,6 +178,7 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
 
         context.spellId = spellId;
         context.castTarget = target->GetObjectGuid();
+        context.causeSpellId = FindCause(context, context.castTarget, spellId);
 
         // instant and channeled spells went off when they started; a cast time is decided by the spell go
         const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
@@ -205,6 +207,17 @@ EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
 
     // every target is out of reach right now (range, sight, mana...)
     return LogStatus(context, EActionRunStatus::Failed);
+}
+
+uint32 Task_CastSpell::FindCause(const Task_CastSpellContext& context, ObjectGuid target, uint32 spellId)
+{
+    // a dispel: an aura of a type it removes (Cure Disease on a target with a magic aura too); anything else: the
+    // target's first cause
+    const uint32 dispelMask = STAI_GetDispelMask(sSpellTemplate.LookupEntry<SpellEntry>(spellId));
+    for (const STAI_SpellCause& cause : context.causes)
+        if (cause.target == target && (!dispelMask || !cause.dispel || (dispelMask & (1 << cause.dispel))))
+            return cause.spellId;
+    return 0;
 }
 
 int8 Task_CastSpell::CastResult(const Task_CastSpellContext& context)
@@ -258,6 +271,7 @@ const std::vector<STAI_PropertyDef>& Task_CastSpell::GetProperties() const
     {
         STAI_PropertyDef::Of("target", &Task_CastSpellContext::target),
         STAI_PropertyDef::Of("whoNeeds", &Task_CastSpellContext::whoNeeds),
+        STAI_PropertyDef::Of("causes", &Task_CastSpellContext::causes),
     };
     return properties;
 }

@@ -12,7 +12,7 @@
     </Task>
     <!-- interruptible casts of the enemies that Counterspell reaches now (healing first): whoNeeds, onInterruptNeeded -->
     <Task class="InterruptProvider_GlobalTask" spellid="Counterspell"/>
-    <!-- watches the bot and its group for dispellable curses (no <Aura>: every curse): whoNeeds, onNeedsHelp -->
+    <!-- watches the bot and its group for dispellable curses (no <Observe> / <Ignore>: every curse): whoNeeds, onNeedsHelp -->
     <Task class="CurseProvider_GlobalTask"/>
     <!-- the bot's crowd-control mark (rti cc, default moon) when it is not the kill target (rti): whoNeeds, onCCNeeded -->
     <Task class="CCProvider_GlobalTask"/>
@@ -55,6 +55,7 @@
     </Conditions>
     <Task class="Task_CastSpell" spellid="Counterspell">
       <Binding local="whoNeeds" external="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+      <Binding local="causes" external="Root|InterruptProvider_GlobalTask::causes"/>
     </Task>
   </Node>
   <Node name="CC Target">
@@ -71,6 +72,7 @@
     </Conditions>
     <Task class="Task_CastSpell" spellid="Remove Lesser Curse">
       <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
+      <Binding local="causes" external="Root|CurseProvider_GlobalTask::causes"/>
     </Task>
   </Node>
   <!-- low mana: a mana gem first (its own cooldown), then Evocation (only while ready), then a potion; the items fail

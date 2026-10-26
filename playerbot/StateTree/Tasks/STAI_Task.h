@@ -250,6 +250,8 @@ namespace ai
         // what the task does, from its configuration only (it never changes while the bot runs): shown in the debug
         // view and as its History entries; {spell:<id>} is shown as the spell's icon and name (STAI_SpellMarkup)
         virtual std::string GetDebugInfo() const { return ""; }
+        // the name of a run's History entry: GetDebugInfo, or what the run does (Task_CastSpell: the rank it casts)
+        virtual std::string GetActivityInfo(const STAI_TaskContext& context) const { return GetDebugInfo(); }
         // adds the trees this task stacked on its node's tree (a running subtree)
         virtual void AppendDebugTreeStack(const STAI_TaskContext& context, std::vector<StateNodeDebugTree>& stack) const {}
         // the tree the task runs on top of this one (Task_RunSubtree), nullptr when none
@@ -263,7 +265,7 @@ namespace ai
         static const T& ContextAs(const STAI_TaskContext& context) { return static_cast<const T&>(context); }
 
         // History entries (activity log): tasks log their runs by themselves, one entry per run named by its
-        // GetDebugInfo (else GetName), its source is the task's name. StartLog in OnEnter remembers when the run
+        // GetActivityInfo (else GetName), its source is the task's name. StartLog in OnEnter remembers when the run
         // started; LogStatus with a status of the run: Running gives the run its entry (from its start), Succeeded /
         // Failed end it (a run that succeeds at once leaves none, a failed one always gets one); EndLog ends it when
         // the run is left while it runs, with whether it went well. Nothing is logged when LogsActivity is off.

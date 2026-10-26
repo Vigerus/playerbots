@@ -15,7 +15,7 @@
       <Buff spellid="23028"/>  <!-- Arcane Brilliance (group, same buff as Arcane Intellect) -->
       <Buff spellid="6117"/>   <!-- Mage Armor (self) -->
     </Task>
-    <!-- watches the bot and its group for dispellable curses (no <Aura>: every curse): whoNeeds, onNeedsHelp -->
+    <!-- watches the bot and its group for dispellable curses (no <Observe> / <Ignore>: every curse): whoNeeds, onNeedsHelp -->
     <Task class="CurseProvider_GlobalTask"/>
     <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
     <Task class="HealthProvider_GlobalTask"/>
@@ -50,6 +50,7 @@
     </Conditions>
     <Task class="Task_CastSpell" spellid="Remove Lesser Curse">
       <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
+      <Binding local="causes" external="Root|CurseProvider_GlobalTask::causes"/>
     </Task>
   </Node>
   <!-- not at low mana: the buffs wait for Eat and Drink instead of failing every time -->

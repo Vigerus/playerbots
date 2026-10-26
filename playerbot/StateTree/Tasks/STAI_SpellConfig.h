@@ -15,7 +15,7 @@ namespace ai
     //   <Task class="InterruptProvider_GlobalTask" spellid="2139"/>
     struct STAI_ConfiguredSpell
     {
-        uint32 spellId = 0;                 // the configured spell id, or the first spell of the configured name
+        uint32 spellId = 0;                 // the configured spell id, or the highest rank of the configured name
         std::string spellName;              // lower case, empty when configured by id: by name the bot's highest rank is used
         std::vector<uint32> namedSpells;    // by name: every spell of that name, highest rank first (found once at load)
 

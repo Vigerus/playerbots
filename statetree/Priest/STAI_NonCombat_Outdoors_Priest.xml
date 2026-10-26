@@ -100,6 +100,7 @@
     </Conditions>
     <Task class="Task_CastSpell" spellid="Dispel Magic">
       <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::magic"/>
+      <Binding local="causes" external="Root|DispelProvider_GlobalTask::causes"/>
     </Task>
   </Node>
   <Node name="Cure Disease">
@@ -110,6 +111,7 @@
       <Fallback spellid="Cure Disease"/>
       <SkipAura own="true"/>
       <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::disease"/>
+      <Binding local="causes" external="Root|DispelProvider_GlobalTask::causes"/>
     </Task>
   </Node>
   <!-- not at low mana: the buffs wait for Eat and Drink instead of failing every time -->

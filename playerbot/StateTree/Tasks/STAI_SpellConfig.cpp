@@ -47,9 +47,9 @@ STAI_ConfiguredSpell STAI_ConfiguredSpell::Parse(const STAI_TaskConfig& config)
     if (spell.namedSpells.empty())
         throw std::runtime_error("spellid=\"" + value + "\": no spell has that name");
 
-    spell.spellId = spell.namedSpells.front();
     // stable: spells of the same rank keep their id order
     std::stable_sort(spell.namedSpells.begin(), spell.namedSpells.end(), [](uint32 a, uint32 b) { return sSpellMgr.GetSpellRank(a) > sSpellMgr.GetSpellRank(b); });
+    spell.spellId = spell.namedSpells.front();
     return spell;
 }
 

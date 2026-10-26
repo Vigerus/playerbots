@@ -154,7 +154,8 @@ static std::string SanitizeTransition(const std::string& text)
 //   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>^<running task index or -1>^<task;task;...>
 //       ^<transition;transition;...>^<spell id,...>   (spells of the running task)
 //       ^<disabled 0|1,...>   (per task: switched off in the addon, STAI_TaskContext::bDisabled)
-//       ^<info;info;...>      (per task: its static debug info, {spell:<id>} shown as the spell)
+//       ^<info;info;...>      (per task: its static debug info, the running one what its run does (GetActivityInfo),
+//                             {spell:<id>} shown as the spell)
 //       ^<node disabled 0|1>  (switched off in the addon: never selected)
 //       ^<override 0|1|2,...> (per condition: 0 checked, 1 forced to pass, 2 forced to fail in the addon)
 //       nodes of the top tree; task class / info of the running task (the first one while inactive), every task

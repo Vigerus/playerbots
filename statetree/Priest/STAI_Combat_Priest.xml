@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Priest bots: AiPlayerbot.StateTree.Combat.Priest -->
-<!-- picks the subtree for the bot's spec (Holy and Disc share the healer subtree); a spec change (talents learned or
-     reset) selects again -->
+<!-- picks the subtree for the bot's spec (Holy and Disc share the healer subtree, its Scholomance variant there); a spec
+     change (talents learned or reset) or an instance change selects again -->
 <Root>
   <Global>
     <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
     <Task class="HazardProvider_GlobalTask">
       <Margin value="2"/>
     </Task>
+    <!-- the bot's map / instance: mapId, onInstanceChanged -->
+    <Task class="InstanceProvider_GlobalTask"/>
     <!-- the bot's spec: specName, onSpecChanged -->
     <Task class="SpecProvider_GlobalTask"/>
     <!-- movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
@@ -20,6 +22,33 @@
       </Conditions>
     </Task>
   </Global>
+  <!-- Scholomance (map 289): the healer subtree with its own dispel exceptions -->
+  <Node name="Holy Priest Scholomance">
+    <Conditions>
+      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="holy priest"/>
+      <Condition binding="Root|InstanceProvider_GlobalTask::mapId" compare="equal" value="289"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Priest/STAI_Combat_Healer_Scholomance_Priest.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+    </Transitions>
+  </Node>
+  <Node name="Disc Priest Scholomance">
+    <Conditions>
+      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="disc priest"/>
+      <Condition binding="Root|InstanceProvider_GlobalTask::mapId" compare="equal" value="289"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Priest/STAI_Combat_Healer_Scholomance_Priest.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+    </Transitions>
+  </Node>
   <Node name="Holy Priest">
     <Conditions>
       <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="holy priest"/>
@@ -29,6 +58,7 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
     </Transitions>
   </Node>
   <Node name="Disc Priest">
@@ -40,6 +70,7 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
     </Transitions>
   </Node>
   <Node name="Shadow Priest">

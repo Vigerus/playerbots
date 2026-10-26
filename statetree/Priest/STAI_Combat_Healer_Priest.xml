@@ -131,6 +131,7 @@
     </Conditions>
     <Task class="Task_CastSpell" spellid="Dispel Magic">
       <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::magic"/>
+      <Binding local="causes" external="Root|DispelProvider_GlobalTask::causes"/>
     </Task>
   </Node>
   <Node name="Cure Disease">
@@ -142,6 +143,7 @@
       <!-- Abolish Disease keeps curing: not cast again while it is on the target -->
       <SkipAura own="true"/>
       <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::disease"/>
+      <Binding local="causes" external="Root|DispelProvider_GlobalTask::causes"/>
     </Task>
   </Node>
   <!-- below 70%: Heal (Lesser Heal at low levels), cheaper than Greater Heal -->

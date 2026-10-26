@@ -105,6 +105,7 @@
     </Conditions>
     <Task class="Task_CastSpell" spellid="Pummel">
       <Binding local="whoNeeds" external="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+      <Binding local="causes" external="Root|InterruptProvider_GlobalTask::causes"/>
     </Task>
   </Node>
   <!-- rage for the opening: only while the bot has a target and is healthy -->

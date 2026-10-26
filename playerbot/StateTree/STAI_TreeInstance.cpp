@@ -487,7 +487,10 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
         child.taskClass = shown.def->task->GetName();
         if (const ISTAI_DebugSpells* spells = dynamic_cast<const ISTAI_DebugSpells*>(shown.def->task.get()))
             child.spells = spells->GetDebugSpells(*shown.context);
-        child.info = shown.def->task->GetDebugInfo();
+        // the running task shows what its run does (Task_CastSpell: the rank it casts and why), the others their
+        // configuration
+        const bool running = child.active && node.current >= 0;
+        child.info = running ? shown.def->task->GetActivityInfo(*shown.context) : shown.def->task->GetDebugInfo();
         child.currentTask = node.current;
         for (const STAI_TransitionDef& transition : node.def->transitions)
             child.transitions.push_back(transition.GetText());
@@ -496,7 +499,7 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
             const TaskSlot& task = node.tasks[t];
             child.tasks.push_back(task.def->task->GetName());
             child.tasksDisabled.push_back(task.context->bDisabled);
-            child.taskInfos.push_back(task.def->task->GetDebugInfo());
+            child.taskInfos.push_back(running && int(t) == node.current ? task.def->task->GetActivityInfo(*task.context) : task.def->task->GetDebugInfo());
             // a subtree that runs is on the stack above, else its file is shown down to the leaves
             if (const STAI_TreeAsset* subtree = task.def->task->GetLinkedTree())
                 if (!task.def->task->HoldsActiveTree(*task.context))

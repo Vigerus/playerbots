@@ -11,7 +11,7 @@ namespace
     // the run's History entry, from the time the run started
     void BeginActivity(const STAI_Task& task, STAI_TaskContext& context)
     {
-        const std::string info = task.GetDebugInfo();
+        const std::string info = task.GetActivityInfo(context);
         context.activityId = context.activity->BeginAt("task", info.empty() ? task.GetName() : info, task.GetName(),
             context.activityStartMs, task.AreConsecutiveLogsStacked());
     }
