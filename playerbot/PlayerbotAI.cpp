@@ -446,6 +446,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     ApplySpecCommands();
     ApplyTotemCommands();
     rtsc.Update(this);
+    use.Update(this);
     StateMachine.Update(elapsed, minimal);
     // the goals the trees submitted in this update
     movement.Update(this);
@@ -1438,6 +1439,12 @@ void PlayerbotAI::HandleCommand(uint32 type, const std::string& text, Player& fr
     {
         // run on the bot's update, from the master only
         rtsc.QueueCommand(filtered.size() > 4 ? filtered.substr(5) : "", &fromPlayer);
+    }
+    else if (filtered == "use" || filtered == "u" || filtered.rfind("use ", 0) == 0 || filtered.rfind("u ", 0) == 0)
+    {
+        // run on the bot's update: it uses the bot's items
+        const size_t space = filtered.find(' ');
+        use.QueueCommand(space == std::string::npos ? "" : filtered.substr(space + 1), &fromPlayer);
     }
     else if (filtered == "rti" || filtered.rfind("rti ", 0) == 0)
     {

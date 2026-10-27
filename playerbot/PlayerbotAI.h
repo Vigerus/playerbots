@@ -13,6 +13,7 @@
 #include "PlayerbotTotems.h"
 #include "PlayerbotMovement.h"
 #include "PlayerbotRtsc.h"
+#include "PlayerbotUse.h"
 #include "PlayerbotPremadeSpecs.h"
 
 #include <atomic>
@@ -873,6 +874,8 @@ protected:
     ai::PlayerbotMovement movement;
     // RTS control: "rtsc ..." commands and the master's Aedm casts, run in UpdateAI
     ai::PlayerbotRtsc rtsc;
+    // "use <item / game object>" / "u ..." chat commands, run in UpdateAI
+    ai::PlayerbotUse use;
     // "rti ..." chat commands (the text after "rti", the player to answer): set from chat, run in UpdateAI
     struct RtiCommand
     {
