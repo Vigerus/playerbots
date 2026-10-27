@@ -22,6 +22,7 @@
 #include "playerbot/StateTree/Providers/WarriorProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
+#include "playerbot/StateTree/Tasks/Task_AcceptInvite.h"
 #include "playerbot/StateTree/Tasks/Task_AcceptResurrection.h"
 #include "playerbot/StateTree/Tasks/Task_Attack.h"
 #include "playerbot/StateTree/Tasks/Task_CastBuff.h"
@@ -59,6 +60,7 @@ namespace ai
         factory.RegisterTask("Task_RollForItem", { &Task_RollForItem::Validate, &Task_RollForItem::Create });
         factory.RegisterTask("Task_OpenTrade", { &Task_OpenTrade::Validate, &Task_OpenTrade::Create });
         factory.RegisterTask("Task_AcceptTrade", { &Task_AcceptTrade::Validate, &Task_AcceptTrade::Create });
+        factory.RegisterTask("Task_AcceptInvite", { &Task_AcceptInvite::Validate, &Task_AcceptInvite::Create });
 
         factory.RegisterTask("Task_Wait", { &Task_Wait::Validate, &Task_Wait::Create });
         factory.RegisterTask("CCProvider_GlobalTask", { &CCProvider_GlobalTask::Validate, &CCProvider_GlobalTask::Create });

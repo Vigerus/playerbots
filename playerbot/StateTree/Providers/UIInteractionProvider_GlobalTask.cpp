@@ -33,6 +33,8 @@ EActionRunStatus UIInteractionProvider_GlobalTask::OnEnter(STAI_TaskContext& bas
     context.resurrectOffered = false;
     context.canReclaimCorpse = false;
     context.UpdateDeath();
+    context.groupInviteRequested = false;
+    context.UpdateGroupInvite();
     return EActionRunStatus::Running;
 }
 
@@ -50,6 +52,7 @@ EActionRunStatus UIInteractionProvider_GlobalTask::OnTick(STAI_TaskContext& base
 
     context.UpdateTrade();
     context.UpdateDeath();
+    context.UpdateGroupInvite();
     return EActionRunStatus::Running;
 }
 
@@ -61,6 +64,7 @@ void UIInteractionProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) con
     context.rolls.clear();
     context.tradeOpenRequested = false;
     context.tradeAcceptRequested = false;
+    context.groupInviteRequested = false;
 }
 
 const std::vector<STAI_PropertyDef>& UIInteractionProvider_GlobalTask::GetProperties() const
@@ -72,6 +76,7 @@ const std::vector<STAI_PropertyDef>& UIInteractionProvider_GlobalTask::GetProper
         STAI_PropertyDef::Of("tradeAcceptRequested", &UIInteractionProvider_GlobalTaskContext::tradeAcceptRequested),
         STAI_PropertyDef::Of("resurrectOffered", &UIInteractionProvider_GlobalTaskContext::resurrectOffered),
         STAI_PropertyDef::Of("canReclaimCorpse", &UIInteractionProvider_GlobalTaskContext::canReclaimCorpse),
+        STAI_PropertyDef::Of("groupInviteRequested", &UIInteractionProvider_GlobalTaskContext::groupInviteRequested),
     };
     return properties;
 }
@@ -85,6 +90,7 @@ const std::vector<STAI_DelegateDef>& UIInteractionProvider_GlobalTask::GetDelega
         STAI_DelegateDef::Of("onTradeAccepted", &UIInteractionProvider_GlobalTaskContext::onTradeAccepted),
         STAI_DelegateDef::Of("onResurrectOffered", &UIInteractionProvider_GlobalTaskContext::onResurrectOffered),
         STAI_DelegateDef::Of("onReclaimCorpse", &UIInteractionProvider_GlobalTaskContext::onReclaimCorpse),
+        STAI_DelegateDef::Of("onGroupInvited", &UIInteractionProvider_GlobalTaskContext::onGroupInvited),
     };
     return delegates;
 }
@@ -113,6 +119,14 @@ void UIInteractionProvider_GlobalTaskContext::UpdateDeath()
         onResurrectOffered.Broadcast();
     if (canReclaimCorpse && !couldReclaim)
         onReclaimCorpse.Broadcast();
+}
+
+void UIInteractionProvider_GlobalTaskContext::UpdateGroupInvite()
+{
+    const bool wasInvited = groupInviteRequested;
+    groupInviteRequested = bot->GetGroupInvite() != nullptr;
+    if (groupInviteRequested && !wasInvited)
+        onGroupInvited.Broadcast();
 }
 
 void UIInteractionProvider_GlobalTaskContext::Subscribe()

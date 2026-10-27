@@ -59,6 +59,11 @@ namespace ai
         // CORPSE_RECLAIM_RADIUS of its corpse and the reclaim delay is over (Task_ReclaimCorpse)
         bool canReclaimCorpse = false;
 
+        // fired when a player invited the bot to a group
+        FSTAI_Delegate onGroupInvited;
+        // property "groupInviteRequested": the bot has a group invite not answered yet (Task_AcceptInvite)
+        bool groupInviteRequested = false;
+
         bool subscribed = false;
 
         void Subscribe();
@@ -69,18 +74,22 @@ namespace ai
         void UpdateTrade();
         // resurrectOffered / canReclaimCorpse; fires their delegates when they turned true
         void UpdateDeath();
+        // groupInviteRequested; fires onGroupInvited when it turned true
+        void UpdateGroupInvite();
     };
 
     // Global task for what a player answers in its UI: loot rolls (property rolls, delegate onRollRequested, a new
     // roll from TeamSubsystem::OnLootRollStarted), trades (properties tradeOpenRequested / tradeAcceptRequested,
-    // delegates onTradeRequested / onTradeAccepted, from the SMSG_TRADE_STATUS the bot gets: PlayerbotAI::onTradeStatus)
-    // and the death popups (properties resurrectOffered / canReclaimCorpse, delegates onResurrectOffered /
-    // onReclaimCorpse). Ticked: drops the rolls that were voted on or timed out, follows the trade and the death.
+    // delegates onTradeRequested / onTradeAccepted, from the SMSG_TRADE_STATUS the bot gets: PlayerbotAI::onTradeStatus),
+    // the death popups (properties resurrectOffered / canReclaimCorpse, delegates onResurrectOffered /
+    // onReclaimCorpse) and the group invite (property groupInviteRequested, delegate onGroupInvited). Ticked: drops
+    // the rolls that were voted on or timed out, follows the trade, the death and the invite.
     //   <Global>
     //     <Task class="UIInteractionProvider_GlobalTask"/>
     //   </Global>
     // Task_RollForItem votes on the rolls, Task_OpenTrade opens the trade window, Task_AcceptTrade accepts the trade,
-    // Task_AcceptResurrection accepts the resurrection, Task_ReclaimCorpse comes back at the body.
+    // Task_AcceptResurrection accepts the resurrection, Task_ReclaimCorpse comes back at the body, Task_AcceptInvite
+    // answers the invite.
     class UIInteractionProvider_GlobalTask : public STAI_GlobalTask
     {
     public:
