@@ -1070,6 +1070,13 @@ AiPlayerbot.DebugWindow = 1
 # Minutes every bot keeps its activity log (the window's History tab) while the window runs. Default: 60
 AiPlayerbot.DebugWindow.HistoryMinutes = 60
 
+# Read-only HTTP / JSON endpoint for the PlayerbotsAndroid map app: every online character's position, a bot's state
+# tree and history (what the debug window shows), spell icons. No login, nothing can be changed: keep it on a LAN.
+# Port, 0 - disabled. Default: 0
+#AiPlayerbot.MapServerPort = 8890
+# Address to listen on (this machine's LAN address, or 0.0.0.0 for every interface). Default: 0.0.0.0
+#AiPlayerbot.MapServerAddress = 0.0.0.0
+
 
 ##################################################################################
 #                                                                                #

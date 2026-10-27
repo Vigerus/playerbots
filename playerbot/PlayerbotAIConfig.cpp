@@ -10,6 +10,7 @@
 #include "playerbot/TravelMgr.h"
 #include "playerbot/StateTree/STAI_Tree.h"
 #include "playerbot/PlayerbotDebugWindow.h"
+#include "playerbot/PlayerbotMapServer.h"
 #include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
 
 #include "instancebot/GuildProgressSubsystem.h"
@@ -778,6 +779,11 @@ bool PlayerbotAIConfig::Initialize()
     // the server's StateTree debug window (Windows), opened once: a config reload keeps it
     if (config.GetBoolDefault("AiPlayerbot.DebugWindow", true) && !sPlayerbotDebugWindow.IsRunning())
         sPlayerbotDebugWindow.Start(std::max(1, config.GetIntDefault("AiPlayerbot.DebugWindow.HistoryMinutes", 60)));
+
+    // the PlayerbotsAndroid map app's endpoint, started once: a config reload keeps it
+    const int mapServerPort = config.GetIntDefault("AiPlayerbot.MapServerPort", 0);
+    if (mapServerPort > 0 && mapServerPort < 65536 && !sPlayerbotMapServer.IsRunning())
+        sPlayerbotMapServer.Start(config.GetStringDefault("AiPlayerbot.MapServerAddress", "0.0.0.0"), uint16(mapServerPort));
 
     sLog.outString("---------------------------------------");
     sLog.outString("        AI Playerbot initialized       ");

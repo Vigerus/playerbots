@@ -80,6 +80,7 @@ namespace ai
     class WorldPosition;
     class GuidPosition;
     class PlayerbotDebugWindow;
+    class PlayerbotMapServer;
     class IterateItemsVisitor;
     class FindItemVisitor;
 
@@ -368,6 +369,8 @@ class PlayerbotAI : public PlayerbotAIBase
 {
     // reads the StateMachine and queues switches on the bot's update (OnBotUpdate)
     friend class ai::PlayerbotDebugWindow;
+    // reads the StateMachine on the world thread for the map app (Update)
+    friend class ai::PlayerbotMapServer;
 public:
 	PlayerbotAI();
 	PlayerbotAI(Player* bot);
