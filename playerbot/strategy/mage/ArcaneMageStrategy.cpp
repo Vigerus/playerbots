@@ -11,12 +11,15 @@ public:
     ArcaneMageStrategyActionNodeFactory()
     {
         creators["arcane blast"] = &arcane_blast;
+        creators["arcane blast tbc"] = &arcane_blast_tbc;
         creators["arcane barrage"] = &arcane_barrage;
         creators["arcane missiles"] = &arcane_missiles;
     }
 
 private:
     ACTION_NODE_A(arcane_blast, "arcane blast", "arcane missiles");
+
+    ACTION_NODE_A(arcane_blast_tbc, "arcane blast tbc", "arcane missiles");
 
     ACTION_NODE_A(arcane_barrage, "arcane barrage", "arcane missiles");
 
@@ -134,6 +137,10 @@ void ArcaneMageAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers
     triggers.push_back(new TriggerNode(
         "enemy too close for spell",
         NextAction::array(0, new NextAction("arcane explosion", ACTION_HIGH), NULL)));
+
+    triggers.push_back(new TriggerNode(
+        "ranged high aoe",
+        NextAction::array(0, new NextAction("flamestrike", ACTION_HIGH + 2), new NextAction("blizzard", ACTION_HIGH + 1), NULL)));
 }
 
 void ArcaneMageAoeStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -374,7 +381,7 @@ void ArcaneMageCureRaidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& 
 
 NextAction** ArcaneMageStrategy::GetDefaultCombatActions()
 {
-    return NextAction::array(0, new NextAction("arcane missiles", ACTION_IDLE), NULL);
+    return NextAction::array(0, new NextAction("arcane blast", ACTION_IDLE), NULL);
 }
 
 void ArcaneMageStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -383,7 +390,11 @@ void ArcaneMageStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "arcane blast",
-        NextAction::array(0, new NextAction("arcane blast", ACTION_NORMAL), NULL)));
+        NextAction::array(0, new NextAction("arcane blast tbc", ACTION_NORMAL), NULL)));
+
+    triggers.push_back(new TriggerNode(
+        "arcane blast full",
+        NextAction::array(0, new NextAction("frostbolt", ACTION_NORMAL), NULL)));
 }
 
 void ArcaneMageStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -480,6 +491,10 @@ void ArcaneMageAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers
     triggers.push_back(new TriggerNode(
         "enemy too close for spell",
         NextAction::array(0, new NextAction("arcane explosion", ACTION_HIGH), NULL)));
+
+    triggers.push_back(new TriggerNode(
+        "ranged high aoe",
+        NextAction::array(0, new NextAction("flamestrike", ACTION_HIGH + 2), new NextAction("blizzard", ACTION_HIGH + 1), NULL)));
 }
 
 void ArcaneMageAoeStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -537,12 +552,20 @@ void ArcaneMageBuffPveStrategy::InitCombatTriggers(std::list<TriggerNode*>& trig
 {
     ArcaneMageBuffStrategy::InitCombatTriggers(triggers);
     MageBuffPveStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "mage armor",
+        NextAction::array(0, new NextAction("mage armor", ACTION_HIGH), NULL)));
 }
 
 void ArcaneMageBuffPveStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     ArcaneMageBuffStrategy::InitNonCombatTriggers(triggers);
     MageBuffPveStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "mage armor",
+        NextAction::array(0, new NextAction("mage armor", ACTION_HIGH), NULL)));
 }
 
 void ArcaneMageBuffPvpStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)

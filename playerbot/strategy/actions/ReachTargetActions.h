@@ -53,7 +53,7 @@ namespace ai
                     chaseDist = (chaseDist - sPlayerbotAIConfig.contactDistance);
                 }
 
-                if (MoveStyleValue::WaitForEnemy(ai) && target->m_movementInfo.HasMovementFlag(movementFlagsMask) &&
+                if (MoveStyleValue::WaitForEnemy(ai) && !ai->GetUnit(AI_VALUE(ObjectGuid, "rti cc target")) && target->m_movementInfo.HasMovementFlag(movementFlagsMask) &&
                         sServerFacade.IsInFront(target, bot, sPlayerbotAIConfig.sightDistance, CAST_ANGLE_IN_FRONT) &&
                         sServerFacade.IsDistanceGreaterThan(distanceToTarget, sPlayerbotAIConfig.tooCloseDistance))
                 {
@@ -67,18 +67,48 @@ namespace ai
                     ai->TellPlayerNoFacing(GetMaster(), out);
                 }
                 
+                bool moved;
                 if (inLos && isFriend && (range <= ai->GetRange("follow")))
                 {
-                    return MoveNear(target, chaseDist);
+                    moved = MoveNear(target, chaseDist);
                 }
                 else
                 {
-                    return ChaseTo(target, chaseDist, bot->GetAngle(target));
+                    moved = ChaseTo(target, chaseDist, bot->GetAngle(target));
                 }
+
+                if (!moved)
+                {
+                    if (++reachFails >= 15)
+                    {
+                        reachFails = 0;
+
+                        SET_AI_VALUE(ObjectGuid, "old target", target->GetObjectGuid());
+                        SET_AI_VALUE(ObjectGuid, "current target", ObjectGuid());
+                        if (AI_VALUE(ObjectGuid, "attack target") == target->GetObjectGuid())
+                            SET_AI_VALUE(ObjectGuid, "attack target", ObjectGuid());
+
+                        bot->SetSelectionGuid(ObjectGuid());
+                        bot->AttackStop();
+
+                        if (verbose)
+                        {
+                            std::ostringstream out;
+                            out << "Dropping unreachable target: " << ChatHelper::formatWorldobject(target);
+                            ai->TellPlayerNoFacing(GetMaster(), out);
+                        }
+                    }
+                }
+                else
+                    reachFails = 0;
+
+                return moved;
             }
 
             return false;
         }
+
+        uint32 reachFails = 0;
 
         virtual bool isUseful() override
 		{
@@ -127,11 +157,11 @@ namespace ai
                     targetQualifier = Qualified::getMultiQualifierStr(qualifier, 2, "::");
                 }
 
-                return targetQualifier.empty() ? AI_VALUE(Unit*, targetName) : AI_VALUE2(Unit*, targetName, targetQualifier);
+                return targetQualifier.empty() ? ai->GetUnit(AI_VALUE(ObjectGuid, targetName)) : ai->GetUnit(AI_VALUE2(ObjectGuid, targetName, targetQualifier));
             }
             else
             {
-                return AI_VALUE(Unit*, GetTargetName());
+                return ai->GetUnit(AI_VALUE(ObjectGuid, GetTargetName()));
             }
         }
 
@@ -221,7 +251,7 @@ namespace ai
 
             Group* group = bot->GetGroup();
             if (!group || totemSpell.empty())
-                return AI_VALUE(Unit*, "master target");
+                return ai->GetUnit(AI_VALUE(ObjectGuid, "master target"));
 
             for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
@@ -238,8 +268,8 @@ namespace ai
                 if (!bot->IsWithinDistInMap(member, 100.0f, false))
                     continue;
 
-                if (!ai->HasAura(totemSpell, member, false, true))
-                    return member;
+                if (!bot->IsWithinDistInMap(member, range, false) || !AI_VALUE2(bool, "has totem", name))
+                    return member; 
             }
 
             return nullptr;

@@ -137,6 +137,10 @@ void FuryWarriorRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& trigge
 {
     FuryWarriorStrategy::InitCombatTriggers(triggers);
     WarriorRaidStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "sunder armor",
+        NextAction::array(0, new NextAction("sunder armor", ACTION_HIGH + 2), NULL)));
 }
 
 void FuryWarriorRaidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -489,6 +493,10 @@ void FuryWarriorRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& trigge
 {
     FuryWarriorStrategy::InitCombatTriggers(triggers);
     WarriorRaidStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "sunder armor",
+        NextAction::array(0, new NextAction("sunder armor", ACTION_HIGH + 2), NULL)));
 }
 
 void FuryWarriorRaidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -845,6 +853,10 @@ void FuryWarriorRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& trigge
 {
     FuryWarriorStrategy::InitCombatTriggers(triggers);
     WarriorRaidStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "sunder armor",
+        NextAction::array(0, new NextAction("sunder armor", ACTION_HIGH + 2), NULL)));
 }
 
 void FuryWarriorRaidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)

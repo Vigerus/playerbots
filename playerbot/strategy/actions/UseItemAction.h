@@ -496,6 +496,10 @@ namespace ai
                 }
             }
 
+            // Do not use consumable if bot can heal self or has preheal strategy
+            if (ai->IsHeal(bot) && (ai->GetManaPercent() > 10 || ai->HasStrategy("preheal", BotState::BOT_STATE_COMBAT)))
+                return false;
+
             return true;
         }
 
@@ -631,7 +635,7 @@ namespace ai
             if (bot->GetLevel() < 20 || bot->HasAura(6615))
                 return false;
 
-            Unit* target = AI_VALUE(Unit*, "current target");
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
             if (!target || !target->IsPlayer())
                 return false;
 

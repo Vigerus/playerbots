@@ -10,6 +10,15 @@
 
 using namespace ai;
 
+#ifndef MANGOSBOT_ZERO
+Item* GuildAccess::GetGuildItem(uint8 TabId, uint8 SlotId)
+{
+    if (TabId >= GetPurchasedTabs() || SlotId >= GUILD_BANK_MAX_SLOTS)
+        return nullptr;
+    return m_TabList[TabId].Slots[SlotId];
+}
+#endif
+
 std::string GuildOrderValue::TrimWhitespace(const std::string& str)
 {
     std::string result = str;

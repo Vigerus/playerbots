@@ -13,7 +13,7 @@ std::list<ObjectGuid> AoeCountValue::FindMaxDensity(Player* bot, float range)
     std::map<ObjectGuid, std::list<ObjectGuid> > groups;
     if (bot)
     {
-        std::list<ObjectGuid> units = *bot->GetPlayerbotAI()->GetAiObjectContext()->GetValue<std::list<ObjectGuid>>("attackers");
+        std::list<ObjectGuid> units = *bot->GetPlayerbotAI()->GetAiObjectContext()->GetValue<std::list<ObjectGuid>>("possible attack targets");
         
         for (std::list<ObjectGuid>::iterator i = units.begin(); i != units.end(); ++i)
         {
@@ -110,6 +110,10 @@ bool HasAreaDebuffValue::Calculate()
 
         SpellEntry const* spellProto = sSpellTemplate.LookupEntry<SpellEntry>(go->GetSpellId());
         if (!spellProto)
+            continue;
+        
+        // I will not move when flame wreath is cast or the raid blows up
+        if (spellProto->Id == 29946)
             continue;
 
         if (IsPositiveEffect(spellProto, go->GetEffIndex()))

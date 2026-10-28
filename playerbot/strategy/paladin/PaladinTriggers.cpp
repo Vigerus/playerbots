@@ -12,7 +12,9 @@ bool SealTrigger::IsActive()
         !ai->HasAura("seal of command", target) &&
         !ai->HasAura("seal of vengeance", target) &&
 		!ai->HasAura("seal of righteousness", target) &&
+        !ai->HasAura("seal of the crusader", target) &&
 		!ai->HasAura("seal of light", target) &&
+        !ai->HasAura("seal of blood", target) &&
         !ai->HasAura("seal of wisdom", target) &&
         AI_VALUE2(bool, "combat", "self target");
 }
@@ -152,7 +154,7 @@ bool BlessingOnPartyTrigger::IsActive()
     }
 
     // Doesn't have any of my blessings
-    return AI_VALUE2(Unit*, "party member without my aura", blessings);
+    return ai->GetUnit(AI_VALUE2(ObjectGuid, "party member without my aura", blessings));
 }
 
 bool GreaterBlessingOnPartyTrigger::IsActive()
@@ -194,7 +196,7 @@ bool GreaterBlessingOnPartyTrigger::IsActive()
     }
 
     // Doesn't have any of my blessings
-    Unit* target = AI_VALUE2(Unit*, "party member without my aura", blessings);
+    Unit* target = ai->GetUnit(AI_VALUE2(ObjectGuid, "party member without my aura", blessings));
     return target && bot->IsInGroup(target);
 }
 

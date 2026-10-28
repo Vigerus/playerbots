@@ -10,6 +10,8 @@ namespace ai
 	BUFF_ACTION(CastSealOfWisdomAction, "seal of wisdom");
 	BUFF_ACTION(CastSealOfCommandAction, "seal of command");
 	BUFF_ACTION(CastSealOfVengeanceAction, "seal of vengeance");
+    BUFF_ACTION(CastSealOfTheCrusaderAction, "seal of the crusader");
+    BUFF_ACTION(CastSealOfBloodAction, "seal of blood");
 
 	class CastJudgementAction : public CastMeleeDebuffSpellAction
 	{
@@ -17,7 +19,34 @@ namespace ai
 		CastJudgementAction(PlayerbotAI* ai) : CastMeleeDebuffSpellAction(ai, "judgement") { range = 10.0f; }
 		virtual bool isUseful() 
 		{
-			return ai->HasAnyAuraOf(bot, "seal of justice", "seal of command", "seal of vengeance", "seal of blood", "seal of righteousness", "seal of light", "seal of wisdom", NULL);
+            Unit* target = bot->GetTarget();
+            if (target && target->IsAlive())
+            {
+                if (ai->HasAnyAuraOf(bot, "seal of vengeance", NULL))
+                    return target->GetAuraCount(31803) > 2; // pointless to judge with no stacks!
+                else if (ai->HasAnyAuraOf(bot, "seal of wisdom", NULL))
+                {
+                    return !target->HasAura(20186) && !target->HasAura(20354) &&
+                        !target->HasAura(20355) && !target->HasAura(27164); 
+                }
+                else if (ai->HasAnyAuraOf(bot, "seal of light", NULL))
+                {
+                    return !target->HasAura(20185) && !target->HasAura(20344) &&
+                        !target->HasAura(20345) && !target->HasAura(20346) &&
+                        !target->HasAura(27162); 
+                }
+                else if (ai->HasAnyAuraOf(bot, "seal of the crusader", NULL))
+                {
+                    return !target->HasAura(21183) && !target->HasAura(20188) && 
+                        !target->HasAura(20300) && !target->HasAura(20301) &&
+                        !target->HasAura(20302) && !target->HasAura(20303) &&
+                        !target->HasAura(27159);
+                }
+                else
+                    return ai->HasAnyAuraOf(bot, "seal of justice", "seal of command", "seal of blood", "seal of righteousness", NULL);
+            }
+            else
+                return false;
 		}
 	};
 
@@ -68,6 +97,15 @@ namespace ai
     public:
         CastSealSpellAction(PlayerbotAI* ai, std::string name) : CastBuffSpellAction(ai, name) {}
         virtual bool isUseful() override { return AI_VALUE2(bool, "combat", "self target"); }
+    };
+
+    class ProtSealAction : public CastBuffSpellAction
+    {
+    public:
+        ProtSealAction(PlayerbotAI* ai) : CastBuffSpellAction(ai, "prot seal") {}
+        virtual bool isPossible() { return true; }
+        virtual bool isUseful() override { return AI_VALUE2(bool, "combat", "self target"); }
+        virtual bool Execute(Event& event);
     };
 
     // Pick the aura that is not being used by another paladin
@@ -278,7 +316,7 @@ namespace ai
     class CastGreaterBlessingOfMightOnPartyAction : public GreaterBuffOnPartyAction
     {
     public:
-		CastGreaterBlessingOfMightOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of might") {}
+		CastGreaterBlessingOfMightOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of might", "blessing of might") {}
     };
 
 	class CastBlessingOfWisdomAction : public CastBuffSpellAction
@@ -304,7 +342,7 @@ namespace ai
     class CastGreaterBlessingOfWisdomOnPartyAction : public GreaterBuffOnPartyAction
     {
     public:
-        CastGreaterBlessingOfWisdomOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of wisdom") {}
+        CastGreaterBlessingOfWisdomOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of wisdom", "blessing of wisdom") {}
     };
 
 	class CastBlessingOfKingsAction : public CastBuffSpellAction
@@ -330,7 +368,7 @@ namespace ai
     class CastGreaterBlessingOfKingsOnPartyAction : public GreaterBuffOnPartyAction
     {
     public:
-        CastGreaterBlessingOfKingsOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of kings") {}
+        CastGreaterBlessingOfKingsOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of kings", "blessing of kings") {}
     };
 
 	class CastBlessingOfSanctuaryAction : public CastBuffSpellAction
@@ -356,7 +394,7 @@ namespace ai
     class CastGreaterBlessingOfSanctuaryOnPartyAction : public GreaterBuffOnPartyAction
     {
     public:
-        CastGreaterBlessingOfSanctuaryOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of sanctuary") {}
+        CastGreaterBlessingOfSanctuaryOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of sanctuary", "blessing of sanctuary") {}
     };
 
     class CastBlessingOfLightAction : public CastBuffSpellAction
@@ -382,7 +420,7 @@ namespace ai
     class CastGreaterBlessingOfLightOnPartyAction : public GreaterBuffOnPartyAction
     {
     public:
-        CastGreaterBlessingOfLightOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of light") {}
+        CastGreaterBlessingOfLightOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of light", "blessing of light") {}
     };
 
     class CastBlessingOfSalvationAction : public CastBuffSpellAction
@@ -408,7 +446,7 @@ namespace ai
     class CastGreaterBlessingOfSalvationOnPartyAction : public GreaterBuffOnPartyAction
     {
     public:
-        CastGreaterBlessingOfSalvationOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of salvation", true) {}
+        CastGreaterBlessingOfSalvationOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "greater blessing of salvation", "blessing of salvation", true) {}
 
         bool isUseful() override
         {
@@ -619,7 +657,7 @@ namespace ai
     {
     public:
         CastTurnUndeadAction(PlayerbotAI* ai) : CastBuffSpellAction(ai, "turn undead") {}
-        virtual Value<Unit*>* GetTargetValue() { return context->GetValue<Unit*>("cc target", getName()); }
+        virtual Value<ObjectGuid>* GetTargetValue() { return context->GetValue<ObjectGuid>("cc target", getName()); }
     };
 
 	class CastHandOfSacrificeAction : public BuffOnPartyAction

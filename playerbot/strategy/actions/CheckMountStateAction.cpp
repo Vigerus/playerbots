@@ -25,7 +25,7 @@ bool CheckMountStateAction::Execute(Event& event)
     }
 
     bool hasAttackers = AI_VALUE(bool, "has attackers");
-    bool hasEnemy = AI_VALUE(bool, "has enemy player targets") || AI_VALUE(Unit*, "dps target");
+    bool hasEnemy = AI_VALUE(bool, "has enemy player targets") || ai->GetUnit(AI_VALUE(ObjectGuid, "dps target"));
 
     bool canFly = CanFly();
 
@@ -40,7 +40,7 @@ bool CheckMountStateAction::Execute(Event& event)
 
     if (hasEnemy)
     {
-        float distToTarget = AI_VALUE(Unit*, "current target") ? AI_VALUE2(float, "distance", "current target") : 0;
+        float distToTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "current target")) ? AI_VALUE2(float, "distance", "current target") : 0;
         canAttackTarget = sServerFacade.IsDistanceLessThan(distToTarget, GetAttackDistance());
         shouldChaseTarget = sServerFacade.IsDistanceGreaterThan(distToTarget, 45.0f) && AI_VALUE2(bool, "moving", "current target");
         farFromTarget = sServerFacade.IsDistanceGreaterThan(distToTarget, 40.0f);
@@ -70,8 +70,8 @@ bool CheckMountStateAction::Execute(Event& event)
         }
     }
 
-    //Unmounted when able to attack target
-    if (canAttackTarget)
+    //Unmounted when able to attack target and not fleeing
+    if (canAttackTarget && !ai->HasStrategy("passive", BotState::BOT_STATE_COMBAT))
     {
         if (ai->HasStrategy("debug mount", BotState::BOT_STATE_NON_COMBAT) && IsMounted)
             ai->TellPlayerNoFacing(requester, "Unmount. Able to attack target.");
@@ -393,7 +393,17 @@ float CheckMountStateAction::GetAttackDistance() const
 
 bool CheckMountStateAction::Mount(Player* requester, bool limitSpeedToGroup)
 {
-    bool canFly = CanFly();   
+#ifdef MANGOSBOT_ZERO
+    bool canFly = CanFly();
+#else
+    Player* groupMaster = ai->GetGroupMaster();
+
+    // only use a flying mount if master has a flying mount, to avoid laggards on ground (TBC flying is 60% ground speed)
+    bool canFly = groupMaster && groupMaster != bot ? CanFly() && (groupMaster->HasAuraType(SPELL_AURA_FLY) || 
+        groupMaster->HasAuraType(SPELL_AURA_MOD_FLIGHT_SPEED_MOUNTED)) : CanFly();
+    if (ai->HasStrategy("debug mount", BotState::BOT_STATE_NON_COMBAT))
+        ai->TellPlayerNoFacing(requester, canFly ? "I should fly" : "I shouldn't fly");
+#endif
 
     uint32 currentSpeed = AI_VALUE2(uint32, "current mount speed", "self target");
 

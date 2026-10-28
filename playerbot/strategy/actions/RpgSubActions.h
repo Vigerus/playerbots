@@ -401,4 +401,46 @@ namespace ai
         virtual std::string ActionName() override { return "gossip hello"; }
         virtual Event ActionEvent(Event event) override { WorldPacket p(CMSG_GOSSIP_SELECT_OPTION); p << rpg->guid(); p.rpos(0); return Event("rpg action", p); }
     };
+
+    class RpgBankDepositAction : public RpgSubAction
+    {
+    public:
+        RpgBankDepositAction(PlayerbotAI* ai, std::string name = "rpg bank deposit") : RpgSubAction(ai, name) {}
+
+        virtual std::string GetRpgActionName() const override { return "depositing items at"; };
+
+        virtual bool Execute(Event& event) override;
+    };
+
+    class RpgBankWithdrawAction : public RpgSubAction
+    {
+    public:
+        RpgBankWithdrawAction(PlayerbotAI* ai, std::string name = "rpg bank withdraw") : RpgSubAction(ai, name) {}
+
+        virtual std::string GetRpgActionName() const override { return "withdrawing items from"; };
+
+        virtual bool Execute(Event& event) override;
+    };
+
+#ifndef MANGOSBOT_ZERO
+    class RpgGuildBankDepositAction : public RpgSubAction
+    {
+    public:
+        RpgGuildBankDepositAction(PlayerbotAI* ai, std::string name = "rpg guild bank deposit") : RpgSubAction(ai, name) {}
+
+        virtual std::string GetRpgActionName() const override { return "depositing items in guild bank at"; };
+
+        virtual bool Execute(Event& event) override;
+    };
+
+    class RpgGuildBankWithdrawAction : public RpgSubAction
+    {
+    public:
+        RpgGuildBankWithdrawAction(PlayerbotAI* ai, std::string name = "rpg guild bank withdraw") : RpgSubAction(ai, name) {}
+
+        virtual std::string GetRpgActionName() const override { return "withdrawing items from guild bank at"; };
+
+        virtual bool Execute(Event& event) override;
+    };
+#endif
 }

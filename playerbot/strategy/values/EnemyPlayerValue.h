@@ -13,6 +13,7 @@ namespace ai
         std::list<ObjectGuid> Calculate() override;
 
         static bool IsValid(Unit* target, Player* player);
+        static bool IsReachable(Unit* target, Player* player);
 
     private:
         void ApplyFilter(std::list<ObjectGuid>& targets, bool getOne);
@@ -29,7 +30,7 @@ namespace ai
     {
     public:
         EnemyPlayerValue(PlayerbotAI* ai, std::string name = "enemy player") : UnitCalculatedValue(ai, name) {}
-        virtual Unit* Calculate() override;
+        virtual ObjectGuid Calculate() override;
 
         static float GetMaxAttackDistance(Player* bot);
     };

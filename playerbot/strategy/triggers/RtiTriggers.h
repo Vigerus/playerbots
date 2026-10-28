@@ -13,7 +13,7 @@ namespace ai
 
         virtual bool IsActive() override
 		{
-            if (AI_VALUE(Unit*, "rti target"))
+            if (ai->GetUnit(AI_VALUE(ObjectGuid, "rti target")))
             {
                 return false;
             }
@@ -40,6 +40,34 @@ namespace ai
             }
 
             return true;
+        }
+    };
+
+    class NoRtiCCTrigger : public Trigger
+    {
+    public:
+        NoRtiCCTrigger(PlayerbotAI* ai) : Trigger(ai, "no rti cc target") {}
+
+        virtual bool IsActive() override
+		{
+            if (ai->GetUnit(AI_VALUE(ObjectGuid, "rti cc target")))
+            {
+                return false;
+            }
+            else
+            {
+                // Check for the default rti cc if the bot is setup to ignore rti cc targets
+                std::string rti = AI_VALUE(std::string, "rti cc");
+                int index = RtiTargetValue::GetRtiIndex(rti);
+                if (index == -1)
+                {
+                    // If we have cc enabled, but no mark set, then we're open to ccing stuff at random
+                    if (ai->HasStrategy("cc", BotState::BOT_STATE_COMBAT))
+                        return true;
+                }
+
+                return false;
+            }
         }
     };
 }

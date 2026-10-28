@@ -3,8 +3,12 @@
 #include "GenericTriggers.h"
 #include "playerbot/LootObjectStack.h"
 #include "playerbot/PlayerbotAIConfig.h"
+#include "playerbot/ServerFacade.h"
+#include "playerbot/strategy/generic/CombatStrategy.h"
+#include "playerbot/strategy/generic/PullStrategy.h"
 #include "playerbot/strategy/values/PositionValue.h"
 #include "playerbot/strategy/values/AoeValues.h"
+#include "Tools/Formulas.h"
 
 #include <regex>
 
@@ -57,7 +61,7 @@ bool LoseAggroTrigger::IsActive()
         // Check if the aggro has been taken by another tank
         if(ai->IsTank(bot))
         {
-            Unit* target = AI_VALUE(Unit*, "current target");
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
             if(target && !target->IsPlayer())
             {
                 Unit* targetsTarget = target->GetVictim();
@@ -105,7 +109,8 @@ bool OutNumberedTrigger::IsActive()
     int32 botLevel = bot->GetLevel();
     float healthMod = bot->GetHealthPercent() / 100.0f;
     uint32 friendPower = 100 + 100 * healthMod, foePower = 0;
-    for (auto &attacker : ai->GetAiObjectContext()->GetValue<std::list<ObjectGuid>>("possible attack targets")->Get())
+    uint32 grayCount = 0;
+    for (auto &attacker : ai->GetAiObjectContext()->GetValue<std::list<ObjectGuid> >("attackers")->Get())
     {
         Creature* creature = ai->GetCreature(attacker);
         if (!creature)
@@ -116,11 +121,20 @@ bool OutNumberedTrigger::IsActive()
 
         int32 dLevel = creature->GetLevel() - botLevel;
 
+        if (int32(creature->GetLevel()) <= int32(MaNGOS::XP::GetGrayLevel(botLevel)))
+        {
+            grayCount++;
+            continue;
+        }
+
         healthMod = creature->GetHealthPercent() / 100.0f;
 
-        if(dLevel > -10)
-            foePower += std::max(100 + 10 * dLevel, dLevel * 200) * healthMod;
+        uint32 weight = dLevel > 3 ? 100 + (dLevel - 3) * 100 : 100;
+        foePower += weight * healthMod;
     }
+
+    if (grayCount > 10)
+        foePower += 50 * grayCount;
 
     if (!foePower)
         return false;
@@ -140,7 +154,7 @@ bool OutNumberedTrigger::IsActive()
             friendPower += std::max(200 + 20 * dLevel, dLevel * 200)* healthMod;
     }
 
-    return friendPower < foePower;
+    return foePower > 2 * friendPower;
 }
 
 bool BuffTrigger::IsActive()
@@ -155,37 +169,38 @@ bool MyBuffTrigger::IsActive()
     return target && !ai->HasMyAura(spell, target);
 }
 
-Value<Unit*>* BuffOnPartyTrigger::GetTargetValue()
+Value<ObjectGuid>* BuffOnPartyTrigger::GetTargetValue()
 {
     const std::string qualifier = spell + "-" + (ignoreTanks ? "1" : "0");
-	return context->GetValue<Unit*>("friendly unit without aura", qualifier);
+	return context->GetValue<ObjectGuid>("friendly unit without aura", qualifier);
 }
 
-Value<Unit*>* GreaterBuffOnPartyTrigger::GetTargetValue()
+Value<ObjectGuid>* GreaterBuffOnPartyTrigger::GetTargetValue()
+{
+    const std::string spells = !lowerSpell.empty() ? spell + "," + lowerSpell : spell;
+    const std::string qualifier = spells + "-" + (ignoreTanks ? "1" : "0");
+    return context->GetValue<ObjectGuid>("party member without aura", qualifier);
+}
+
+Value<ObjectGuid>* MyBuffOnPartyTrigger::GetTargetValue()
 {
     const std::string qualifier = spell + "-" + (ignoreTanks ? "1" : "0");
-    return context->GetValue<Unit*>("party member without aura", qualifier);
+    return context->GetValue<ObjectGuid>("party member without my aura", qualifier);
 }
 
-Value<Unit*>* MyBuffOnPartyTrigger::GetTargetValue()
+ai::Value<ObjectGuid>* BuffOnTankTrigger::GetTargetValue()
 {
-    const std::string qualifier = spell + "-" + (ignoreTanks ? "1" : "0");
-    return context->GetValue<Unit*>("party member without my aura", qualifier);
+    return context->GetValue<ObjectGuid>("party tank without aura", spell);
 }
 
-ai::Value<Unit*>* BuffOnTankTrigger::GetTargetValue()
+Value<ObjectGuid>* DebuffOnAttackerTrigger::GetTargetValue()
 {
-    return context->GetValue<Unit*>("party tank without aura", spell);
-}
-
-Value<Unit*>* DebuffOnAttackerTrigger::GetTargetValue()
-{
-	return context->GetValue<Unit*>("attacker without aura", spell);
+	return context->GetValue<ObjectGuid>("attacker without aura", spell);
 }
 
 bool NoAttackersTrigger::IsActive()
 {
-    return !AI_VALUE(Unit*, "current target") && AI_VALUE(uint8, "my attacker count") > 0;
+    return !ai->GetUnit(AI_VALUE(ObjectGuid, "current target")) && AI_VALUE(uint8, "my attacker count") > 0;
 }
 
 bool InvalidTargetTrigger::IsActive()
@@ -195,7 +210,18 @@ bool InvalidTargetTrigger::IsActive()
 
 bool NoTargetTrigger::IsActive()
 {
-	return !AI_VALUE(Unit*, "current target") || AI_VALUE2(bool, "invalid target", "current target");
+	if (!ai->GetUnit(AI_VALUE(ObjectGuid, "current target")) || AI_VALUE2(bool, "invalid target", "current target"))
+		return true;
+
+	if (!sServerFacade.IsInCombat(bot) && bot->IsAlive() &&
+		(bot->IsStopped() || AI_VALUE2(uint32, "time since last change", "current position") > 60) &&
+		!WaitForAttackStrategy::ShouldWait(ai) &&
+		!(PullStrategy::Get(ai) && PullStrategy::Get(ai)->HasPullStarted() &&
+			time(0) - PullStrategy::Get(ai)->GetPullStartTime() < PullStrategy::GetMaxPullTime()) &&
+		!bot->GetLootGuid() && !AI_VALUE(bool, "has available loot"))
+		return true;
+
+	return false;
 }
 
 bool MyAttackerCountTrigger::IsActive()
@@ -419,7 +445,24 @@ bool BoostTrigger::IsActive()
         }
         else
         {
-            return true;
+            uint32 spellId = AI_VALUE2(uint32, "spell id", spell);
+            SpellEntry const* spellInfo = sServerFacade.LookupSpellInfo(spellId);
+            // in instances, save long cd boosts for bosses
+            if ((bot->GetMap()->IsRaid() || bot->GetMap()->IsDungeon()) && spellInfo && spellInfo->RecoveryTime >= 5 * MINUTE * IN_MILLISECONDS)
+            {
+                std::list<ObjectGuid> v = context->GetValue<std::list<ObjectGuid>>("possible attack targets")->Get();
+                for (std::list<ObjectGuid>::iterator i = v.begin(); i!=v.end(); i++)
+                {
+                    Unit* unit = ai->GetUnit(*i);
+                    if (!unit || !sServerFacade.IsAlive(unit) || unit->IsPlayer())
+                        continue;
+
+                    if (sObjectMgr.IsEncounter(unit->GetEntry(), unit->GetMapId()))
+                        return true;
+                }
+            }
+            else
+                return true;
         }
     }
 
@@ -433,7 +476,7 @@ bool ItemCountTrigger::IsActive()
 
 bool InterruptSpellTrigger::IsActive()
 {
-	return SpellTrigger::IsActive() && ai->IsInterruptableSpellCasting(GetTarget(), getName(), true);
+	return SpellTrigger::IsActive() && ai->IsInterruptableSpellCasting(GetTarget(), getName());
 }
 
 bool DeflectSpellTrigger::IsActive()
@@ -564,37 +607,66 @@ bool TankAssistTrigger::IsActive()
     if (!AI_VALUE(bool, "has attackers"))
         return false;
 
-    Unit* currentTarget = AI_VALUE(Unit*, "current target");
+    Unit* currentTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
     if (!currentTarget)
         return true;
 
     // do not switch if enemy target
-    Unit* enemy = AI_VALUE(Unit*, "enemy player target");
+    Unit* enemy = ai->GetUnit(AI_VALUE(ObjectGuid, "enemy player target"));
     if (enemy)
     {
         return currentTarget != enemy;
     }
 
-    Unit* tankTarget = AI_VALUE(Unit*, "tank target");
+    Unit* tankTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "tank target"));
     if (!tankTarget || currentTarget == tankTarget)
         return false;
 #ifdef CMANGOS
-    return tankTarget->GetVictim() != AI_VALUE(Unit*, "self target");
+    return tankTarget->GetVictim() != ai->GetUnit(AI_VALUE(ObjectGuid, "self target"));
 #endif
 #ifdef MANGOS
-    return tankTarget->getVictim() != AI_VALUE(Unit*, "self target");
+    return tankTarget->getVictim() != ai->GetUnit(AI_VALUE(ObjectGuid, "self target"));
 #endif
+}
+
+bool DpsAssistTrigger::IsActive()
+{
+    if (!AI_VALUE(bool, "has attackers"))
+        return false;
+
+    Unit* currentTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
+    if (!currentTarget)
+        return false;
+
+    // If owner is waiting this will trigger attack again to call for pet
+    WaitForAttackStrategy* strategy = WaitForAttackStrategy::Get(ai);
+    bool isWaitingForAttack = false;
+    if (strategy)
+        isWaitingForAttack = strategy->ShouldWait(ai); 
+        
+    Pet* pet = bot->GetPet();
+    if (pet)
+    {
+        UnitAI* creatureAI = ((Creature*)pet)->AI();
+        if (creatureAI)
+        {
+            if (isWaitingForAttack)
+                return false;
+        }
+    }
+
+    return true;
 }
 
 bool IsBehindTargetTrigger::IsActive()
 {
-    Unit* target = AI_VALUE(Unit*, "current target");
+    Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
     return target && AI_VALUE2(bool, "behind", "current target");
 }
 
 bool IsNotBehindTargetTrigger::IsActive()
 {
-    Unit* target = AI_VALUE(Unit*, "current target");
+    Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
     return target && !AI_VALUE2(bool, "behind", "current target");
 }
 
@@ -608,7 +680,7 @@ bool HasCcTargetTrigger::IsActive()
     uint32 spellid = AI_VALUE2(uint32, "spell id", getName());
     if (spellid && sServerFacade.IsSpellReady(bot, spellid))
     {
-        return AI_VALUE2(Unit*, "cc target", getName()) && !AI_VALUE2(Unit*, "current cc target", getName());
+        return ai->GetUnit(AI_VALUE(ObjectGuid,"rti cc target"))  || (ai->GetUnit(AI_VALUE2(ObjectGuid, "cc target", getName())) && !ai->GetUnit(AI_VALUE2(ObjectGuid, "current cc target", getName())));
     }
 
     return false;
@@ -632,7 +704,7 @@ bool PossibleAddsTrigger::IsActive()
 
 bool NotDpsTargetActiveTrigger::IsActive()
 {
-    Unit* target = AI_VALUE(Unit*, "current target");
+    Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
     if (target)
     {
         if (target->IsPlayer())
@@ -643,13 +715,13 @@ bool NotDpsTargetActiveTrigger::IsActive()
         if(sServerFacade.IsAlive(target))
         {
             // do not switch if enemy target
-            Unit* enemy = AI_VALUE(Unit*, "enemy player target");
+            Unit* enemy = ai->GetUnit(AI_VALUE(ObjectGuid, "enemy player target"));
             if (enemy)
             {
                 return target != enemy;
             }
 
-            Unit* dps = AI_VALUE(Unit*, "dps target");
+            Unit* dps = ai->GetUnit(AI_VALUE(ObjectGuid, "dps target"));
             if (dps)
             {
                 return target != dps;
@@ -662,7 +734,7 @@ bool NotDpsTargetActiveTrigger::IsActive()
 
 bool NotDpsAoeTargetActiveTrigger::IsActive()
 {
-    Unit* target = AI_VALUE(Unit*, "current target");
+    Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
     if (target)
     {
         if (target->IsPlayer())
@@ -673,13 +745,13 @@ bool NotDpsAoeTargetActiveTrigger::IsActive()
         if (sServerFacade.IsAlive(target))
         {
             // do not switch if enemy target
-            Unit* enemy = AI_VALUE(Unit*, "enemy player target");
+            Unit* enemy = ai->GetUnit(AI_VALUE(ObjectGuid, "enemy player target"));
             if (enemy)
             {
                 return target != enemy;
             }
 
-            Unit* dps = AI_VALUE(Unit*, "dps aoe target");
+            Unit* dps = ai->GetUnit(AI_VALUE(ObjectGuid, "dps aoe target"));
             if (dps)
             {
                 return target != dps;
@@ -711,19 +783,20 @@ bool HasItemForSpellTrigger::IsActive()
 
 bool TargetChangedTrigger::IsActive()
 {
-    Unit* oldTarget = context->GetValue<Unit*>("old target")->Get();
-    Unit* target = context->GetValue<Unit*>("current target")->Get();
+    PlayerbotAI* ai = bot->GetPlayerbotAI();
+    Unit* oldTarget = ai->GetUnit(context->GetValue<ObjectGuid>("old target")->Get());
+    Unit* target = ai->GetUnit(context->GetValue<ObjectGuid>("current target")->Get());
     return target && oldTarget != target;
 }
 
-Value<Unit*>* InterruptEnemyHealerTrigger::GetTargetValue()
+Value<ObjectGuid>* InterruptEnemyHealerTrigger::GetTargetValue()
 {
-    return context->GetValue<Unit*>("enemy healer target", spell);
+    return context->GetValue<ObjectGuid>("enemy healer target", spell);
 }
 
-Value<Unit*>* SnareTargetTrigger::GetTargetValue()
+Value<ObjectGuid>* SnareTargetTrigger::GetTargetValue()
 {
-    return context->GetValue<Unit*>("snare target", spell);
+    return context->GetValue<ObjectGuid>("snare target", spell);
 }
 
 bool StayTimeTrigger::IsActive()
@@ -814,7 +887,7 @@ bool InRaidFightTrigger::IsActive()
 bool GreaterBuffOnPartyTrigger::IsActive()
 {
     Unit* target = GetTarget();
-    return target && bot->IsInGroup(target) && BuffOnPartyTrigger::IsActive() && !ai->HasAura(lowerSpell, target, false, checkIsOwner);
+    return target && bot->IsInGroup(target);
 }
 
 bool TargetOfAttacker::IsActive()
@@ -824,7 +897,7 @@ bool TargetOfAttacker::IsActive()
 
 bool TargetOfAttackerInRange::IsActive()
 {
-    const Unit* closestAttacker = AI_VALUE(Unit*, "closest attacker targeting me");
+    const Unit* closestAttacker = ai->GetUnit(AI_VALUE(ObjectGuid, "closest attacker targeting me"));
     return closestAttacker && bot->GetDistance(closestAttacker, true, DIST_CALC_COMBAT_REACH) <= (distance - sPlayerbotAIConfig.contactDistance);
 }
 

@@ -928,3 +928,69 @@ bool RpgGossipTalkTrigger::IsActive()
 
     return true;
 }
+
+bool RpgBankDepositTrigger::IsActive()
+{
+    GuidPosition guidP(getGuidP());
+
+    if (!guidP.HasNpcFlag(UNIT_NPC_FLAG_BANKER))
+        return false;
+
+    if (guidP.IsHostileTo(bot))
+        return false;
+
+    if (!AI_VALUE(bool, "should bank deposit"))
+        return false;
+
+    return true;
+}
+
+bool RpgBankWithdrawTrigger::IsActive()
+{
+    GuidPosition guidP(getGuidP());
+
+    if (!guidP.HasNpcFlag(UNIT_NPC_FLAG_BANKER))
+        return false;
+
+    if (guidP.IsHostileTo(bot))
+        return false;
+
+    if (!AI_VALUE(bool, "should bank withdraw"))
+        return false;
+
+    return true;
+}
+
+#ifndef MANGOSBOT_ZERO
+bool RpgGuildBankDepositTrigger::IsActive()
+{
+    GuidPosition guidP(getGuidP());
+
+    if (!guidP.isGoType(GAMEOBJECT_TYPE_GUILD_BANK))
+        return false;
+
+    if (!bot->GetGuildId())
+        return false;
+
+    if (!AI_VALUE(bool, "should guild bank deposit"))
+        return false;
+
+    return true;
+}
+
+bool RpgGuildBankWithdrawTrigger::IsActive()
+{
+    GuidPosition guidP(getGuidP());
+
+    if (!guidP.isGoType(GAMEOBJECT_TYPE_GUILD_BANK))
+        return false;
+
+    if (!bot->GetGuildId())
+        return false;
+
+    if (!AI_VALUE(bool, "should guild bank withdraw"))
+        return false;
+
+    return true;
+}
+#endif

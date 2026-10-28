@@ -63,7 +63,8 @@ namespace ai
         ITEM_USAGE_VENDOR = 12,
         ITEM_USAGE_AMMO = 13,
         ITEM_USAGE_FORCE_NEED = 14,
-        ITEM_USAGE_FORCE_GREED = 15
+        ITEM_USAGE_FORCE_GREED = 15,
+        ITEM_USAGE_BANK = 16
     };
 
     enum class ForceItemUsage : uint8
@@ -94,6 +95,8 @@ namespace ai
         bool IsItemNeededForSkill(ItemPrototype const* proto);
         bool IsItemUsefulForSkill(ItemPrototype const* proto);
         bool IsItemNeededForUsefullCraft(ItemPrototype const* proto, bool checkAllReagents);
+        bool IsItemUsefulForFutureEquip(ItemPrototype const* proto);
+        bool IsItemUsefulForFutureCraft(ItemPrototype const* proto);
         float BetterStacks(ItemPrototype const* proto, std::string usageType = "");
 
 #ifdef GenerateBotHelp

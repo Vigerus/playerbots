@@ -53,7 +53,8 @@ namespace ai
     {
         ACTION_THREAT_NONE = 0,
         ACTION_THREAT_SINGLE= 1,
-        ACTION_THREAT_AOE = 2
+        ACTION_THREAT_AOE = 2,
+        ACTION_THREAT_LOW = 3
     };
 
     class Action : public AiNamedObject
@@ -67,14 +68,15 @@ namespace ai
         virtual bool isPossible() { return true; }
         virtual bool isUseful() { return true; }
         virtual bool isUsefulWhenStunned() { return false; }
+        virtual bool IsMovement() { return false; }
         virtual NextAction** getPrerequisites() { return NULL; }
         virtual NextAction** getAlternatives() { return NULL; }
         virtual NextAction** getContinuers() { return NULL; }
         virtual ActionThreatType getThreatType() { return ActionThreatType::ACTION_THREAT_NONE; }
         void Update() {}  //Nonfunctional see AiObjectContext::Update() to enable.
-        void Reset() {}
+        virtual void Reset() {}
         virtual Unit* GetTarget();
-        virtual Value<Unit*>* GetTargetValue();
+        virtual Value<ObjectGuid>* GetTargetValue();
         virtual std::string GetTargetName() { return "self target"; }
         void MakeVerbose(bool enabled) { verbose = enabled; }
 

@@ -17,7 +17,7 @@ WorldLocation ArrowFormation::GetLocationInternal()
     float offset = 0;
     float range = ai->GetRange("follow");
 
-    Unit* followTarget = AI_VALUE(Unit*, "follow target");
+    Unit* followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "follow target"));
     if (!ai->IsSafe(followTarget))
         return Formation::NullLocation;
 
@@ -46,15 +46,26 @@ WorldLocation ArrowFormation::GetLocationInternal()
     float y = followTarget->GetPositionY() - masterUnit->GetY() + botUnit->GetY();
     float z = followTarget->GetPositionZ();
 
+    float ox, oy, oz;
+    followTarget->GetPosition(ox, oy, oz);
+    if (std::isfinite(ox) && std::isfinite(oy) && std::isfinite(oz) && std::isfinite(x) && std::isfinite(y) && std::isfinite(z))
+    {
 #ifdef MANGOSBOT_TWO
-    float ground = followTarget->GetMap()->GetHeight(followTarget->GetPhaseMask(), x, y, z + 0.5f);
+        followTarget->GetMap()->GetHitPosition(ox, oy, oz + bot->GetCollisionHeight(), x, y, z, bot->GetPhaseMask(), -0.5f);
 #else
-    float ground = followTarget->GetMap()->GetHeight(x, y, z + 0.5f);
+        followTarget->GetMap()->GetHitPosition(ox, oy, oz + bot->GetCollisionHeight(), x, y, z, -0.5f);
 #endif
-    if (ground <= INVALID_HEIGHT)
-        return Formation::NullLocation;
+    }
+    else
+        WorldPosition::logNonFinite("Arrow::GetHitPosition", WorldPosition(followTarget->GetMapId(), ox, oy, oz), nullptr);
 
-    return WorldLocation(followTarget->GetMapId(), x, y, 0.05f + ground);
+    if (!bot->IsFlying() && !bot->IsFreeFlying() && !bot->IsSwimming())
+    {
+        z += CONTACT_DISTANCE;
+        bot->UpdateAllowedPositionZ(x, y, z);
+    }
+
+    return WorldLocation(followTarget->GetMapId(), x, y, z);
 }
 
 void ArrowFormation::Build()
@@ -82,7 +93,7 @@ FormationSlot* ArrowFormation::FindSlot(Player* member)
 
 void ArrowFormation::FillSlotsExceptMaster()
 {
-    Unit* followTarget = AI_VALUE(Unit*, "follow target");
+    Unit* followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "follow target"));
     Group* group = bot->GetGroup();
     GroupReference *gref = group->GetFirstMember();
     uint32 index = 0;
@@ -103,7 +114,7 @@ void ArrowFormation::FillSlotsExceptMaster()
 
 void ArrowFormation::AddMasterToSlot()
 {
-    Unit* followTarget = AI_VALUE(Unit*, "follow target");
+    Unit* followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "follow target"));
     Group* group = bot->GetGroup();
     GroupReference *gref = group->GetFirstMember();
     uint32 index = 0;

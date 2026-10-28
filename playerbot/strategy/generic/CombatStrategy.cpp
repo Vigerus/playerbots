@@ -12,6 +12,14 @@ void CombatStrategy::InitCombatTriggers(std::list<TriggerNode*> &triggers)
         NextAction::array(0, new NextAction("select new target", 89.0f), NULL)));
 
     triggers.push_back(new TriggerNode(
+        "combat standoff",
+        NextAction::array(0, new NextAction("drop standoff", 91.0f), NULL)));
+
+    triggers.push_back(new TriggerNode(
+        "movement loop stuck",
+        NextAction::array(0, new NextAction("release stuck movement", 101.0f), NULL)));
+
+    triggers.push_back(new TriggerNode(
         "mounted",
         NextAction::array(0, new NextAction("check mount state", 88.0f), NULL)));
 
@@ -82,16 +90,43 @@ void AvoidAoeStrategy::InitReactionMultipliers(std::list<Multiplier*>& multiplie
     InitCombatMultipliers(multipliers);
 }
 
+void AvoidSpecificCreaturesStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
+{
+    triggers.push_back(new TriggerNode(
+        "specific creature too close",
+        NextAction::array(0, new NextAction("move away from specific creatures", ACTION_EMERGENCY + 5), NULL)));
+}
+
+void AvoidSpecificCreaturesStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)
+{
+    InitCombatTriggers(triggers);
+}
+
+void AvoidSpecificCreaturesStrategy::InitCombatMultipliers(std::list<Multiplier*>& multipliers)
+{
+    multipliers.push_back(new AvoidSpecificCreaturesStrategyMultiplier(ai));
+}
+
+void AvoidSpecificCreaturesStrategy::InitReactionMultipliers(std::list<Multiplier*>& multipliers)
+{
+    InitCombatMultipliers(multipliers);
+}
+
 void WaitForAttackStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     triggers.push_back(new TriggerNode(
         "wait for attack safe distance",
-        NextAction::array(0, new NextAction("wait for attack keep safe distance", 60.0f), NULL)));
+        NextAction::array(0, new NextAction("wait for attack keep safe distance", ACTION_MOVE), NULL)));
 }
 
 void WaitForAttackStrategy::InitCombatMultipliers(std::list<Multiplier*>& multipliers)
 {
     multipliers.push_back(new WaitForAttackMultiplier(ai));
+}
+
+WaitForAttackStrategy* WaitForAttackStrategy::Get(PlayerbotAI* ai)
+{
+    return ai ? ai->GetStrategy<WaitForAttackStrategy>("wait for attack", BotState::BOT_STATE_COMBAT) : nullptr;
 }
 
 bool WaitForAttackStrategy::ShouldWait(PlayerbotAI* ai)
@@ -106,7 +141,8 @@ bool WaitForAttackStrategy::ShouldWait(PlayerbotAI* ai)
         {
             // Don't wait if the current target is an enemy player
             bool enemyPlayer = false;
-            Unit* target = ai->GetAiObjectContext()->GetValue<Unit*>("current target")->Get();
+            PlayerbotAI* ai = bot->GetPlayerbotAI();
+            Unit* target = ai->GetUnit(context->GetValue<ObjectGuid>("current target")->Get());
             if (target)
             {
                 Player* player = dynamic_cast<Player*>(target);
@@ -141,7 +177,7 @@ uint8 WaitForAttackStrategy::GetWaitTime(PlayerbotAI* ai)
 
 float WaitForAttackMultiplier::GetValue(Action* action)
 {
-    // Allow some movement and targeting actions
+    // Allow some movement and targeting actions and non threat actions (like cc!)
     const std::string& actionName = action->getName();
     if ((actionName != "wait for attack keep safe distance") && 
         (actionName != "dps assist") && 
@@ -150,7 +186,8 @@ float WaitForAttackMultiplier::GetValue(Action* action)
         (actionName != "pull rti target") &&
         (actionName != "pull start") &&
         (actionName != "pull action") &&
-        (actionName != "pull end"))
+        (actionName != "pull end") &&
+        (action->getThreatType() != ActionThreatType::ACTION_THREAT_NONE))
     {
         return WaitForAttackStrategy::ShouldWait(ai) ? 0.0f : 1.0f;
     }

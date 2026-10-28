@@ -272,7 +272,7 @@ void MageBuffStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "arcane intellect on party",
-        NextAction::array(0, new NextAction("arcane intellect on party", ACTION_NORMAL + 3), NULL)));
+        NextAction::array(0, new NextAction("arcane intellect on party", ACTION_NORMAL + 2), NULL)));
 
     triggers.push_back(new TriggerNode(
         "arcane brilliance on party",
@@ -399,7 +399,7 @@ void MageCcStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "polymorph",
-        NextAction::array(0, new NextAction("polymorph", ACTION_INTERRUPT), NULL)));
+        NextAction::array(0, new NextAction("polymorph",  ACTION_INTERRUPT + 1), NULL)));
 }
 
 void MageCcStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -618,7 +618,7 @@ void MageRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "has aggro",
-        NextAction::array(0, new NextAction("shoot", ACTION_HIGH), NULL)));
+        NextAction::array(0, new NextAction("shoot", ACTION_NORMAL), NULL)));
 }
 
 void MageRaidStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -695,7 +695,7 @@ void MageBuffStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "arcane intellect on party",
-        NextAction::array(0, new NextAction("arcane intellect on party", ACTION_NORMAL + 3), NULL)));
+        NextAction::array(0, new NextAction("arcane intellect on party", ACTION_NORMAL + 2), NULL)));
 
     triggers.push_back(new TriggerNode(
         "arcane brilliance on party",
@@ -739,19 +739,11 @@ void MageBuffPvpStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& trigger
 void MageBuffPveStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     BuffPveStrategy::InitCombatTriggers(triggers);
-
-    triggers.push_back(new TriggerNode(
-        "molten armor",
-        NextAction::array(0, new NextAction("molten armor", ACTION_HIGH), NULL)));
 }
 
 void MageBuffPveStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     BuffPveStrategy::InitNonCombatTriggers(triggers);
-
-    triggers.push_back(new TriggerNode(
-        "molten armor",
-        NextAction::array(0, new NextAction("molten armor", ACTION_NORMAL), NULL)));
 }
 
 void MageBuffRaidStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -822,7 +814,7 @@ void MageCcStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "polymorph",
-        NextAction::array(0, new NextAction("polymorph", ACTION_INTERRUPT), NULL)));
+        NextAction::array(0, new NextAction("polymorph",  ACTION_INTERRUPT + 1), NULL)));
 }
 
 void MageCcStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -1122,7 +1114,7 @@ void MageBuffStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "arcane intellect on party",
-        NextAction::array(0, new NextAction("arcane intellect on party", ACTION_NORMAL + 3), NULL)));
+        NextAction::array(0, new NextAction("arcane intellect on party", ACTION_NORMAL + 2), NULL)));
 
     triggers.push_back(new TriggerNode(
         "arcane brilliance on party",
@@ -1249,7 +1241,7 @@ void MageCcStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "polymorph",
-        NextAction::array(0, new NextAction("polymorph", ACTION_INTERRUPT), NULL)));
+        NextAction::array(0, new NextAction("polymorph",  ACTION_INTERRUPT + 1), NULL)));
 }
 
 void MageCcStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)

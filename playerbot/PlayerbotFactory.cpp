@@ -24,6 +24,8 @@
 #endif
 #include "strategy/ItemVisitors.h"
 
+#include <unordered_set>
+
 using namespace ai;
 
 #define PLAYER_SKILL_INDEX(x)       (PLAYER_SKILL_INFO_1_1 + ((x)*3))
@@ -45,6 +47,9 @@ uint32 PlayerbotFactory::tradeSkills[] =
 #ifndef MANGOSBOT_ZERO
 	,
 	SKILL_JEWELCRAFTING
+#endif
+#ifdef MANGOSBOT_TWO
+    , SKILL_INSCRIPTION
 #endif
 };
 
@@ -544,6 +549,56 @@ void PlayerbotFactory::AddConsumables()
    }
 }
 
+// Collects every creature entry that has a world spawn, including the random,
+// conditional and spawn group entries a spawn can resolve to.
+static std::unordered_set<uint32> BuildSpawnedCreatureEntries()
+{
+    std::unordered_set<uint32> entries;
+
+    auto worker = [&entries](CreatureDataPair const& dataPair)
+    {
+        entries.insert(dataPair.second.id);
+#ifdef CMANGOS
+        if (std::vector<uint32> const* randomEntries = sObjectMgr.GetAllRandomCreatureEntries(dataPair.first))
+            entries.insert(randomEntries->begin(), randomEntries->end());
+
+        if (CreatureConditionalSpawn const* cSpawn = ObjectMgr::GetCreatureConditionalSpawn(dataPair.first))
+        {
+            entries.insert(cSpawn->EntryAlliance);
+            entries.insert(cSpawn->EntryHorde);
+        }
+#endif
+        return false;
+    };
+    sObjectMgr.DoCreatureData(worker);
+
+#ifdef CMANGOS
+    if (auto container = sObjectMgr.GetSpawnGroupContainer())
+    {
+        for (auto const& [groupId, group] : container->spawnGroupMap)
+        {
+            if (group.Type != SPAWN_GROUP_CREATURE || group.DbGuids.empty())
+                continue;
+
+            for (SpawnGroupRandomEntry const& randomEntry : group.RandomEntries)
+                entries.insert(randomEntry.Entry);
+        }
+    }
+#endif
+
+    entries.erase(0);
+    return entries;
+}
+
+// Tameable templates without a spawn (test, placeholder and unused rows) can
+// never be tamed by a player, so hunter bots should not get them as pets.
+// Built once on first use; empty spawn data disables the filter.
+static bool HasWorldSpawn(uint32 entry)
+{
+    static std::unordered_set<uint32> const spawnedEntries = BuildSpawnedCreatureEntries();
+    return spawnedEntries.empty() || spawnedEntries.count(entry);
+}
+
 void PlayerbotFactory::InitPet()
 {
     // Randomize a new pet (only for hunters)
@@ -572,6 +627,9 @@ void PlayerbotFactory::InitPet()
                 continue;
 
             if ((int)co->MinLevel > (int)bot->GetLevel())
+                continue;
+
+            if (!HasWorldSpawn(id))
                 continue;
 
 			ids.push_back(id);
@@ -1284,6 +1342,833 @@ void PlayerbotFactory::InitPetSpells()
             {48, 4194},
             {54, 5041},
             {60, 5042}
+        };
+        uint32 greatStaminaSpellId = 0;
+        for (const auto& rank : greatStaminaRanks)
+        {
+            if (pet->GetLevel() >= rank.minLevel)
+                greatStaminaSpellId = rank.spellId;
+        }
+        if (greatStaminaSpellId && !pet->HasSpell(greatStaminaSpellId))
+        {
+            pet->learnSpell(greatStaminaSpellId);
+        }
+
+        // Resistances
+        if (pet->GetLevel() >= 20)
+        {
+            struct ResistanceSpell
+            {
+                uint32 spellId;
+            };
+            static const ResistanceSpell resistances[] = {
+                {24493}, // Arcane
+                {23992}, // Fire
+                {24446}, // Frost
+                {24492}, // Nature
+                {24488}  // Shadow
+            };
+            for (const auto& res : resistances)
+            {
+                if (!pet->HasSpell(res.spellId))
+                    pet->learnSpell(res.spellId);
+            }
+        }
+    }
+#endif
+
+#ifdef MANGOSBOT_ONE
+     // TODO: Proper Training Point calculation for build variety
+    if (bot->getClass() == CLASS_HUNTER)
+    {
+        // add tbc pet families
+        enum HunterPetType
+        {
+            PET_WOLF,
+            PET_CAT,
+            PET_SPIDER,
+            PET_BEAR,
+            PET_BOAR,
+            PET_CROCOLISK,
+            PET_CARRION_BIRD,
+            PET_CRAB,
+            PET_GORILLA,
+            PET_RAPTOR,
+            PET_TALLSTRIDER,
+            PET_SCORPID,
+            PET_TURTLE,
+            PET_BAT,
+            PET_HYENA,
+            PET_OWL,
+            PET_WIND_SERPENT,
+            PET_RAVAGER,
+            PET_DRAGONHAWK,
+            PET_SERPENT,
+            PET_WARP_STALKER,
+            PET_SPOREBAT,
+            PET_NETHER_RAY,
+            PET_UNKNOWN
+        };
+
+        std::map<HunterPetType, std::vector<std::pair<uint32, uint32>>> hunterPetSpells;
+
+        hunterPetSpells[PET_BAT] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},            
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dive
+            {30, 23145},
+            {40, 23146},
+            {50, 23147},
+            // Screech
+            {8,  24423},
+            {24, 24577},
+            {40, 24578},
+            {56, 27051}
+        };
+
+        hunterPetSpells[PET_BEAR] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Claw
+            {1,  16827},
+            {8,  16828},
+            {15, 16829},
+            {22, 16830},
+            {29, 16831},
+            {36, 16832},
+            {48, 3010 },
+            {56, 3009 },
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697}
+        };
+
+        hunterPetSpells[PET_BOAR] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Charge
+            {1,  7371 },
+            {12, 26177},
+            {24, 26178},
+            {36, 26179},
+            {48, 26201},
+            {60, 27685},
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dash
+            {30, 23099},
+            {40, 23109},
+            {50, 23110}
+        };
+
+        hunterPetSpells[PET_CARRION_BIRD] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Claw
+            {1,  16827},
+            {8,  16828},
+            {15, 16829},
+            {22, 16830},
+            {29, 16831},
+            {36, 16832},
+            {48, 3010 },
+            {56, 3009 },
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dive
+            {30, 23145},
+            {40, 23146},
+            {50, 23147},
+            // Screech
+            {8,  24423},
+            {24, 24577},
+            {40, 24578},
+            {56, 27051}
+        };
+
+        hunterPetSpells[PET_CAT] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Claw
+            {1,  16827},
+            {8,  16828},
+            {15, 16829},
+            {22, 16830},
+            {29, 16831},
+            {36, 16832},
+            {48, 3010 },
+            {56, 3009 },
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dash
+            {30, 23099},
+            {40, 23109},
+            {50, 23110},
+            // Prowl
+            {30, 24450},
+            {40, 24452},
+            {50, 24453}
+        };
+
+        hunterPetSpells[PET_CRAB] = {
+            // Claw
+            {1,  16827},
+            {8,  16828},
+            {15, 16829},
+            {22, 16830},
+            {29, 16831},
+            {36, 16832},
+            {48, 3010 },
+            {56, 3009 },
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697}
+        };
+
+        hunterPetSpells[PET_CROCOLISK] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+
+        };
+
+        hunterPetSpells[PET_DRAGONHAWK] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Dive
+            {30, 23145},
+            {40, 23146},
+            {50, 23147},
+            // Fire Breath
+            {1, 34889},
+            {60, 35323}
+
+        };
+
+        hunterPetSpells[PET_GORILLA] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Thunderstomp
+            {30, 26090},
+            {40, 26187},
+            {50, 26188}
+        };
+
+        hunterPetSpells[PET_HYENA] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dash
+            {30, 23099},
+            {40, 23109},
+            {50, 23110}
+        };
+
+        hunterPetSpells[PET_NETHER_RAY] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Dive
+            {30, 23145},
+            {40, 23146},
+            {50, 23147}
+        };
+
+        hunterPetSpells[PET_OWL] = {
+            // Claw
+            {1,  16827},
+            {8,  16828},
+            {15, 16829},
+            {22, 16830},
+            {29, 16831},
+            {36, 16832},
+            {48, 3010 },
+            {56, 3009 },
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dive
+            {30, 23145},
+            {40, 23146},
+            {50, 23147},
+            // Screech
+            {8,  24423},
+            {24, 24577},
+            {40, 24578},
+            {56, 24579}
+        };
+
+        hunterPetSpells[PET_RAPTOR] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Claw
+            {1,  16827},
+            {8,  16828},
+            {15, 16829},
+            {22, 16830},
+            {29, 16831},
+            {36, 16832},
+            {48, 3010 },
+            {56, 3009 },
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dash
+            {30, 23099},
+            {40, 23109},
+            {50, 23110}
+        };
+
+        hunterPetSpells[PET_RAVAGER] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Dash
+            {30, 23099},
+            {40, 23109},
+            {50, 23110},
+            // Gore
+            {1,  35290},
+            {8,  35291},
+            {16, 35292},
+            {24, 35293},
+            {32, 35294},
+            {40, 35295},
+            {48, 35296},
+            {56, 35297},
+            {63, 35298}
+        };
+
+        hunterPetSpells[PET_SCORPID] = {
+            // Claw
+            {1,  16827},
+            {8,  16828},
+            {15, 16829},
+            {22, 16830},
+            {29, 16831},
+            {36, 16832},
+            {48, 3010 },
+            {56, 3009 },
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Scorpid Poison
+            {8,  24640},
+            {24, 24583},
+            {40, 24586},
+            {56, 24587}
+        };
+
+        hunterPetSpells[PET_SERPENT] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Poison Spit
+            {15, 35387},
+            {45, 35389},
+            {60, 35392}
+        };
+
+        hunterPetSpells[PET_SPIDER] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697}
+        };
+
+        hunterPetSpells[PET_SPOREBAT] = {
+            // Sporebats can only learn Growl and Cower
+            // They are not good :(
+        };
+
+        hunterPetSpells[PET_TALLSTRIDER] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dash
+            {30, 23099},
+            {40, 23109},
+            {50, 23110}
+        };
+
+        hunterPetSpells[PET_TURTLE] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Shell Shield
+            {20, 26064}
+        };
+
+        hunterPetSpells[PET_WARP_STALKER] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Claw
+            {1,  16827},
+            {8,  16828},
+            {15, 16829},
+            {22, 16830},
+            {29, 16831},
+            {36, 16832},
+            {48, 3010 },
+            {56, 3009 },
+            {64, 27049},
+            // Warp
+            {60, 35346}
+        };
+
+        hunterPetSpells[PET_WIND_SERPENT] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dive
+            {30, 23145},
+            {40, 23146},
+            {50, 23147},
+            // Lightning Breath
+            {1,  24844},
+            {12, 25008},
+            {24, 25009},
+            {36, 25010},
+            {48, 25011},
+            {60, 25012}
+        };
+
+        hunterPetSpells[PET_WOLF] = {
+            // Bite
+            {1,  17253},
+            {8,  17255},
+            {16, 17256},
+            {24, 17257},
+            {32, 17258},
+            {40, 17259},
+            {48, 17260},
+            {56, 17261},
+            {64, 27050},
+            // Cower
+            {5,  1742 },
+            {15, 1753 },
+            {25, 1754 },
+            {35, 1755 },
+            {45, 1756 },
+            {55, 16697},
+            // Dash
+            {30, 23099},
+            {40, 23109},
+            {50, 23110},
+            // Furious Howl
+            {10, 24604},
+            {20, 24605},
+            {30, 24603},
+            {40, 24597}
+        };
+
+        // Determine petType from creature template family
+        auto GetHunterPetTypeFromEntry = [](uint32 entry) -> HunterPetType {
+            CreatureInfo const* ci = sObjectMgr.GetCreatureTemplate(entry);
+            if (!ci)
+                return PET_UNKNOWN;
+
+            switch (ci->Family)
+            {
+                case 1: return PET_WOLF;
+                case 2: return PET_CAT;
+                case 3: return PET_SPIDER;
+                case 4: return PET_BEAR;
+                case 5: return PET_BOAR;
+                case 6: return PET_CROCOLISK;
+                case 7: return PET_CARRION_BIRD;
+                case 8: return PET_CRAB;
+                case 9: return PET_GORILLA;
+                case 11: return PET_RAPTOR;
+                case 12: return PET_TALLSTRIDER;
+                case 20: return PET_SCORPID;
+                case 21: return PET_TURTLE;
+                case 24: return PET_BAT;
+                case 25: return PET_HYENA;
+                case 26: return PET_OWL;
+                case 27: return PET_WIND_SERPENT;
+                case 30: return PET_DRAGONHAWK;
+                case 31: return PET_RAVAGER;
+                case 32: return PET_WARP_STALKER;
+                case 33: return PET_SPOREBAT;
+                case 34: return PET_NETHER_RAY;
+                case 35: return PET_SERPENT;
+                default: return PET_UNKNOWN;
+            }
+        };
+
+        HunterPetType petType = GetHunterPetTypeFromEntry(pet->GetEntry());
+
+        auto it = hunterPetSpells.find(petType);
+        if (it != hunterPetSpells.end())
+        {
+            // Find Cower spells
+            static const std::unordered_set<uint32> cowerSpellIds = {1742, 1753, 1754, 1755, 1756, 16697, 27048};
+
+            for (const auto& pair : it->second)
+            {
+                const uint32& levelRequired = pair.first;
+                const uint32& spellID = pair.second;
+
+                if (pet->GetLevel() >= levelRequired)
+                {
+                    if (!pet->HasSpell(spellID))
+                    {
+                        pet->learnSpell(spellID);
+                    }
+
+                    if (!IsPassiveSpell(spellID))
+                    {
+                        // Toggle Cower off by default
+                        const bool autocast = (cowerSpellIds.find(spellID) == cowerSpellIds.end());
+                        if (pet->HasSpell(spellID))
+                        {
+                            pet->ToggleAutocast(spellID, autocast);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Growl
+        struct GrowlRank
+        {
+            uint32 minLevel;
+            uint32 spellId;
+        };
+        static const GrowlRank growlRanks[] = {
+            {1,  2649 }, // Growl Rank 1
+            {10, 14916}, // Growl Rank 2
+            {20, 14917}, // Growl Rank 3
+            {30, 14918}, // Growl Rank 4
+            {40, 14919}, // Growl Rank 5
+            {50, 14920}, // Growl Rank 6
+            {60, 14921}, // Growl Rank 7
+            {70, 27047}  // Growl Rank 8
+        };
+        uint32 growlSpellId = 0;
+        for (const auto& rank : growlRanks)
+        {
+            if (pet->GetLevel() >= rank.minLevel)
+                growlSpellId = rank.spellId;
+        }
+        if (growlSpellId && !pet->HasSpell(growlSpellId))
+        {
+            pet->learnSpell(growlSpellId);
+        }
+
+        // Cower (all pets learn in tbc)
+        struct CowerRank
+        {
+            uint32 minLevel;
+            uint32 spellId;
+        };
+        static const CowerRank cowerRanks[] = {
+            {5,  1742 }, // Cower Rank 1
+            {15, 1753 }, // Cower Rank 2
+            {25, 1754 }, // Cower Rank 3
+            {35, 1755 }, // Cower Rank 4
+            {45, 1756 }, // Cower Rank 5
+            {55, 16697}, // Cower Rank 6
+            {65, 27048}  // Cower Rank 7
+        };
+        uint32 cowerSpellId = 0;
+        for (const auto& rank : cowerRanks)
+        {
+            if (pet->GetLevel() >= rank.minLevel)
+                cowerSpellId = rank.spellId;
+        }
+        if (cowerSpellId && !pet->HasSpell(cowerSpellId))
+        {
+            pet->learnSpell(cowerSpellId);
+        }
+
+        // Avoidance (tbc)
+        struct AvoidanceRank
+        {
+            uint32 minLevel;
+            uint32 spellId;
+        };
+        static const AvoidanceRank avoidanceRanks[] = {
+            {60, 35698}  // Avoidance
+        };
+        uint32 avoidanceSpellId = 0;
+        for (const auto& rank : avoidanceRanks)
+        {
+            if (pet->GetLevel() >= rank.minLevel)
+                avoidanceSpellId = rank.spellId;
+        }
+        if (avoidanceSpellId && !pet->HasSpell(avoidanceSpellId))
+        {
+            pet->learnSpell(avoidanceSpellId);
+        }
+
+        // Natural Armor
+        struct NaturalArmorRank
+        {
+            uint32 minLevel;
+            uint32 spellId;
+        };
+        static const NaturalArmorRank naturalArmorRanks[] = {
+            {1,  24545},
+            {12, 24549},
+            {18, 24550},
+            {24, 24551},
+            {30, 24552},
+            {36, 24553},
+            {42, 24554},
+            {48, 24555},
+            {54, 24629},
+            {60, 24630},
+            {70, 27061}
+        };
+        uint32 naturalArmorSpellId = 0;
+        for (const auto& rank : naturalArmorRanks)
+        {
+            if (pet->GetLevel() >= rank.minLevel && rank.minLevel <= 30)
+                naturalArmorSpellId = rank.spellId;
+        }
+        if (naturalArmorSpellId && !pet->HasSpell(naturalArmorSpellId))
+        {
+            pet->learnSpell(naturalArmorSpellId);
+        }
+
+        // Great Stamina
+        struct GreatStaminaRank
+        {
+            uint32 minLevel;
+            uint32 spellId;
+        };
+        static const GreatStaminaRank greatStaminaRanks[] = {
+            {1,  4187},
+            {12, 4188},
+            {18, 4189},
+            {24, 4190},
+            {30, 4191},
+            {36, 4192},
+            {42, 4193},
+            {48, 4194},
+            {54, 5041},
+            {60, 5042},
+            {70, 27062}
         };
         uint32 greatStaminaSpellId = 0;
         for (const auto& rank : greatStaminaRanks)
@@ -3056,66 +3941,155 @@ void PlayerbotFactory::InitTradeSkills()
 {
     uint16 firstSkill = sRandomPlayerbotMgr.GetValue(bot, "firstSkill");
     uint16 secondSkill = sRandomPlayerbotMgr.GetValue(bot, "secondSkill");
-    if (!firstSkill || !secondSkill)
+    uint16 storedFirstSkill = firstSkill;
+    uint16 storedSecondSkill = secondSkill;
+
+    std::vector<uint16> knownPrimarySkills;
+    for (uint32 tradeSkill : tradeSkills)
     {
-        std::vector<uint32> firstSkills;
-        std::vector<uint32> secondSkills;
-        switch (bot->getClass())
-        {
-        case CLASS_WARRIOR:
-        case CLASS_PALADIN:
-#ifdef MANGOSBOT_TWO
-        case CLASS_DEATH_KNIGHT:
-#endif
-            firstSkills.push_back(SKILL_BLACKSMITHING);
-            secondSkills.push_back(SKILL_ENGINEERING);
-            break;
-        case CLASS_SHAMAN:
-        case CLASS_DRUID:
-        case CLASS_HUNTER:
-        case CLASS_ROGUE:
-            firstSkills.push_back(SKILL_SKINNING);
-            firstSkills.push_back(SKILL_ENGINEERING);
-            secondSkills.push_back(SKILL_LEATHERWORKING);
-            break;
-        }
-
-        if (firstSkills.empty() || secondSkills.empty())
-        {
-            switch (urand(0, 6))
-            {
-            case 0:
-                firstSkill = SKILL_HERBALISM;
-                secondSkill = SKILL_ALCHEMY;
-                break;
-            case 1:
-                firstSkill = SKILL_HERBALISM;
-                secondSkill = SKILL_MINING;
-                break;
-            case 2:
-                firstSkill = SKILL_MINING;
-                secondSkill = SKILL_SKINNING;
-                break;
-            case 3:
-#ifdef MANGOSBOT_ZERO
-                firstSkill = SKILL_HERBALISM;
-                secondSkill = SKILL_SKINNING;
-#else
-                firstSkill = SKILL_JEWELCRAFTING;
-                secondSkill = SKILL_MINING;
-#endif
-            }
-        }
-        else
-        {
-            firstSkill = firstSkills[urand(0, firstSkills.size() - 1)];
-            secondSkill = secondSkills[urand(0, secondSkills.size() - 1)];
-        }
-
-        sRandomPlayerbotMgr.SetValue(bot, "firstSkill", firstSkill);
-        sRandomPlayerbotMgr.SetValue(bot, "secondSkill", secondSkill);
+        if (IsPrimaryProfession((uint16)tradeSkill) && bot->HasSkill((uint16)tradeSkill))
+            knownPrimarySkills.push_back((uint16)tradeSkill);
     }
 
+    uint16 actualFirstSkill = knownPrimarySkills.empty() ? 0 : knownPrimarySkills[0];
+    uint16 actualSecondSkill = knownPrimarySkills.size() < 2 ? 0 : knownPrimarySkills[1];
+
+    if (actualFirstSkill && actualSecondSkill && actualFirstSkill != actualSecondSkill)
+    {
+        firstSkill = actualFirstSkill;
+        secondSkill = actualSecondSkill;
+    }
+    else if (actualFirstSkill)
+    {
+        uint16 storedCompanion = storedFirstSkill == actualFirstSkill ? storedSecondSkill : storedFirstSkill;
+        bool companionWasStored = (storedFirstSkill == actualFirstSkill || storedSecondSkill == actualFirstSkill) && storedCompanion != actualFirstSkill;
+
+        firstSkill = actualFirstSkill;
+        secondSkill = (companionWasStored && IsPrimaryProfession(storedCompanion)) ? storedCompanion : 0;
+    }
+
+    if (firstSkill == secondSkill)
+        secondSkill = 0;
+
+    if (!firstSkill || !secondSkill)
+    {
+        uint16 preservedFirstSkill = firstSkill;
+        uint16 preservedSecondSkill = secondSkill;
+
+        std::vector<uint32> firstSkills;
+        std::vector<uint32> secondSkills;
+        switch (urand(0, 4))
+        {
+            case 0:
+                switch (urand(0, 5))
+                {
+                    case 0:
+                        firstSkill = SKILL_HERBALISM;
+                        secondSkill = SKILL_ALCHEMY;
+                        break;
+                    case 1:
+                        firstSkill = SKILL_HERBALISM;
+                        secondSkill = SKILL_MINING;
+                        break;
+                    case 2:
+                        firstSkill = SKILL_MINING;
+                        secondSkill = SKILL_SKINNING;
+                        break;
+                    case 3:
+#ifdef MANGOSBOT_ZERO
+                        firstSkill = SKILL_HERBALISM;
+                        secondSkill = SKILL_SKINNING;
+#else
+                        firstSkill = SKILL_JEWELCRAFTING;
+                        secondSkill = SKILL_MINING;
+#endif
+                        break;
+                    case 4:
+                        firstSkill = SKILL_ENCHANTING;
+                        secondSkill = SKILL_SKINNING;
+                        break;
+                    case 5:
+                        firstSkill = SKILL_ENCHANTING;
+                        secondSkill = SKILL_HERBALISM;
+                        break;
+                }
+                break;
+            default:
+                switch (bot->getClass())
+                {
+                    case CLASS_WARRIOR:
+                    case CLASS_PALADIN:
+#ifdef MANGOSBOT_TWO
+                    case CLASS_DEATH_KNIGHT:
+#endif
+                        firstSkills.push_back(SKILL_BLACKSMITHING);
+                        secondSkills.push_back(SKILL_ENGINEERING);
+                        break;
+                    case CLASS_SHAMAN:
+                    case CLASS_DRUID:
+                    case CLASS_HUNTER:
+                    case CLASS_ROGUE:
+                        firstSkills.push_back(SKILL_SKINNING);
+                        firstSkills.push_back(SKILL_ENGINEERING);
+                        secondSkills.push_back(SKILL_LEATHERWORKING);
+                        break;
+                    case CLASS_WARLOCK:
+                    case CLASS_MAGE:
+                    case CLASS_PRIEST:
+                        firstSkills.push_back(SKILL_TAILORING);
+#ifndef MANGOSBOT_ZERO
+                        firstSkills.push_back(SKILL_JEWELCRAFTING);
+#endif
+                        secondSkills.push_back(SKILL_ENCHANTING);
+                }
+                if (!firstSkill)
+                    firstSkill = firstSkills[urand(0, firstSkills.size() - 1)];
+                if (!secondSkill)
+                    secondSkill = secondSkills[urand(0, secondSkills.size() - 1)];
+                break;
+        }
+
+        if (preservedFirstSkill)
+            firstSkill = preservedFirstSkill;
+        if (preservedSecondSkill)
+            secondSkill = preservedSecondSkill;
+
+        if (!IsPrimaryProfession(firstSkill))
+            firstSkill = 0;
+        if (!IsPrimaryProfession(secondSkill) || firstSkill == secondSkill)
+            secondSkill = 0;
+
+        if (!firstSkill || !secondSkill)
+        {
+            static const uint16 primarySkills[] = {
+                SKILL_ALCHEMY, SKILL_BLACKSMITHING, SKILL_ENCHANTING,
+                SKILL_ENGINEERING, SKILL_HERBALISM, SKILL_LEATHERWORKING,
+                SKILL_MINING, SKILL_SKINNING, SKILL_TAILORING
+#ifndef MANGOSBOT_ZERO
+                , SKILL_JEWELCRAFTING
+#endif
+#ifdef MANGOSBOT_TWO
+                , SKILL_INSCRIPTION
+#endif
+            };
+
+            for (uint16 candidate : primarySkills)
+            {
+                if (!firstSkill)
+                    firstSkill = candidate;
+                else if (!secondSkill && candidate != firstSkill)
+                    secondSkill = candidate;
+
+                if (firstSkill && secondSkill)
+                    break;
+            }
+        }
+    }
+
+    if (firstSkill != storedFirstSkill)
+        sRandomPlayerbotMgr.SetValue(bot, "firstSkill", firstSkill);
+    if (secondSkill != storedSecondSkill)
+        sRandomPlayerbotMgr.SetValue(bot, "secondSkill", secondSkill);
     SetRandomSkill(SKILL_FIRST_AID);
     SetRandomSkill(SKILL_FISHING);
     SetRandomSkill(SKILL_COOKING);
@@ -3179,27 +4153,45 @@ void PlayerbotFactory::InitTradeSkills()
             SpellEntry const* proto = sServerFacade.LookupSpellInfo(tSpell->spell);
             if (!proto)
                 continue;
-
+            
             SpellEntry const* spell = sServerFacade.LookupSpellInfo(tSpell->spell);
             if (spell)
             {
                 std::string SpellName = spell->SpellName[0];
+#ifdef MANGOSBOT_ZERO
                 if (spell->Effect[EFFECT_INDEX_1] == SPELL_EFFECT_SKILL_STEP)
+#elif defined(MANGOSBOT_ONE) || defined(MANGOSBOT_TWO) // TBC OR WOTLK
+                if (spell->Effect[EFFECT_INDEX_1] == SPELL_EFFECT_SKILL || spell->Effect[EFFECT_INDEX_1] == SPELL_EFFECT_SKILL_STEP)
+#endif
                 {
                     uint32 skill = spell->EffectMiscValue[EFFECT_INDEX_1];
 
-                    if (skill && !bot->HasSkill(skill))
+                    if (skill)
                     {
                         SkillLineEntry const* pSkill = sSkillLineStore.LookupEntry(skill);
                         if (pSkill)
                         {
-                            if (SpellName.find("Apprentice") != std::string::npos && pSkill->categoryId == SKILL_CATEGORY_PROFESSION || pSkill->categoryId == SKILL_CATEGORY_SECONDARY)
-                                continue;
+                            if (!bot->HasSkill(skill))
+                            {
+#ifdef MANGOSBOT_ZERO
+                                if (SpellName.find("Apprentice") != std::string::npos && pSkill->categoryId == SKILL_CATEGORY_PROFESSION || pSkill->categoryId == SKILL_CATEGORY_SECONDARY)
+                                    continue;
+#elif defined(MANGOSBOT_ONE) || defined(MANGOSBOT_TWO) // TBC OR WOTLK
+                                std::string SpellRank = spell->Rank[0];
+                                if (SpellName.find("Apprentice") != std::string::npos && (pSkill->categoryId == SKILL_CATEGORY_PROFESSION || pSkill->categoryId == SKILL_CATEGORY_SECONDARY))
+                                    continue;
+                                else if (SpellRank.find("Apprentice") != std::string::npos && (pSkill->categoryId == SKILL_CATEGORY_PROFESSION || pSkill->categoryId == SKILL_CATEGORY_SECONDARY))
+                                    continue;
+#endif
+                            }
+                            else
+                                bot->learnSpell(spell->Id, false);
                         }
                     }
+                    
                 }
             }
-
+            
 #ifdef MANGOSBOT_ZERO
             if (tSpell->learnedSpell)
             {
@@ -3248,9 +4240,31 @@ void PlayerbotFactory::UpdateTradeSkills()
     auto pmo = sPerformanceMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Skills2");
     for (int i = 0; i < sizeof(tradeSkills) / sizeof(uint32); ++i)
     {
-        if (bot->GetSkillValue(tradeSkills[i]) == 1)
+        if (bot->GetSkillValue(tradeSkills[i]) == 1 && !IsAssignedProfession((uint16)tradeSkills[i]))
             bot->SetSkill(tradeSkills[i], 0, 0, 0);
     }
+}
+
+bool PlayerbotFactory::IsPrimaryProfession(uint16 id) const
+{
+    SkillLineEntry const* skill = sSkillLineStore.LookupEntry(id);
+    return skill && skill->categoryId == SKILL_CATEGORY_PROFESSION;
+}
+
+bool PlayerbotFactory::IsAssignedProfession(uint16 id) const
+{
+    SkillLineEntry const* skill = sSkillLineStore.LookupEntry(id);
+    if (!skill)
+        return false;
+
+    if (skill->categoryId == SKILL_CATEGORY_SECONDARY)
+        return true;
+
+    if (skill->categoryId != SKILL_CATEGORY_PROFESSION)
+        return false;
+
+    return id == sRandomPlayerbotMgr.GetValue(bot, "firstSkill") ||
+        id == sRandomPlayerbotMgr.GetValue(bot, "secondSkill");
 }
 
 void PlayerbotFactory::InitSkills()
@@ -3403,17 +4417,74 @@ void PlayerbotFactory::SetRandomSkill(uint16 id)
 {
     uint32 maxValue = level * 5; // vanilla 60*5 = 300
 
-// do not let skill go beyond limit even if maxlevel > blizzlike
-#ifndef MANGOSBOT_ZERO
-	if (level > 60)
+    SkillLineEntry const* pSkill = sSkillLineStore.LookupEntry(id);
+    if (!pSkill)
+        return;
+
+    SkillRangeType skillType = GetSkillRangeType(pSkill, false);
+
+    if (pSkill->categoryId == SKILL_CATEGORY_PROFESSION || pSkill->categoryId == SKILL_CATEGORY_SECONDARY)
     {
+        if (bot->HasSkill(id))
+            return;
+    }
+
+    // if this is not a profession type of skill or skill that is 1/1
+    if (skillType != SKILL_RANGE_LEVEL && skillType != SKILL_RANGE_MONO)
+    {
+        // do not let skill go beyond limit even if maxlevel > blizzlike
+#ifndef MANGOSBOT_ZERO
+            if (level > 60)
+            {
 #ifdef MANGOSBOT_ONE
-        maxValue = (level + 5) * 5;   // tbc (70 + 5)*5 = 375
+                maxValue = (level + 5) * 5;   // tbc (70 + 5)*5 = 375
 #else
-        maxValue = (level + 10) * 5;  // wotlk (80 + 10)*5 = 450
+                maxValue = (level + 10) * 5;  // wotlk (80 + 10)*5 = 450
 #endif
-	}
+            }
 #endif
+    }
+    else
+    {
+        // profession based levels. They should learn ranks from trainers, but for now assume
+        // scaling similar to riding skill
+#ifdef MANGOSBOT_ZERO
+        if (bot->GetLevel() >= 35)
+            maxValue = 300;
+        else if (bot->GetLevel() >= 20)
+            maxValue = 225;
+        else if (bot->GetLevel() >= 10)
+            maxValue = 150;
+        else 
+            maxValue = 75;
+#endif
+#ifdef MANGOSBOT_ONE
+        if (bot->GetLevel() >= 50)
+            maxValue = 375;
+        else if (bot->GetLevel() >= 35)
+            maxValue = 300;
+        else if (bot->GetLevel() >= 20)
+            maxValue = 225;
+        else if (bot->GetLevel() >= 10)
+            maxValue = 150;
+        else 
+            maxValue = 75;
+#endif
+#ifdef MANGOSBOT_TWO
+        if (bot->GetLevel() >= 65)
+            maxValue = 450;
+        else if (bot->GetLevel() >= 50)
+            maxValue = 375;
+        else if (bot->GetLevel() >= 35)
+            maxValue = 300;
+        else if (bot->GetLevel() >= 20)
+            maxValue = 225;
+        else if (bot->GetLevel() >= 10)
+            maxValue = 150;
+        else 
+            maxValue = 75;
+#endif
+    }
 
     uint32 value = urand(maxValue - level, maxValue);
     uint32 curValue = bot->GetSkillValue(id);
@@ -3434,18 +4505,6 @@ void PlayerbotFactory::InitAvailableSpells()
         if(!bot->HasSpell(20271))
         {
             bot->learnSpell(20271, false);
-        }
-
-        // crusader strike
-        if(!bot->HasSpell(33394))
-        {
-            bot->learnSpell(33394, false);
-        }
-
-        // hand of reckoning
-        if (!bot->HasSpell(33395))
-        {
-            bot->learnSpell(33395, false);
         }
     }
 #endif

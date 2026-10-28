@@ -12,7 +12,7 @@ using namespace ai;
 
 Unit* TargetValue::FindTarget(FindTargetStrategy* strategy)
 {
-    std::list<ObjectGuid> attackers = ai->GetAiObjectContext()->GetValue<std::list<ObjectGuid>>("possible attack targets")->Get();
+    std::list<ObjectGuid> attackers = ai->GetAiObjectContext()->GetValue<std::list<ObjectGuid>>("attackers")->Get();
     for (std::list<ObjectGuid>::iterator i = attackers.begin(); i != attackers.end(); ++i)
     {
         Unit* unit = ai->GetUnit(*i);
@@ -40,7 +40,7 @@ bool FindNonCcTargetStrategy::IsCcTarget(Unit* attacker)
 
             if (player->GetPlayerbotAI())
             {
-                if (PAI_VALUE(Unit*,"rti cc target") == attacker)
+                if (PAI_VALUE(ObjectGuid,"rti cc target") == attacker->GetObjectGuid())
                     return true;
 
                 std::string rti = PAI_VALUE(std::string,"rti cc");
@@ -53,10 +53,6 @@ bool FindNonCcTargetStrategy::IsCcTarget(Unit* attacker)
                 }
             }
         }
-
-        uint64 guid = group->GetTargetIcon(4);
-        if (guid && attacker->GetObjectGuid() == ObjectGuid(guid))
-            return true;
     }
 
     return false;
@@ -137,29 +133,28 @@ WorldPosition HomeBindValue::Calculate()
     return WorldPosition(mapId, x, y, z, 0.0);
 }
 
+std::string RpgTargetValue::Format()
+{
+    return chat->formatGuidPosition(value, bot);
+}
+
 std::string HomeBindValue::Format()
 {
     WorldPosition pos = this->Calculate();
     return chat->formatWorldPosition(pos);
 }
 
-void PullTargetValue::Set(Unit* unit)
+void PullTargetValue::Set(ObjectGuid unitGuid)
 {
-    guid = unit ? unit->GetObjectGuid() : ObjectGuid();
+    guid = unitGuid;
 }
 
-Unit* PullTargetValue::Get()
-{
-    Unit* unit = nullptr;
-    if (!guid.IsEmpty())
-    {
-        unit = sObjectAccessor.GetUnit(*bot, guid);
-    }
-    
-    return unit;
+ObjectGuid PullTargetValue::Get()
+{   
+    return guid;
 }
 
-Unit* FollowTargetValue::Calculate()
+ObjectGuid FollowTargetValue::Calculate()
 {
     Unit* followTarget = AI_VALUE(GuidPosition, "manual follow target").GetUnit(bot->GetInstanceId());
     if (followTarget == nullptr)
@@ -167,18 +162,18 @@ Unit* FollowTargetValue::Calculate()
         Formation* formation = AI_VALUE(Formation*, "formation");
         if (formation && !formation->GetTargetName().empty())
         {
-            followTarget = AI_VALUE(Unit*, formation->GetTargetName());
+            followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, formation->GetTargetName()));
         }
         else
         {
-            followTarget = AI_VALUE(Unit*, "master target");
+            followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "master target"));
         }
     }
 
-    return followTarget;
+    return followTarget ? followTarget->GetObjectGuid() : ObjectGuid();
 }
 
-Unit* ClosestAttackerTargetingMeTargetValue::Calculate()
+ObjectGuid ClosestAttackerTargetingMeTargetValue::Calculate()
 {
     Unit* result = nullptr;
     float closest = 9999.0f;
@@ -198,7 +193,7 @@ Unit* ClosestAttackerTargetingMeTargetValue::Calculate()
         }
     }
 
-    return result;
+    return result ? result->GetObjectGuid() : ObjectGuid();
 }
 
 std::list<ObjectGuid> FriendlyManualTargetsValue::Get()
@@ -223,4 +218,55 @@ std::list<ObjectGuid> FriendlyManualTargetsValue::Get()
 std::list<ObjectGuid> FriendlyManualTargetsValue::LazyGet()
 {
     return Get();
+}
+
+GuidPosition ClosestEntryValue::Calculate()
+{
+    // Implement the logic to calculate the closest entry target
+    WorldPosition botPos(bot);
+
+    if (!Qualified::isValidNumberString(qualifier))
+        return GuidPosition();
+
+    int32 entry = stoi(qualifier);
+
+    if (entry > 0)
+    {
+        std::vector<CreatureDataPair const*> creatures = botPos.getCreaturesNear(0.0f, entry);
+
+        float minDistance = std::numeric_limits<float>::max();
+        GuidPosition closestTarget;
+
+        for (auto& creature : creatures)
+        {
+            GuidPosition target(creature);
+            float distance = botPos.sqDistance2d(target);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closestTarget = target;
+            }
+        }
+
+        return closestTarget;
+    }
+    else
+    {
+        std::vector<GameObjectDataPair const*> gameObjects = botPos.getGameObjectsNear(0.0f, -entry);
+        float minDistance = std::numeric_limits<float>::max();
+        GuidPosition closestTarget;
+        for (auto& gameObject : gameObjects)
+        {
+            GuidPosition target(gameObject);
+            float distance = botPos.sqDistance2d(target);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closestTarget = target;
+            }
+        }
+        return closestTarget;
+    }
+
+    return GuidPosition();
 }

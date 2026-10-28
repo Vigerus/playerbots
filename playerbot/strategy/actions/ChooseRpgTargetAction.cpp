@@ -148,7 +148,8 @@ std::unordered_map<ObjectGuid, float> ChooseRpgTargetAction::GetTargets(Player* 
         if (!guidP)
             SkipRpgTarget("not found on map/instance.");       
 
-        bool isTravelTarget = (guidP.GetEntry() == travelTarget->GetEntry());
+        int32 travelEntry = guidP.IsGameObject() ? -(int32)guidP.GetEntry() : (int32)guidP.GetEntry();
+        bool isTravelTarget = (travelEntry == travelTarget->GetEntry());
 
         //Stop to save peformance.
         if (checked >= maxCheck && !isTravelTarget)
@@ -211,10 +212,19 @@ std::unordered_map<ObjectGuid, float> ChooseRpgTargetAction::GetTargets(Player* 
         //For all rpg actions that are triggered/possible for this target get the highest relevance.
         float relevance = getMaxRelevance(guidP);
 
+        bool travelHasQuest = false;
+        if (isTravelTarget && guidP.GetEntry())
+        {
+            int32 qEntry = guidP.IsGameObject() ? -(int32)guidP.GetEntry() : (int32)guidP.GetEntry();
+            travelHasQuest = AI_VALUE2(bool, "can accept quest npc", qEntry)
+                || AI_VALUE2(bool, "can accept quest low level npc", qEntry)
+                || AI_VALUE2(bool, "can turn in quest npc", qEntry);
+        }
+
         //If this rpg target is our travel target increase the relevance by 50% to make it more likely to be picked.
         if (isTravelTarget)
         {
-            if (focusList.empty())
+            if (focusList.empty() && !travelHasQuest)
                 relevance *= 1.5f;
             else
                 relevance *= 10.0f;
@@ -228,7 +238,8 @@ std::unordered_map<ObjectGuid, float> ChooseRpgTargetAction::GetTargets(Player* 
             //Scale relevance based on distance
             hasGoodRelevance = true;
 
-            if (!isTravelTarget || focusList.empty())
+            bool skipDistanceScaling = isTravelTarget && (!focusList.empty() || travelHasQuest);
+            if (!skipDistanceScaling)
             {
                 newRelevance = newRelevance / (1 + sqrt(guidP.sqDistance(bot)) / 30);
 

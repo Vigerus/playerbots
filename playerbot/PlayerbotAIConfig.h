@@ -119,7 +119,7 @@ public:
     float sightDistance, spellDistance, reactDistance, grindDistance, lootDistance, groupMemberLootDistance, groupMemberLootDistanceWithActiveMaster,
         gatheringDistance, groupMemberGatheringDistance, groupMemberGatheringDistanceWithActiveMaster, shootDistance,
         fleeDistance, tooCloseDistance, meleeDistance, followDistance, raidFollowDistance, wanderMinDistance, wanderMaxDistance, whisperDistance, contactDistance,
-        aoeRadius, rpgDistance, targetPosRecalcDistance, farDistance, healDistance, aggroDistance, proximityDistance, maxFreeMoveDistance, freeMoveDelay;
+        aoeRadius, rpgDistance, targetPosRecalcDistance, farDistance, healDistance, aggroDistance, proximityDistance, maxFreeMoveDistance, freeMoveDelay, walkDistance;
     uint32 criticalHealth, lowHealth, mediumHealth, almostFullHealth;
     uint32 lowMana, mediumMana;
 
@@ -170,6 +170,7 @@ public:
     uint32 minRandomBotReviveTime, maxRandomBotReviveTime;
     uint32 minRandomBotPvpTime, maxRandomBotPvpTime;
     uint32 randomBotsMaxLoginsPerInterval;
+    uint32 loginDatabaseDelayMs;
     uint32 randomBotsPerInterval;
     uint32 minRandomBotsPriceChangeInterval, maxRandomBotsPriceChangeInterval;
     //Auction house settings
@@ -187,7 +188,9 @@ public:
     bool randomBotLoginAtStartup;
     uint32 randomBotTeleLevel;
     bool logInGroupOnly, logValuesPerTick;
+    uint32 actionHistorySize;   // per-bot action history ring buffer (0 = off)
     bool fleeingEnabled;
+    uint32 motionlessGiveUpSec;
     bool summonAtInnkeepersEnabled;
     std::string combatStrategies, nonCombatStrategies, reactStrategies, deadStrategies;
     std::string randomBotCombatStrategies, randomBotNonCombatStrategies, randomBotReactStrategies, randomBotDeadStrategies;
@@ -328,6 +331,7 @@ public:
 
     std::string autoPickReward;
     bool autoEquipUpgradeLoot;
+    bool autoEnchantUpgradeLoot;
     bool syncQuestWithPlayer;
     bool syncQuestForPlayer;
     std::string autoTrainSpells;
@@ -338,6 +342,7 @@ public:
     bool autoDoQuests;
     bool syncLevelWithPlayers;
     uint32 syncLevelMaxAbove, syncLevelNoPlayer;
+    bool syncAltLevelToMaster;
     uint32 tweakValue; //Debugging config
     float respawnModNeutral, respawnModHostile;
     uint32 respawnModThreshold, respawnModMax;
@@ -349,6 +354,8 @@ public:
     uint32 loginBotsNearPlayerRange;
     std::vector<std::string> defaultLoginCriteria;
     std::vector<std::vector<std::string>> loginCriteria;
+    std::vector<std::string> startupRunTests;
+    bool startupRunTestsPending = false;
 
     bool jumpInBg;
     bool jumpWithPlayer;

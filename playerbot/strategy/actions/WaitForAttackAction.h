@@ -11,8 +11,9 @@ namespace ai
        virtual bool Execute(Event& event) override;
 
    private:
-       const WorldPosition GetBestPoint(Unit* target, float minDistance, float maxDistance) const;
+       const WorldPosition GetBestPoint(const WorldPosition& pos, float minDistance, float maxDistance) const;
        bool IsEnemyClose(const WorldPosition& point, const std::list<ObjectGuid>& enemies) const;
+       bool isUseful() override;
        virtual bool isUsefulWhenStunned() override { return true; }
    };
 }

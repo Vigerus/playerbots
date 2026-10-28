@@ -15,22 +15,26 @@ namespace ai
         
         virtual bool IsActive() override
         {
-            Unit* target = AI_VALUE(Unit*, "current target");
+            if (ai->HasStrategy("follow", BotState::BOT_STATE_COMBAT) ||
+                ai->HasStrategy("guard", BotState::BOT_STATE_COMBAT) ||
+                ai->HasStrategy("stay", BotState::BOT_STATE_COMBAT) ||
+                ai->HasStrategy("wander", BotState::BOT_STATE_COMBAT))
+                        return false; 
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
             if (target)
             {
-                if (ai->HasStrategy("follow", BotState::BOT_STATE_COMBAT) ||
-                    ai->HasStrategy("guard", BotState::BOT_STATE_COMBAT) ||
-                    ai->HasStrategy("wander", BotState::BOT_STATE_COMBAT))
-                    if(bot->getClass() != CLASS_HUNTER || sServerFacade.GetDistance2d(bot, target) > 5.0f)
-                        return false;                   
-
                 const bool canMove = !PossibleAttackTargetsValue::HasBreakableCC(target, bot) && !PossibleAttackTargetsValue::HasUnBreakableCC(target, bot);
 
-                // Don't move if the target is targeting you and you can't add distance between you and the target
+                // Don't move if the target is targeting you and you can't add distance between you and the target (how fast bot runs)
                 if (target->GetTarget() == bot && canMove && target->GetSpeedInMotion() > (bot->GetSpeedInMotion() * 0.65))
                 {
                     return false;
                 }
+
+                // Don't move if our flee range (how far bot runs) is too low to escape attack distance
+                // This is good if you don't want a bot to run away from an enemy that can't be cc or tanked
+                if (ai->GetRange("flee") <= ATTACK_DISTANCE)
+                    return false;
 
                 float const combatReach = bot->GetCombinedCombatReach(target, false);
                 float const minDistance = ai->GetRange("spell") + combatReach;
@@ -93,7 +97,7 @@ namespace ai
         
         virtual bool IsActive() override
         {
-            Unit* target = AI_VALUE(Unit*, "current target");
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
             if (target)
             {
                 // Don't move if the target is targeting you and you can't add distance between you and the target
@@ -164,7 +168,7 @@ namespace ai
         
         virtual bool IsActive() override
         {
-            Unit* target = AI_VALUE(Unit*, "current target");
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
             if (target && target->IsPlayer())
                 return false;
 
@@ -183,7 +187,7 @@ namespace ai
         
         virtual bool IsActive() override
         {
-            Unit* target = AI_VALUE(Unit*, "current target");
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
             if (target)
             {
                 if (enemyMustBePlayer && !target->IsPlayer())
@@ -224,7 +228,7 @@ namespace ai
 
         virtual bool IsActive() override
         {
-            Unit* target = AI_VALUE(Unit*, GetTargetName());
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, GetTargetName()));
             return target &&
                 sServerFacade.IsDistanceGreaterThan(AI_VALUE2(float, "distance", GetTargetName()), distance);
         }
@@ -242,7 +246,7 @@ namespace ai
         
         virtual bool IsActive() override
         {
-            Unit* target = AI_VALUE(Unit*, GetTargetName());
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, GetTargetName()));
             if (!target)
                 return false;
 
@@ -257,7 +261,7 @@ namespace ai
         
         virtual bool IsActive() override
         {
-            Unit* target = AI_VALUE(Unit*, GetTargetName());
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, GetTargetName()));
             if (!target)
                 return false;
 
@@ -273,7 +277,7 @@ namespace ai
         
         virtual bool IsActive() override
         {
-            Unit* target = AI_VALUE(Unit*, GetTargetName());
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, GetTargetName()));
             if (!target)
                 return false;
 
@@ -288,7 +292,7 @@ namespace ai
 
         virtual bool IsActive() override
         {
-            Unit* master = AI_VALUE(Unit*, "master target");
+            Unit* master = ai->GetUnit(AI_VALUE(ObjectGuid, "master target"));
             if (master && sServerFacade.IsFriendlyTo(bot, master))
             {
                 if (master->GetTransport() && master->GetTransport() == bot->GetTransport())
@@ -328,7 +332,7 @@ namespace ai
 
         virtual bool IsActive() override
         {
-            Unit* followTarget = AI_VALUE(Unit*, "follow target");
+            Unit* followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "follow target"));
 
             if (!followTarget || !ai->IsSafe(followTarget))
                 return false;
@@ -346,7 +350,7 @@ namespace ai
             if (!ai->IsStateActive(BotState::BOT_STATE_COMBAT))
                 return true;
 
-            Unit* target = AI_VALUE(Unit*, "current target");
+            Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
 
             if (!target)
                 return true;
@@ -369,17 +373,11 @@ namespace ai
     class StopFollowTrigger : public Trigger
     {
     public:
-        StopFollowTrigger(PlayerbotAI* ai) : Trigger(ai, "stop follow", 1) {}
+        StopFollowTrigger(PlayerbotAI* ai, std::string name = "stop follow", int checkInterval = 2) : Trigger(ai, name, checkInterval) {}
 
         virtual bool IsActive() override
         {
-            if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
-                return false;
-
-            if (sServerFacade.GetChaseTarget(bot) && !sServerFacade.GetChaseTarget(bot)->IsPlayer() && sServerFacade.GetChaseTarget(bot)->IsMoving())
-                return false;
-
-            Unit* followTarget = AI_VALUE(Unit*, "follow target");
+            Unit* followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "follow target"));
 
             if (!followTarget)
                 return true;
@@ -415,17 +413,20 @@ namespace ai
 
         bool IsActive() override
         {
-            return !AI_VALUE2(bool, "can free move", "wandermin") && AI_VALUE2(bool, "can free move", "wandermaz");
+            return !AI_VALUE2(bool, "can free move", "wandermin") && AI_VALUE2(bool, "can free move", "wandermax");
         }
     };
 
-    class WanderNearTrigger : public Trigger
+    class WanderNearTrigger : public StopFollowTrigger
     {
     public:
-        WanderNearTrigger(PlayerbotAI* ai, std::string name = "wander near", int checkInterval = 2) : Trigger(ai, name, checkInterval) {}
+        WanderNearTrigger(PlayerbotAI* ai, std::string name = "wander near", int checkInterval = 2) : StopFollowTrigger(ai, name, checkInterval) {}
 
         bool IsActive() override
         {
+            if (StopFollowTrigger::IsActive())
+                return true;
+
             return AI_VALUE2(bool, "can free move", "wandermin");
         }
     };
@@ -437,7 +438,8 @@ namespace ai
 
         virtual bool IsActive() override
         {
-            if (WaitForAttackStrategy::ShouldWait(ai))
+            // we can't let them run away from the targets we need to cc at the start
+            if (WaitForAttackStrategy::ShouldWait(ai) && !ai->GetUnit(AI_VALUE(ObjectGuid, "rti cc target")))
             {
                 // Do not move if stay strategy is set
                 if (!ai->HasStrategy("stay", ai->GetState()))
@@ -446,7 +448,7 @@ namespace ai
                     const bool isBeingTargeted = !bot->getAttackers().empty();
                     if (!isBeingTargeted)
                     {
-                        Unit* target = AI_VALUE(Unit*, "current target");
+                        Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
                         if (target)
                         {
                             const float safeDistance = WaitForAttackStrategy::GetSafeDistance();

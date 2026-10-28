@@ -60,6 +60,17 @@ namespace ai
 		uint8 GetUint8Value(const std::string& valueName) const { return uint8Values.at(valueName);};
 		uint8 GetUint32Value(const std::string& valueName) const { return uint32Values.at(valueName); };
 
+#ifdef GenerateBotTests
+		void SetProbeLevel(uint32 newLevel) { level = newLevel; }
+		void SetProbeTeam(Team newTeam) { team = newTeam; }
+		void SetProbePosition(const WorldPosition& newPosition) { position = newPosition; }
+		void SetProbeGroupSize(uint8 newSize) { groupSize = newSize; }
+		void SetProbeMoney(uint32 newMoney) { money = newMoney; }
+		void SetProbeBoolValue(const std::string& valueName, bool value) { if (boolValues.find(valueName) != boolValues.end()) boolValues[valueName] = value; }
+		void SetProbeUint8Value(const std::string& valueName, uint8 value) { if (uint8Values.find(valueName) != uint8Values.end()) uint8Values[valueName] = value; }
+		void SetProbeUint32Value(const std::string& valueName, uint32 value) { if (uint32Values.find(valueName) != uint32Values.end()) uint32Values[valueName] = value; }
+#endif
+
 	private:
 		WorldPosition position;
 		Team team = TEAM_NONE;
@@ -153,9 +164,35 @@ namespace ai
 		virtual bool IsIn(const WorldPosition& pos, float radius = 0) const override { return true; }
 
 		virtual std::string GetShortName() const override { return "idle"; };
-	protected:
-		//virtual bool IsOut(const WorldPosition& pos, float radius = 0) const override { return false; }
 	};
+
+	class TemporaryTravelDestination : public TravelDestination
+    {
+    public:
+        TemporaryTravelDestination(WorldPosition destination, int32 destEntry = 0) : TravelDestination(), destination(destination), entry(destEntry) {};
+
+        virtual std::string GetTitle() const override { return destination.print(); }
+
+        virtual bool IsPossible(const PlayerTravelInfo& info) const override { return true; }
+        virtual bool IsActive(Player* bot, const PlayerTravelInfo& info) const override { return true; }
+
+        virtual bool IsIn(const WorldPosition& pos, float radius = 0) const override { return destination.getMapId() == pos.getMapId() && destination.distance(pos) <= (radius ? radius : INTERACTION_DISTANCE); }
+        virtual bool IsOut(const WorldPosition& pos, float radius = 0) const override { return destination.getMapId() != pos.getMapId() || destination.distance(pos) > (radius ? radius : sPlayerbotAIConfig.sightDistance); }
+
+        virtual float sqDistance(const WorldPosition& point) const override { return destination.sqDistance(point); }
+        virtual WorldPosition* GetNextPoint(const WorldPosition& point, std::list<uint8>& chancesToGoFar, bool allowSame = false) const override { return const_cast<WorldPosition*>(&destination); }
+        virtual WorldPosition* GetClosestPoint(const WorldPosition& point) const override { return const_cast<WorldPosition*>(&destination); }
+
+        virtual int32 GetEntry() const override { return entry; }
+
+        virtual std::string GetShortName() const override { return "temp"; };
+
+		WorldPosition* GetPosition() { return &destination; }
+        void SetPosition(WorldPosition newDestination) { destination = newDestination; }
+    private:
+        int32 entry = 0;
+        WorldPosition destination;
+    };
 
 	class EntryTravelDestination : public TravelDestination
 	{
@@ -439,6 +476,7 @@ namespace ai
 
 		int32 GetAreaLevel(uint32 area_id);
 		void LoadAreaLevels();
+		std::string GetCacheCensus() const;
 	private:
 		void Clear();
 		void SetMobAvoidAreaMap(uint32 mapId);

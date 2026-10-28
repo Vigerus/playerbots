@@ -28,13 +28,18 @@ bool AttackAnythingAction::isUseful()
     if (!target || !ai->IsSafe(target))
         return false;
 
+    bool pinnedByOrder = ai->HasStrategy("stay", BotState::BOT_STATE_NON_COMBAT) || ai->HasStrategy("guard", BotState::BOT_STATE_NON_COMBAT);
+    if (pinnedByOrder && target->GetDistance(bot) >= ai->GetRange("spell"))
+        return false;
+
     if (ai->ContainsStrategy(STRATEGY_TYPE_HEAL) && !ai->HasStrategy("offdps", BotState::BOT_STATE_COMBAT))
         return false;
 
     if(!target->IsPlayer() && bot->isInFront(target,target->GetAttackDistance(bot)*1.5f, M_PI_F*0.5f) && target->CanAttackOnSight(bot) && target->GetLevel() < bot->GetLevel() + 3.0) //Attack before being attacked.
         return true;
 
-    if (AI_VALUE(bool, "travel target traveling") && CanFreeMoveValue::CanFreeMoveTo(ai, *AI_VALUE(TravelTarget*,"travel target")->GetPosition())) //Bot is traveling
+    if (AI_VALUE(bool, "travel target traveling") && CanFreeMoveValue::CanFreeMoveTo(ai, *AI_VALUE(TravelTarget*,"travel target")->GetPosition()) &&
+        sServerFacade.IsDistanceGreaterThan(AI_VALUE2(float, "distance", "travel target"), sPlayerbotAIConfig.sightDistance)) 
         return false;
 
     return true;
@@ -91,13 +96,14 @@ bool AttackEnemyPlayerAction::isUseful()
 
 bool AttackEnemyFlagCarrierAction::isUseful()
 {
-    Unit* target = context->GetValue<Unit*>("enemy flag carrier")->Get();
+    PlayerbotAI* ai = bot->GetPlayerbotAI();
+    Unit* target = ai->GetUnit(context->GetValue<ObjectGuid>("enemy flag carrier")->Get());
     return target && sServerFacade.IsDistanceLessOrEqualThan(sServerFacade.GetDistance2d(bot, target), 75.0f) && (bot->HasAura(23333) || bot->HasAura(23335) || bot->HasAura(34976));
 }
 
 bool SelectNewTargetAction::Execute(Event& event)
 {
-    Unit* target = AI_VALUE(Unit*, "current target");
+    Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
     if (target && sServerFacade.UnitIsDead(target))
     {
         // Save the dead target for later looting
@@ -119,15 +125,14 @@ bool SelectNewTargetAction::Execute(Event& event)
     // Save the old target and clear the current target
     if(target)
     {
-        SET_AI_VALUE(Unit*, "old target", target);
-        SET_AI_VALUE(Unit*, "current target", nullptr);
+        SET_AI_VALUE(ObjectGuid, "old target", target->GetObjectGuid());
+        SET_AI_VALUE(ObjectGuid, "current target", ObjectGuid());
     }
     
     // Stop attacking
     bot->SetSelectionGuid(ObjectGuid());
     ai->InterruptSpell();
     bot->AttackStop();
-
     // Stop pet attacking
     Pet* pet = bot->GetPet();
     if (pet)
@@ -150,6 +155,7 @@ bool SelectNewTargetAction::Execute(Event& event)
         }
     }
 
+    bool moreAttackers = false;
     // Check if there is any enemy targets available to attack
     if (AI_VALUE(bool, "has attackers"))
     {
@@ -159,6 +165,7 @@ bool SelectNewTargetAction::Execute(Event& event)
             // Check if there is an enemy player nearby
             if (AI_VALUE(bool, "has enemy player targets"))
             {
+                moreAttackers = true;
                 return ai->DoSpecificAction("attack enemy player", event, true);
             }
         }
@@ -166,10 +173,12 @@ bool SelectNewTargetAction::Execute(Event& event)
         // Let the dps/tank assist pick a target to attack
         if (ai->HasStrategy("dps assist", BotState::BOT_STATE_NON_COMBAT))
         {
+            moreAttackers = true;
             return ai->DoSpecificAction("dps assist", event, true);
         }
         else if (ai->HasStrategy("tank assist", BotState::BOT_STATE_NON_COMBAT))
         {
+            moreAttackers = true;
             return ai->DoSpecificAction("tank assist", event, true);
         }
     }

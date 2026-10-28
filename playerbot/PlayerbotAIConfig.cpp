@@ -146,6 +146,7 @@ bool PlayerbotAIConfig::Initialize()
     aoeRadius = config.GetFloatDefault("AiPlayerbot.AoeRadius", 5.0f);
     rpgDistance = config.GetFloatDefault("AiPlayerbot.RpgDistance", 80.0f);
     proximityDistance = config.GetFloatDefault("AiPlayerbot.ProximityDistance", 20.0f);
+    walkDistance = config.GetFloatDefault("AiPlayerbot.WalkDistance", 5.0f);
 
     criticalHealth = config.GetIntDefault("AiPlayerbot.CriticalHealth", 20);
     lowHealth = config.GetIntDefault("AiPlayerbot.LowHealth", 50);
@@ -234,6 +235,7 @@ bool PlayerbotAIConfig::Initialize()
     randomBotTeleportMinInterval = config.GetIntDefault("AiPlayerbot.RandomBotTeleportTeleportMinInterval", 2 * 3600);
     randomBotTeleportMaxInterval = config.GetIntDefault("AiPlayerbot.RandomBotTeleportTeleportMaxInterval", 48 * 3600);
     randomBotsMaxLoginsPerInterval = config.GetIntDefault("AiPlayerbot.RandomBotsMaxLoginsPerInterval", 10);
+    loginDatabaseDelayMs = config.GetIntDefault("AiPlayerbot.LoginDatabaseDelayMs", 100);
     randomBotsPerInterval = config.GetIntDefault("AiPlayerbot.RandomBotsPerInterval", 0);
     minRandomBotsPriceChangeInterval = config.GetIntDefault("AiPlayerbot.MinRandomBotsPriceChangeInterval", 2 * 3600);
     maxRandomBotsPriceChangeInterval = config.GetIntDefault("AiPlayerbot.MaxRandomBotsPriceChangeInterval", 48 * 3600);
@@ -251,7 +253,9 @@ bool PlayerbotAIConfig::Initialize()
     randomBotBracketCount = config.GetIntDefault("AiPlayerbot.RandomBotBracketCount", 3);
     logInGroupOnly = config.GetBoolDefault("AiPlayerbot.LogInGroupOnly", true);
     logValuesPerTick = config.GetBoolDefault("AiPlayerbot.LogValuesPerTick", false);
+    actionHistorySize = (uint32)config.GetIntDefault("AiPlayerbot.ActionHistorySize", 0);
     fleeingEnabled = config.GetBoolDefault("AiPlayerbot.FleeingEnabled", true);
+    motionlessGiveUpSec = (uint32)config.GetIntDefault("AiPlayerbot.MotionlessGiveUpSec", 30);
     summonAtInnkeepersEnabled = config.GetBoolDefault("AiPlayerbot.SummonAtInnkeepersEnabled", true);
     randomBotMinLevel = config.GetIntDefault("AiPlayerbot.RandomBotMinLevel", 1);
     randomBotMaxLevel = config.GetIntDefault("AiPlayerbot.RandomBotMaxLevel", 255);
@@ -306,6 +310,58 @@ bool PlayerbotAIConfig::Initialize()
         loginCriteria.push_back({ "logoff,classrace,level" });
         loginCriteria.push_back({ "logoff,classrace" });
     }
+
+#ifdef GenerateBotTests
+    startupRunTests.clear();
+    startupRunTestsPending = false;
+
+    std::vector<std::string> runTestValues = configA->GetValues("AiPlayerbot.RunTest");
+    std::sort(runTestValues.begin(), runTestValues.end(), [](const std::string& left, const std::string& right)
+    {
+        auto readRunTestIndex = [](const std::string& key, uint32& index) -> bool
+        {
+            const size_t dotPos = key.find_last_of('.');
+            const std::string suffix = dotPos == std::string::npos ? key : key.substr(dotPos + 1);
+
+            if (suffix.find("runtest") != 0)
+                return false;
+
+            const std::string number = suffix.substr(7);
+            if (number.empty())
+                return false;
+
+            if (!std::all_of(number.begin(), number.end(), ::isdigit))
+                return false;
+
+            index = static_cast<uint32>(std::stoul(number));
+            return true;
+        };
+
+        uint32 leftIndex = 0;
+        uint32 rightIndex = 0;
+        const bool leftHasIndex = readRunTestIndex(left, leftIndex);
+        const bool rightHasIndex = readRunTestIndex(right, rightIndex);
+
+        if (leftHasIndex != rightHasIndex)
+            return leftHasIndex;
+
+        if (leftHasIndex && leftIndex != rightIndex)
+            return leftIndex < rightIndex;
+
+        return left < right;
+    });
+
+    for (const std::string& runTestKey : runTestValues)
+    {
+        std::string runTestParam = boost::algorithm::trim_copy(config.GetStringDefault(runTestKey, ""));
+        if (!runTestParam.empty())
+            startupRunTests.push_back(runTestParam);
+    }
+
+    startupRunTestsPending = !startupRunTests.empty();
+    if (startupRunTestsPending)
+        sLog.outString("Loaded %u startup runtest entries from config", static_cast<uint32>(startupRunTests.size()));
+#endif
     
 
     for (uint32 level = 1; level <= DEFAULT_MAX_LEVEL; ++level)
@@ -575,6 +631,7 @@ bool PlayerbotAIConfig::Initialize()
     //SPP automation
     autoPickReward = config.GetStringDefault("AiPlayerbot.AutoPickReward", "no");
     autoEquipUpgradeLoot = config.GetBoolDefault("AiPlayerbot.AutoEquipUpgradeLoot", false);
+    autoEnchantUpgradeLoot = config.GetBoolDefault("AiPlayerbot.AutoEnchantUpgradeLoot", false);
     syncQuestWithPlayer = config.GetBoolDefault("AiPlayerbot.SyncQuestWithPlayer", false);
     syncQuestForPlayer = config.GetBoolDefault("AiPlayerbot.SyncQuestForPlayer", false);
     autoTrainSpells = config.GetStringDefault("AiPlayerbot.AutoTrainSpells", "no");
@@ -586,6 +643,7 @@ bool PlayerbotAIConfig::Initialize()
     syncLevelWithPlayers = config.GetBoolDefault("AiPlayerbot.SyncLevelWithPlayers", false);
     syncLevelMaxAbove = config.GetIntDefault("AiPlayerbot.SyncLevelMaxAbove", 5);
     syncLevelNoPlayer = config.GetIntDefault("AiPlayerbot.SyncLevelNoPlayer", randombotStartingLevel);
+    syncAltLevelToMaster = config.GetBoolDefault("AiPlayerbot.SyncAltLevelToMaster", false);
     tweakValue = config.GetIntDefault("AiPlayerbot.TweakValue", 0);
     talentsInPublicNote = config.GetBoolDefault("AiPlayerbot.TalentsInPublicNote", false);
     respawnModNeutral = config.GetFloatDefault("AiPlayerbot.RespawnModNeutral", 10.0f);

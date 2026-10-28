@@ -36,6 +36,12 @@ namespace ai
         virtual std::string GetTargetName() override { return "current target"; }
     };
 
+    class CastArcaneBlastTBCAction : public CastSpellAction
+    {
+    public:
+        CastArcaneBlastTBCAction(PlayerbotAI* ai) : CastSpellAction(ai, "arcane blast") {}
+    };
+
     class CastArcaneBarrageAction : public CastSpellAction
     {
     public:
@@ -95,7 +101,7 @@ namespace ai
     class CastArcaneBrillianceOnPartyAction : public GreaterBuffOnPartyAction
     {
     public:
-        CastArcaneBrillianceOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "arcane brilliance") {}
+        CastArcaneBrillianceOnPartyAction(PlayerbotAI* ai) : GreaterBuffOnPartyAction(ai, "arcane brilliance", "arcane intellect") {}
     };
 
 	class CastRemoveCurseAction : public CastCureSpellAction

@@ -1,6 +1,7 @@
 #pragma once
 #include "DungeonTriggers.h"
 #include "GenericTriggers.h"
+#include "playerbot/strategy/generic/KarazhanDungeonStrategies.h"
 
 namespace ai
 {
@@ -37,7 +38,14 @@ namespace ai
 	class NetherspiteBeamsCheatNeedRefreshTrigger : public Trigger
 	{
 	public:
-		NetherspiteBeamsCheatNeedRefreshTrigger(PlayerbotAI* ai, int checkInteval = 2) : Trigger(ai, "netherspite beams cheat need refresh", checkInteval) {}
+		NetherspiteBeamsCheatNeedRefreshTrigger(PlayerbotAI* ai, int checkInteval = 1) : Trigger(ai, "netherspite beams cheat need refresh", checkInteval) {}
+		bool IsActive() override;
+	};
+
+	class NetherspiteBeamsPlayerCheatNeedRefreshTrigger : public Trigger
+	{
+	public:
+		NetherspiteBeamsPlayerCheatNeedRefreshTrigger(PlayerbotAI* ai, int checkInteval = 2) : Trigger(ai, "netherspite beams player cheat need refresh", checkInteval) {}
 		bool IsActive() override;
 	};
 
@@ -67,6 +75,76 @@ namespace ai
 		RemoveNetherPortalSerenityTrigger(PlayerbotAI* ai) : HasAuraTrigger(ai, "remove nether portal - serenity", 5) {}
 	};
 
+	class ShadeOfAranStartFightTrigger : public StartBossFightTrigger
+	{
+	public:
+		ShadeOfAranStartFightTrigger(PlayerbotAI* ai) : StartBossFightTrigger(ai, "start shade of aran fight", "shade of aran", 16524) {}
+	};
+
+	class ShadeOfAranEndFightTrigger : public EndBossFightTrigger
+	{
+	public:
+		ShadeOfAranEndFightTrigger(PlayerbotAI* ai) : EndBossFightTrigger(ai, "end shade of aran fight", "shade of aran", 16524) {}
+	};
+
+	class ShadeOfAranCastingArcaneExplosionTrigger : public Trigger
+	{
+	public:
+		ShadeOfAranCastingArcaneExplosionTrigger(PlayerbotAI* ai, int checkInteval = 1) : Trigger(ai, "shade of aran casting arcane explosion", checkInteval) {}
+		virtual bool IsActive() override;
+	};
+
+	class ShadeOfAranDoneCastingArcaneExplosionTrigger : public Trigger
+	{
+	public:
+		ShadeOfAranDoneCastingArcaneExplosionTrigger(PlayerbotAI* ai, int checkInteval = 1) : Trigger(ai, "shade of aran done casting arcane explosion", checkInteval) {}
+		virtual bool IsActive() override;
+	};
+
+	class ShadeOfAranCastingFlameWreathTrigger : public Trigger
+	{
+	public:
+        ShadeOfAranCastingFlameWreathTrigger(PlayerbotAI* ai, int checkInteval = 3) : Trigger(ai, "shade of aran casting flame wreath", checkInteval) {}
+		virtual bool IsActive() override;
+	};
+
+	class ShadeOfAranCastingBlizzardTrigger : public Trigger
+	{
+	public:
+        ShadeOfAranCastingBlizzardTrigger(PlayerbotAI* ai, int checkInteval = 1) : Trigger(ai, "shade of aran casting blizzard", checkInteval) {}
+		virtual bool IsActive() override;
+	};
+
+	class ShadeOfAranElementalsTrigger : public Trigger
+  {
+    public:
+        ShadeOfAranElementalsTrigger(PlayerbotAI* ai, int checkInteval = 1) : Trigger(ai, "shade of aran elementals out", checkInteval) {}
+        virtual bool IsActive() override;
+  };
+
+	class BigBadWolfStartFightTrigger : public StartBossFightTrigger
+	{
+	public:
+		BigBadWolfStartFightTrigger(PlayerbotAI* ai) : StartBossFightTrigger(ai, "start big bad wolf fight", "big bad wolf", 17521) {}
+	};
+
+	class BigBadWolfEndFightTrigger : public EndBossFightTrigger
+	{
+	public:
+		BigBadWolfEndFightTrigger(PlayerbotAI* ai) : EndBossFightTrigger(ai, "end big bad wolf fight", "big bad wolf", 17521) {}
+	};
+
+	class BigBadWolfTooCloseTrigger : public CloseToCreatureTrigger
+	{
+	public:
+		BigBadWolfTooCloseTrigger(PlayerbotAI* ai) : CloseToCreatureTrigger(ai, "big bad wolf too close", 17521, 20.0f, true) {}
+
+		bool IsActive() override
+		{
+			return ai->HasAura(30756, bot) && CloseToCreatureTrigger::IsActive();
+		}
+	};
+
 	class PrinceMalchezaarStartFightTrigger : public StartBossFightTrigger
 	{
 	public:
@@ -82,6 +160,18 @@ namespace ai
 	class NetherspiteInfernalTooCloseTrigger : public CloseToCreatureTrigger
 	{
 	public:
-		NetherspiteInfernalTooCloseTrigger(PlayerbotAI* ai) : CloseToCreatureTrigger(ai, "netherspite infernal too close", 17646, 20.0f) {}
+		NetherspiteInfernalTooCloseTrigger(PlayerbotAI* ai) : CloseToCreatureTrigger(ai, "netherspite infernal too close", 17646, 21.0f) {}
+	};
+
+	class PrinceMalchezaarTooCloseTrigger : public CloseToCreatureTrigger
+	{
+	public:
+		PrinceMalchezaarTooCloseTrigger(PlayerbotAI* ai) : CloseToCreatureTrigger(ai, "prince malchezaar too close", 15690, ai->HasStrategy("ranged", BotState::BOT_STATE_COMBAT) ? 30.0f : 32.0f, false, ai->HasStrategy("ranged", BotState::BOT_STATE_COMBAT) ? 2 : 1)  {}
+
+		bool IsActive() override;
+
+		bool MeleeWaitCheck(Unit* target);
+
+		bool EnfeeblePart();
 	};
 }

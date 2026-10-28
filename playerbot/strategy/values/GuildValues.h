@@ -1,8 +1,17 @@
 #pragma once
 #include "playerbot/strategy/Value.h"
+#include "Guilds/Guild.h"
 
 namespace ai
 {
+#ifndef MANGOSBOT_ZERO
+    class GuildAccess : public Guild
+    {
+    public:
+        Item* GetGuildItem(uint8 TabId, uint8 SlotId);
+    };
+#endif
+
     enum class GuildOrderType : uint8
     {
         None = 0,
@@ -126,7 +135,7 @@ namespace ai
             }
 
             QuestStatus status = bot->GetQuestStatus(order.questId);
-            // Quest already in log (incomplete or complete) — no need to accept.
+            // Quest already in log (incomplete or complete) no need to accept.
             if (status == QUEST_STATUS_INCOMPLETE || status == QUEST_STATUS_COMPLETE)
                 return false;
 

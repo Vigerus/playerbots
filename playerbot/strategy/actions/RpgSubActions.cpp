@@ -13,6 +13,8 @@
 #include "playerbot/TravelMgr.h"
 #include "SayAction.h"
 #include "playerbot/PlayerbotLLMInterface.h"
+#include "BankAction.h"
+#include "GuildBankAction.h"
 
 
 using namespace ai;
@@ -936,3 +938,73 @@ bool RpgSpellClickAction::Execute(Event& event)
     
     return result;
 }
+
+bool RpgBankDepositAction::Execute(Event& event)
+{
+    rpg->BeforeExecute();
+
+    BankAction bankAction(ai);
+    bool result = bankAction.AutoDeposit();
+
+    rpg->AfterExecute(result, true);
+    DoDelay();
+    return result;
+}
+
+bool RpgBankWithdrawAction::Execute(Event& event)
+{
+    rpg->BeforeExecute();
+
+    BankAction bankAction(ai);
+    bool result = bankAction.AutoWithdraw();
+
+    if (result)
+        ai->DoSpecificAction("equip upgrades", event, true);
+
+    rpg->AfterExecute(result, true);
+    DoDelay();
+    return result;
+}
+
+#ifndef MANGOSBOT_ZERO
+bool RpgGuildBankDepositAction::Execute(Event& event)
+{
+    rpg->BeforeExecute();
+
+    GuidPosition guidP = rpg->guidP();
+    GameObject* go = guidP.IsGameObject() ? guidP.GetGameObject(bot->GetInstanceId()) : nullptr;
+
+    bool result = false;
+    if (go)
+    {
+        GuildBankAction guildBankAction(ai);
+        result = guildBankAction.AutoDeposit(go);
+    }
+
+    rpg->AfterExecute(result, true);
+    DoDelay();
+    return result;
+}
+
+bool RpgGuildBankWithdrawAction::Execute(Event& event)
+{
+    rpg->BeforeExecute();
+
+    GuidPosition guidP = rpg->guidP();
+    GameObject* go = guidP.IsGameObject() ? guidP.GetGameObject(bot->GetInstanceId()) : nullptr;
+
+    bool result = false;
+    if (go)
+    {
+        GuildBankAction guildBankAction(ai);
+        result = guildBankAction.AutoWithdraw(go);
+
+        if (result)
+            ai->DoSpecificAction("equip upgrades", event, true);
+    }
+
+    rpg->AfterExecute(result, true);
+    DoDelay();
+    return result;
+}
+#endif

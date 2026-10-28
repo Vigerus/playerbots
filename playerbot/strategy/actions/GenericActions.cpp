@@ -11,6 +11,34 @@ bool MeleeAction::isUseful()
     if (ai->IsInVehicle() && !ai->IsInVehicle(false, false, true))
         return false;
 
+    Unit* target = GetTarget();
+
+    if (target)
+    {
+        // If the target has a damage shield, melee action not useful and we should actually stop attacking
+        std::set<Aura*> alreadyDone;
+        Unit::AuraList const& vDamageShields = target->GetAurasByType(SPELL_AURA_DAMAGE_SHIELD);
+        for (Unit::AuraList::const_iterator i = vDamageShields.begin(); i != vDamageShields.end();)
+        {
+            if (alreadyDone.find(*i) == alreadyDone.end())
+            {
+                alreadyDone.insert(*i);
+                uint32 damage = (*i)->GetModifier()->m_amount;
+
+                // If the damage shield does at least 10% of our max hp on each hit we do, we shouldn't melee
+                if (damage >= bot->GetMaxHealth() * 0.10f)
+                {
+                    bot->AttackStop();
+                    return false;
+                }
+
+                i = vDamageShields.begin();
+            }
+            else
+                ++i;
+        }
+    }
+
     return true;
 }
 
@@ -561,6 +589,29 @@ bool SetPetAction::Execute(Event& event)
                 ai->TellPlayer(requester, "Dismissing pet");
 
                 return true;
+            }
+        }
+        else if (command == "abandon")
+        {
+            if (bot->getClass() == CLASS_HUNTER)
+            {
+                //std::unique_ptr<WorldPacket> packet(new WorldPacket(CMSG_PET_ABANDON, 8));
+                //*packet << pet->GetObjectGuid();
+                //bot->GetSession()->QueuePacket(std::move(packet));
+
+                // Send pet action packet
+                const ObjectGuid& petGuid = pet->GetObjectGuid();
+
+                WorldPacket packet(CMSG_PET_ABANDON);
+                packet << petGuid;
+
+                bot->GetSession()->HandlePetAbandon(packet);
+
+                return true;
+            }
+            else
+            {
+                ai->TellPlayer(requester, "Please specify a pet command (Like autocast).");
             }
         }
         else

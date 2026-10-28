@@ -38,6 +38,7 @@ ChatCommandHandlerStrategy::ChatCommandHandlerStrategy(PlayerbotAI* ai) : PassTr
     supported.push_back("share");
     supported.push_back("ll");
     supported.push_back("ss");
+    supported.push_back("avoid creature");
     supported.push_back("release");
     supported.push_back("teleport");
     supported.push_back("taxi");
@@ -117,6 +118,10 @@ ChatCommandHandlerStrategy::ChatCommandHandlerStrategy(PlayerbotAI* ai) : PassTr
 void ChatCommandHandlerStrategy::InitReactionTriggers(std::list<TriggerNode*> &triggers)
 {
     PassTroughStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        CastNcTrigger,
+        NextAction::array(0, new NextAction(CastNcAction, relevance), NULL)));
 
     triggers.push_back(new TriggerNode(
         "rep",

@@ -80,7 +80,7 @@ Unit* PullMyTargetAction::GetTarget(Event& event)
 
 Unit* PullRTITargetAction::GetTarget(Event& event)
 {
-    return AI_VALUE(Unit*, "rti target");
+    return ai->GetUnit(AI_VALUE(ObjectGuid, "rti target"));
 }
 
 bool PullStartAction::Execute(Event& event)
@@ -98,7 +98,7 @@ bool PullStartAction::Execute(Event& event)
             {
                 result = ai->DoSpecificAction(strategy->GetPreActionName(), event, true);
                 if(result)
-                    SetDuration(ai->GetAIInternalUpdateDelay());
+                    SetDuration(3000);
             }
 
             // Set the pet on passive mode during the pull
@@ -151,7 +151,7 @@ bool PullAction::Execute(Event& event)
                 std::string actionName = strategy->GetPullActionName();
 
                 // Execute the pull action
-                SET_AI_VALUE(Unit*, "current target", GetTarget());
+                SET_AI_VALUE(ObjectGuid, "current target", GetTarget()->GetObjectGuid());
                 if (ai->DoSpecificAction(actionName, event, true))
                 {
                     strategy->RequestPull(target); //extend pull timer to walk back.
@@ -225,6 +225,9 @@ bool PullEndAction::Execute(Event& event)
             if (creatureAI)
             {
                 creatureAI->SetReactState(strategy->GetPetReactState());
+                Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
+                if (creatureAI->GetReactState() != REACT_PASSIVE && target)
+                    creatureAI->AttackStart(target);
             }
         }
 

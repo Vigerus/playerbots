@@ -19,8 +19,13 @@
 #include "BlackwingLairDungeonTriggers.h"
 #include "KarazhanDungeonTriggers.h"
 #include "NaxxramasDungeonTriggers.h"
+#include "MechanarDungeonTriggers.h"
 #include "GlyphTriggers.h"
 #include "WorldBuffTravelTriggers.h"
+
+#ifdef GenerateBotTests
+#include "../tests/TestTriggers.h"
+#endif
 
 namespace ai
 {
@@ -86,7 +91,7 @@ namespace ai
 
             creators["pull start"] = [](PlayerbotAI* ai) { return new PullStartTrigger(ai); };
             creators["pull end"] = [](PlayerbotAI* ai) { return new PullEndTrigger(ai); };
-
+            creators["dps assist"] = [](PlayerbotAI* ai) { return new DpsAssistTrigger(ai); };
             creators["tank assist"] = [](PlayerbotAI* ai) { return new TankAssistTrigger(ai); };
             creators["lose aggro"] = [](PlayerbotAI* ai) { return new LoseAggroTrigger(ai); };
             creators["has aggro"] = [](PlayerbotAI* ai) { return new HasAggroTrigger(ai); };
@@ -95,10 +100,10 @@ namespace ai
             creators["ranged medium aoe"] = [](PlayerbotAI* ai) { return new RangedMediumAoeTrigger(ai); };
             creators["ranged high aoe"] = [](PlayerbotAI* ai) { return new RangedHighAoeTrigger(ai); };
             creators["ranged very high aoe"] = [](PlayerbotAI* ai) { return new RangedVeryHighAoeTrigger(ai); };
-            creators["melee light aoe"] = [](PlayerbotAI* ai) { return new RangedLightAoeTrigger(ai); };
-            creators["melee medium aoe"] = [](PlayerbotAI* ai) { return new RangedMediumAoeTrigger(ai); };
-            creators["melee high aoe"] = [](PlayerbotAI* ai) { return new RangedHighAoeTrigger(ai); };
-            creators["melee very high aoe"] = [](PlayerbotAI* ai) { return new RangedVeryHighAoeTrigger(ai); };
+            creators["melee light aoe"] = [](PlayerbotAI* ai) { return new MeleeLightAoeTrigger(ai); };
+            creators["melee medium aoe"] = [](PlayerbotAI* ai) { return new MeleeMediumAoeTrigger(ai); };
+            creators["melee high aoe"] = [](PlayerbotAI* ai) { return new MeleeHighAoeTrigger(ai); };
+            creators["melee very high aoe"] = [](PlayerbotAI* ai) { return new MeleeVeryHighAoeTrigger(ai); };
 
             creators["has area debuff"] = [](PlayerbotAI* ai) { return new HasAreaDebuffTrigger(ai); };
             creators["has aura"] = [](PlayerbotAI* ai) { return new HasAuraTrigger(ai); };
@@ -168,6 +173,7 @@ namespace ai
             creators["far from rpg target"] = [](PlayerbotAI* ai) { return new FarFromRpgTargetTrigger(ai); };
             creators["near rpg target"] = [](PlayerbotAI* ai) { return new NearRpgTargetTrigger(ai); };
             creators["no rti target"] = [](PlayerbotAI* ai) { return new NoRtiTrigger(ai); };
+            creators["no rti cc target"] = [](PlayerbotAI* ai) { return new NoRtiCCTrigger(ai); };
 
             creators["give food"] = [](PlayerbotAI* ai) { return new GiveFoodTrigger(ai); };
             creators["give water"] = [](PlayerbotAI* ai) { return new GiveWaterTrigger(ai); };
@@ -228,6 +234,8 @@ namespace ai
             creators["move stuck"] = [](PlayerbotAI* ai) { return new MoveStuckTrigger(ai); };
             creators["move long stuck"] = [](PlayerbotAI* ai) { return new MoveLongStuckTrigger(ai); };
             creators["combat stuck"] = [](PlayerbotAI* ai) { return new CombatStuckTrigger(ai); };
+            creators["combat standoff"] = [](PlayerbotAI* ai) { return new CombatStandoffTrigger(ai); };
+            creators["movement loop stuck"] = [](PlayerbotAI* ai) { return new MovementLoopStuckTrigger(ai); };
             creators["combat long stuck"] = [](PlayerbotAI* ai) { return new CombatLongStuckTrigger(ai); };
             creators["leader is afk"] = [](PlayerbotAI* ai) { return new LeaderIsAfkTrigger(ai); };
 
@@ -269,6 +277,12 @@ namespace ai
             creators["rpg duel"] = [](PlayerbotAI* ai) { return new RpgDuelTrigger(ai); };
             creators["rpg item"] = [](PlayerbotAI* ai) { return new RpgItemTrigger(ai); };
             creators["rpg gossip talk"] = [](PlayerbotAI* ai) { return new RpgGossipTalkTrigger(ai); };
+            creators["rpg bank deposit"] = [](PlayerbotAI* ai) { return new RpgBankDepositTrigger(ai); };
+            creators["rpg bank withdraw"] = [](PlayerbotAI* ai) { return new RpgBankWithdrawTrigger(ai); };
+#ifndef MANGOSBOT_ZERO
+            creators["rpg guild bank deposit"] = [](PlayerbotAI* ai) { return new RpgGuildBankDepositTrigger(ai); };
+            creators["rpg guild bank withdraw"] = [](PlayerbotAI* ai) { return new RpgGuildBankWithdrawTrigger(ai); };
+#endif
 
             creators["random jump"] = [](PlayerbotAI* ai) { return new RandomJumpTrigger(ai); };
             creators["rtsc jump active"] = [](PlayerbotAI* ai) { return new RtscJumpTrigger(ai); };
@@ -288,8 +302,8 @@ namespace ai
             creators["perception"] = [](PlayerbotAI* ai) { return new PerceptionTrigger(ai); };
 
             // Dungeon Triggers
-            creators["enter onyxia's lair"] = [](PlayerbotAI* ai) { return new OnyxiasLairEnterDungeonTrigger(ai); };
-            creators["leave onyxia's lair"] = [](PlayerbotAI* ai) { return new OnyxiasLairLeaveDungeonTrigger(ai); };
+            creators["enter onyxias lair"] = [](PlayerbotAI* ai) { return new OnyxiasLairEnterDungeonTrigger(ai); };
+            creators["leave onyxias lair"] = [](PlayerbotAI* ai) { return new OnyxiasLairLeaveDungeonTrigger(ai); };
             creators["enter molten core"] = [](PlayerbotAI* ai) { return new MoltenCoreEnterDungeonTrigger(ai); };
             creators["leave molten core"] = [](PlayerbotAI* ai) { return new MoltenCoreLeaveDungeonTrigger(ai); };
             creators["enter karazhan"] = [](PlayerbotAI* ai) { return new KarazhanEnterDungeonTrigger(ai); };
@@ -298,6 +312,8 @@ namespace ai
             creators["leave naxxramas"] = [](PlayerbotAI* ai) { return new NaxxramasLeaveDungeonTrigger(ai); };
             creators["enter blackwing lair"] = [](PlayerbotAI* ai) { return new BlackwingLairEnterDungeonTrigger(ai); };
             creators["leave blackwing lair"] = [](PlayerbotAI* ai) { return new BlackwingLairLeaveDungeonTrigger(ai); };
+            creators["enter mechanar"] = [](PlayerbotAI* ai) { return new MechanarEnterDungeonTrigger(ai); };
+            creators["leave mechanar"] = [](PlayerbotAI* ai) { return new MechanarLeaveDungeonTrigger(ai); };
 
             // Dungeon Boss Triggers
             creators["start onyxia fight"] = [](PlayerbotAI* ai) { return new OnyxiaStartFightTrigger(ai); };
@@ -320,18 +336,41 @@ namespace ai
             creators["start netherspite fight"] = [](PlayerbotAI* ai) { return new NetherspiteStartFightTrigger(ai); };
             creators["end netherspite fight"] = [](PlayerbotAI* ai) { return new NetherspiteEndFightTrigger(ai); };
             creators["void zone too close"] = [](PlayerbotAI* ai) { return new VoidZoneTooCloseTrigger(ai); };
-            creators["add nether portal - perseverence for tank"] = [](PlayerbotAI* ai) { return new NetherspiteBeamsCheatNeedRefreshTrigger(ai, 2); };
+            creators["add nether portal - perseverence for tank"] = [](PlayerbotAI* ai) { return new NetherspiteBeamsPlayerCheatNeedRefreshTrigger(ai, 2); };
             creators["remove nether portal buffs from netherspite"] = [](PlayerbotAI* ai) { return new NetherspiteBeamsCheatNeedRefreshTrigger(ai); };
             creators["remove nether portal - dominance"] = [](PlayerbotAI* ai) { return new RemoveNetherPortalDominanceTrigger(ai); };
             creators["remove nether portal - perseverence"] = [](PlayerbotAI* ai) { return new RemoveNetherPortalPerseverenceTrigger(ai); };
             creators["remove nether portal - serenity"] = [](PlayerbotAI* ai) { return new RemoveNetherPortalSerenityTrigger(ai); };
 
+            creators["start shade of aran fight"] = [](PlayerbotAI* ai) { return new ShadeOfAranStartFightTrigger(ai); };
+            creators["end shade of aran fight"] = [](PlayerbotAI* ai) { return new ShadeOfAranEndFightTrigger(ai); };
+            creators["shade of aran casting arcane explosion"] = [](PlayerbotAI* ai) { return new ShadeOfAranCastingArcaneExplosionTrigger(ai); };
+            creators["shade of aran done casting arcane explosion"] = [](PlayerbotAI* ai) { return new ShadeOfAranDoneCastingArcaneExplosionTrigger(ai); };
+            creators["shade of aran casting flame wreath"] = [](PlayerbotAI* ai) { return new ShadeOfAranCastingFlameWreathTrigger(ai); };
+            creators["shade of aran casting blizzard"] = [](PlayerbotAI* ai) { return new ShadeOfAranCastingBlizzardTrigger(ai); };
+            creators["shade of aran elementals out"] = [](PlayerbotAI* ai) { return new ShadeOfAranElementalsTrigger(ai); };
+            creators["start big bad wolf fight"] = [](PlayerbotAI* ai) { return new BigBadWolfStartFightTrigger(ai); };
+            creators["end big bad wolf fight"] = [](PlayerbotAI* ai) { return new BigBadWolfEndFightTrigger(ai); };
+            creators["big bad wolf too close"] = [](PlayerbotAI* ai) { return new BigBadWolfTooCloseTrigger(ai); };
+
             creators["start prince malchezaar fight"] = [](PlayerbotAI* ai) { return new PrinceMalchezaarStartFightTrigger(ai); };
             creators["end prince malchezaar fight"] = [](PlayerbotAI* ai) { return new PrinceMalchezaarEndFightTrigger(ai); };
             creators["netherspite infernal too close"] = [](PlayerbotAI* ai) { return new NetherspiteInfernalTooCloseTrigger(ai); };
+            creators["prince malchezaar too close"] = [](PlayerbotAI* ai) { return new PrinceMalchezaarTooCloseTrigger(ai); };
 
             creators["start four horseman fight"] = [](PlayerbotAI* ai) { return new FourHorsemanStartFightTrigger(ai); };
             creators["end four horseman fight"] = [](PlayerbotAI* ai) { return new FourHorsemanEndFightTrigger(ai); };
+
+            creators["start nethermancer sepethrea fight"] = [](PlayerbotAI* ai) { return new NethermancerSepethreaStartFightTrigger(ai); };
+            creators["end nethermancer sepethrea fight"] = [](PlayerbotAI* ai) { return new NethermancerSepethreaEndFightTrigger(ai); };
+            creators["raging flames too close"] = [](PlayerbotAI* ai) { return new RagingFlamesTooCloseTrigger(ai); };
+
+            creators["specific creature too close"] = [](PlayerbotAI* ai) { return new CloseToSpecificCreaturesTrigger(ai, "specific creature too close", true); };
+
+            // Test framework triggers
+#ifdef GenerateBotTests
+            creators["test ready"] = [](PlayerbotAI* ai) { return new TestReadyTrigger(ai); };
+#endif
         }
     };
 };

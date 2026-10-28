@@ -88,6 +88,14 @@ namespace ai
     {
     public:
         ArcaneBlastTrigger(PlayerbotAI* ai) : BuffTrigger(ai, "arcane blast") {}
+        virtual bool IsActive() override;
+    };
+
+    class ArcaneBlastFullTrigger : public BuffTrigger
+    {
+    public:
+        ArcaneBlastFullTrigger(PlayerbotAI* ai) : BuffTrigger(ai, "arcane blast") {}
+        virtual bool IsActive() override;
     };
 
     class CounterspellInterruptSpellTrigger : public InterruptSpellTrigger
@@ -176,6 +184,17 @@ namespace ai
         {
             return !bot->IsSpellReady(133)      //fireball
                 && !bot->IsSpellReady(2948);    //scorch
+        }
+    };
+
+    class FrostSpellsLocked : public Trigger
+    {
+    public:
+        FrostSpellsLocked(PlayerbotAI* ai) : Trigger(ai, "frost spells locked", 2) {}
+
+        virtual bool IsActive() override
+        {
+            return !bot->IsSpellReady(116);      //frostbolt
         }
     };
 

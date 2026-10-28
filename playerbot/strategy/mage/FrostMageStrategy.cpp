@@ -109,11 +109,11 @@ void FrostMageAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
     MageAoeStrategy::InitCombatTriggers(triggers);
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "ranged high aoe",
         NextAction::array(0, new NextAction("blizzard", ACTION_HIGH + 1), NULL)));
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "frost spells locked",
         NextAction::array(0, new NextAction("flamestrike", ACTION_HIGH), NULL)));
 }
 
@@ -459,11 +459,11 @@ void FrostMageAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
     MageAoeStrategy::InitCombatTriggers(triggers);
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "ranged high aoe",
         NextAction::array(0, new NextAction("blizzard", ACTION_HIGH + 1), NULL)));
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "frost spells locked",
         NextAction::array(0, new NextAction("flamestrike", ACTION_HIGH), NULL)));
 }
 
@@ -526,12 +526,20 @@ void FrostMageBuffPveStrategy::InitCombatTriggers(std::list<TriggerNode*>& trigg
 {
     FrostMageBuffStrategy::InitCombatTriggers(triggers);
     MageBuffPveStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "mage armor",
+        NextAction::array(0, new NextAction("mage armor", ACTION_HIGH), NULL)));
 }
 
 void FrostMageBuffPveStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     FrostMageBuffStrategy::InitNonCombatTriggers(triggers);
     MageBuffPveStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "mage armor",
+        NextAction::array(0, new NextAction("mage armor", ACTION_HIGH), NULL)));
 }
 
 void FrostMageBuffPvpStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -825,11 +833,11 @@ void FrostMageAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
     MageAoeStrategy::InitCombatTriggers(triggers);
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "ranged high aoe",
         NextAction::array(0, new NextAction("blizzard", ACTION_HIGH + 1), NULL)));
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "frost spells locked",
         NextAction::array(0, new NextAction("flamestrike", ACTION_HIGH), NULL)));
 }
 

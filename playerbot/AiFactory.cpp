@@ -23,67 +23,29 @@ AiObjectContext* AiFactory::createAiObjectContext(Player* player, PlayerbotAI* a
     switch (player->getClass())
     {
         case CLASS_PRIEST:
-        {
             return new PriestAiObjectContext(ai);
-            break;
-        }
-
         case CLASS_MAGE:
-        {
             return new MageAiObjectContext(ai);
-            break;
-        }
-
         case CLASS_WARLOCK:
-        {
             return new WarlockAiObjectContext(ai);
-            break;
-        }
-
         case CLASS_WARRIOR:
-        {
             return new WarriorAiObjectContext(ai);
-            break;
-        }
-
         case CLASS_SHAMAN:
-        {
             return new ShamanAiObjectContext(ai);
-            break;
-        }
-
         case CLASS_PALADIN:
-        {
             return new PaladinAiObjectContext(ai);
-            break;
-        }
-
         case CLASS_DRUID:
-        {
             return new DruidAiObjectContext(ai);
-            break;
-        }
-
         case CLASS_HUNTER:
-        {
             return new HunterAiObjectContext(ai);
-            break;
-        }
-
         case CLASS_ROGUE:
-        {
             return new RogueAiObjectContext(ai);
-            break;
-        }
-
 #ifdef MANGOSBOT_TWO
         case CLASS_DEATH_KNIGHT:
-        {
             return new DKAiObjectContext(ai);
-            break;
-        }
 #endif
     }
+    
     return new AiObjectContext(ai);
 }
 
@@ -155,8 +117,10 @@ std::map<uint32, int32> AiFactory::GetPlayerSpecTabs(const Player* bot)
 
             uint32 spellid = talentInfo->RankID[rank];
             if (spellid && bot->HasSpell(spellid))
+            {
                 maxRank = rank + 1;
-
+                break;
+            }
         }
         tabs[talentTabInfo->tabpage] += maxRank;
     }
@@ -319,7 +283,10 @@ BotRoles AiFactory::GetPlayerRoles(const Player* player)
         }
     }
 
-    return GetPlayerRoles(cls, tab);
+    if (role == BOT_ROLE_NONE)
+        role = GetPlayerRoles(cls, tab);
+
+    return role;
 }
 
 void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const facade, Engine* combatEngine)
@@ -328,6 +295,8 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
 
     combatEngine->addStrategies("mount", NULL);
     combatEngine->addStrategy("avoid mobs");
+    combatEngine->addStrategy("dungeon");
+    combatEngine->addStrategy("avoid specific creatures");
 
     if (!player->InBattleGround())
     {
@@ -930,6 +899,7 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
 
     nonCombatEngine->addStrategies("wbuff", NULL);
     nonCombatEngine->addStrategy("avoid mobs");
+    nonCombatEngine->addStrategy("dungeon");
 
     if(sPlayerbotAIConfig.llmEnabled == 2)
         nonCombatEngine->addStrategy("ai chat");
@@ -1016,37 +986,34 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
 
             nonCombatEngine->ChangeStrategy(sPlayerbotAIConfig.randomBotNonCombatStrategies);
         }
-        else 
+        else
         {
-            if (facade)
+            if (master)
             {
-                if (master)
+                if (master->GetPlayerbotAI() || sRandomPlayerbotMgr.IsFreeBot(player))
                 {
-                    if (master->GetPlayerbotAI() || sRandomPlayerbotMgr.IsFreeBot(player))
+                    nonCombatEngine->addStrategy("collision");
+                    nonCombatEngine->addStrategy("grind");
+                    nonCombatEngine->addStrategy("group");
+                    nonCombatEngine->addStrategy("guild");
+
+                    if (sPlayerbotAIConfig.autoDoQuests)
                     {
-                        nonCombatEngine->addStrategy("collision");
-                        nonCombatEngine->addStrategy("grind");
-                        nonCombatEngine->addStrategy("group");
-                        nonCombatEngine->addStrategy("guild");
-
-                        if (sPlayerbotAIConfig.autoDoQuests)
-                        {
-                            nonCombatEngine->addStrategy("travel");
-                            nonCombatEngine->addStrategy("tfish");
-                            nonCombatEngine->addStrategy("rpg");
-                        }
-
-                        if (!master || master->GetPlayerbotAI())
-                        {
-                            nonCombatEngine->addStrategy("maintenance");
-                        }
-
-                        nonCombatEngine->ChangeStrategy(sPlayerbotAIConfig.randomBotNonCombatStrategies);
+                        nonCombatEngine->addStrategy("travel");
+                        nonCombatEngine->addStrategy("tfish");
+                        nonCombatEngine->addStrategy("rpg");
                     }
-                    else
+
+                    if (master->GetPlayerbotAI())
                     {
-                        nonCombatEngine->ChangeStrategy(sPlayerbotAIConfig.nonCombatStrategies);
+                        nonCombatEngine->addStrategy("maintenance");
                     }
+
+                    nonCombatEngine->ChangeStrategy(sPlayerbotAIConfig.randomBotNonCombatStrategies);
+                }
+                else
+                {
+                    nonCombatEngine->ChangeStrategy(sPlayerbotAIConfig.nonCombatStrategies);
                 }
             }
         }
@@ -1151,7 +1118,7 @@ Engine* AiFactory::createNonCombatEngine(Player* player, PlayerbotAI* const faca
 
 void AiFactory::AddDefaultDeadStrategies(Player* player, PlayerbotAI* const facade, Engine* deadEngine)
 {
-    deadEngine->addStrategies("dead", "stay", "default", "follow", "group", NULL);
+    deadEngine->addStrategies("dead", "stay", "default", "follow", "group", "dungeon", NULL);
     if (sRandomPlayerbotMgr.IsFreeBot(player) && !player->GetGroup())
     {
         deadEngine->removeStrategy("follow");
@@ -1349,7 +1316,7 @@ Engine* AiFactory::createDeadEngine(Player* player, PlayerbotAI* const facade, A
 
 void AiFactory::AddDefaultReactionStrategies(Player* player, PlayerbotAI* const facade, ReactionEngine* reactionEngine)
 {
-    reactionEngine->addStrategies("react", "chat", "avoid aoe", "potions", NULL);
+    reactionEngine->addStrategies("react", "chat", "avoid aoe", "avoid specific creatures", "potions", "dungeon", NULL);
 
     const int tab = GetPlayerSpecTab(player);
     switch (player->getClass())

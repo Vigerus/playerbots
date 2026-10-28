@@ -21,13 +21,6 @@ namespace ai
             if (IsCcTarget(attacker))
                 return;
 
-            Group* group = ai->GetBot()->GetGroup();
-            if (group)
-            {
-                uint64 guid = group->GetTargetIcon(4);
-                if (guid && attacker->GetObjectGuid() == ObjectGuid(guid))
-                    return;
-            }
             if (!result || result->GetHealth() > attacker->GetHealth())
                 result = attacker;
         }
@@ -41,6 +34,6 @@ namespace ai
         LeastHpTargetValue(PlayerbotAI* ai, std::string name = "least hp target") : TargetValue(ai, name) {}
 
     public:
-        Unit* Calculate() override;
+        ObjectGuid Calculate() override;
     };
 }

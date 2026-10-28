@@ -227,7 +227,27 @@ bool LootObject::IsLootPossible(Player* bot)
     PlayerbotAI* ai = bot->GetPlayerbotAI();
 
     if (reqItem && !bot->HasItemCount(reqItem, 1))
-        return false;
+    {
+        bool canOpen = false;
+        // If this is a chest and it was locked before, check if it's unlocked now so we don't need item
+        if (guid.IsGameObject())
+        {
+            GameObject* go = ai->GetGameObject(guid);
+            if (go)
+            {
+                uint32 lootid = go->GetGOInfo()->GetLootId();
+                if (lootid && go->GetGOInfo()->type == GAMEOBJECT_TYPE_CHEST)
+                {
+                    if (!go->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_LOCKED))
+                        canOpen = true;
+                }
+            }
+        }
+        if (!canOpen)
+            return false;
+
+    }
+        
 
     if (guid.IsCreature())
     {
@@ -242,7 +262,7 @@ bool LootObject::IsLootPossible(Player* bot)
 
     AiObjectContext* context = ai->GetAiObjectContext();
 
-    if (!AI_VALUE2_LAZY(bool, "should loot object", std::to_string(guid.GetRawValue())))
+    if (!AI_VALUE2(bool, "should loot object", std::to_string(guid.GetRawValue())))
         return false;
 
     // Check if the game object has quest loot and bot has the quest for it

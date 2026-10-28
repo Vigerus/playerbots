@@ -121,6 +121,7 @@ public:
         std::string GetData(uint32 bot, std::string type);
         void SetValue(uint32 bot, std::string type, uint32 value, std::string data = "", int32 validIn = -1);
         void SetValue(Player* bot, std::string type, uint32 value, std::string data = "", int32 validIn = -1);
+        bool BumpDeferredJoinTries(uint32 botGuid);
         void Remove(Player* bot);
         void Hotfix(Player* player, uint32 version);
         uint32 GetBattleMasterEntry(Player* bot, BattleGroundTypeId bgTypeId, bool fake = false);
@@ -199,14 +200,57 @@ public:
 
         std::list<std::string> HandleHelp(std::string param);
         std::list<std::string> HandleConsoleReset(std::string param);
+
+        // Aggregated view over all online bots (populated once per GatherBotStats pass).
+        struct BotStats
+        {
+            uint32 total = 0;
+            uint32 alliance[10] = { 0 };
+            uint32 horde[10] = { 0 };
+            std::map<uint8, uint32> perRace;
+            std::map<uint8, uint32> perClass;
+            uint32 roleTank = 0, roleHeal = 0, roleDps = 0;
+            uint32 active = 0, moving = 0, taxi = 0, mounted = 0, combat = 0, dead = 0, afk = 0;
+            uint32 stuck = 0;
+            uint32 notInWorld = 0;                     // bots without a map (mid-teleport / logging out)
+            std::map<uint8, uint32> perState;          // BotState -> count
+            std::map<std::string, uint32> activity;    // idle / moving / traveling / combat
+            std::map<uint32, uint32> perZone;          // zone id -> count
+            std::map<uint8, uint32> perTravelState;    // TravelState -> count
+        };
+        BotStats GatherBotStats();
+        std::list<std::string> FormatBotStats(const BotStats& stats, bool includeAllZones = false);
+
+        // Shared per-bot classification (used by stats, sample and find so they cannot drift)
+        std::string GetBotActivity(Player* bot);
+        bool GetBotStuck(Player* bot);
+
+        // Per-bot row output
+        std::string FormatBotLine(Player* bot);
+        bool BotMatchesFilter(Player* bot, const std::string& filter);
+        std::list<std::string> SampleBots(std::string param, bool exhaustive);
+        std::list<std::string> HandleConsoleSample(std::string param);
+        std::list<std::string> HandleConsoleFind(std::string param);
+
         std::list<std::string> HandleConsoleStats(std::string param);
+        uint32 ResolveActionHistorySize(Player* bot);
+        void ApplyActionHistorySize(Player* bot);
+        std::list<std::string> HandleConsoleHistory(std::string param);
         std::list<std::string> HandleConsoleReload(std::string param);
         std::list<std::string> HandleConsoleUpdate(std::string param);
         std::list<std::string> HandleConsolePid(std::string param);
         std::list<std::string> HandleConsoleDiff(std::string param);
+        std::list<std::string> HandleConsoleGrid(std::string param);
+        std::list<std::string> HandleConsoleMem(std::string param);
         std::list<std::string> HandleConsoleCleanMap(std::string param);
         std::list<std::string> HandleConsoleLoginDebug(std::string param);
         std::list<std::string> HandleConsolePathCheck(std::string param);
+        std::list<std::string> HandleConsoleTaxTest(std::string param);
+        std::list<std::string> HandleConsoleZoneUpd(std::string param);
+#ifdef GenerateBotTests
+        std::list<std::string> HandleConsoleTravelSample(std::string param);
+        std::list<std::string> HandleConsoleTravelTrace(std::string param);
+#endif
         // Override virtual methods from PlayerbotHolder
         virtual uint32 GetOrCreateAccount(Player* master, std::string& error) override;
         virtual void OnBotDeleted(uint32 botGuid, uint32 accountId) override;

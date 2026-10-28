@@ -34,7 +34,9 @@ bool GiveItemAction::Execute(Event& event)
             continue;
 
         ItemPosCountVec dest;
-        InventoryResult msg = receiver->CanStoreItem(NULL_BAG, NULL_SLOT, dest, item, false);
+        uint8 bagSlot;
+        InventoryResult msg = receiver->CanStoreItem(NULL_BAG, NULL_SLOT, dest, item, bagSlot, false);
+
         if (msg == EQUIP_ERR_OK)
         {
             bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
@@ -59,15 +61,15 @@ bool GiveItemAction::Execute(Event& event)
 
 Unit* GiveItemAction::GetTarget()
 {
-    return AI_VALUE2(Unit*, "party member without item", item);
+    return ai->GetUnit(AI_VALUE2(ObjectGuid, "party member without item", item));
 }
 
 Unit* GiveFoodAction::GetTarget()
 {
-    return AI_VALUE(Unit*, "party member without food");
+    return ai->GetUnit(AI_VALUE(ObjectGuid, "party member without food"));
 }
 
 Unit* GiveWaterAction::GetTarget()
 {
-    return AI_VALUE(Unit*, "party member without water");
+    return ai->GetUnit(AI_VALUE(ObjectGuid, "party member without water"));
 }

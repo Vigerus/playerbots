@@ -12,14 +12,14 @@ GuidPosition FreeMoveCenterValue::Calculate()
     if (ai->HasStrategy("follow", ai->GetState()) ||
         ai->HasStrategy("wander", ai->GetState()))
     {
-        Unit* followTarget = AI_VALUE(Unit*, "follow target");
+        Unit* followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "follow target"));
 
         if (!followTarget)
             return bot;
 
         //Use bot as center when follow target is on a different map.
         if (followTarget->GetMapId() != bot->GetMapId()) 
-            return bot;
+            return followTarget;
 
         Player* player = dynamic_cast<Player*>(followTarget);
 
@@ -57,7 +57,10 @@ float FreeMoveRangeValue::Calculate()
     if (ai->HasStrategy("stay", ai->GetState()))
         return INTERACTION_DISTANCE;
 
-    Unit* followTarget = AI_VALUE(Unit*, "follow target");
+    if (ai->GetUnit(AI_VALUE(ObjectGuid, "rti cc target")))
+        return ai->GetRange("spell");
+
+    Unit* followTarget = ai->GetUnit(AI_VALUE(ObjectGuid, "follow target"));
 
     if (!followTarget || followTarget == bot)
         return 0;

@@ -4,6 +4,7 @@
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/strategy/Action.h"
+#include "playerbot/strategy/values/RtiTargetValue.h"
 
 using namespace ai;
 
@@ -13,7 +14,7 @@ public:
     FindTargetForCcStrategy(PlayerbotAI* ai, std::string spell) : FindTargetStrategy(ai)
     {
         this->spell = spell;
-        maxDistance = 0;
+        maxDistance = sPlayerbotAIConfig.sightDistance;
     }
 
 public:
@@ -23,19 +24,16 @@ public:
 
         AiObjectContext* context = ai->GetAiObjectContext();
 
-        if (!ai->CanCastSpell(spell, creature, true, nullptr, false, true))
-            return;
-
-        if (AI_VALUE(Unit*,"rti cc target") == creature)
+        if (ai->GetUnit(AI_VALUE(ObjectGuid,"rti cc target")) && ai->GetUnit(AI_VALUE(ObjectGuid,"rti cc target"))->GetObjectGuid() == creature->GetObjectGuid())
         {
             result = creature;
             return;
         }
 
-        if (AI_VALUE(Unit*,"current target") == creature)
+        if (AI_VALUE(ObjectGuid,"current target") == creature->GetObjectGuid())
             return;
 
-        if (AI_VALUE(Unit*,"rti target") == creature)
+        if (AI_VALUE(ObjectGuid,"rti target") == creature->GetObjectGuid())
             return;
 
         uint8 health = creature->GetHealthPercent();
@@ -57,36 +55,49 @@ public:
         if (creature->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE) && !(spell == "fear" || spell == "banish"))
             return;
 
-        if (!creature->IsPlayer())
+        if (!ai->CanCastSpell(spell, creature, true, nullptr, false, true))
+            return;
+
+        // If we have rti cc none but have cc strategy, then we'll cc something that isn't occupied
+        std::string rti = AI_VALUE(std::string, "rti cc");
+        int index = RtiTargetValue::GetRtiIndex(rti);
+        if (index == -1 && ai->HasStrategy("cc", BotState::BOT_STATE_COMBAT))
         {
-            int tankCount, dpsCount;
-            GetPlayerCount(creature, &tankCount, &dpsCount);
-            if (!tankCount || !dpsCount)
+            Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+            for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+            {
+                Player *member = sObjectMgr.GetPlayer(itr->guid);
+                if(!member || !sServerFacade.IsAlive(member) || member == bot || bot->GetMapId() != member->GetMapId())
+                    continue;
+
+                PlayerbotAI* memberAI = member->GetPlayerbotAI();
+                bool isBot = member->IsPlayer() && memberAI;
+                if (isBot)
+                {
+                    AiObjectContext* context = memberAI->GetAiObjectContext();
+                    // If someone else has this target as their current target, don't cc
+                    if (context && context->GetValue<ObjectGuid>("current target")->Get() == creature->GetObjectGuid())
+                        return;
+                }
+                else
+                {
+                    // If member is not a bot, check if they are targeting this
+                    if (member->GetSelectionGuid() == creature->GetObjectGuid())
+                        return;
+                }
+                if (!ai->IsTank(member))
+                    continue;
+
+                float distance = sServerFacade.GetDistance2d(member, creature);
+                if (distance < minDistance)
+                    minDistance = distance;
+            }
+
+            if ((!result && !creature->IsPlayer()) || minDistance > maxDistance)
             {
                 result = creature;
-                return;
+                maxDistance = minDistance;
             }
-        }
-
-        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
-        {
-            Player *member = sObjectMgr.GetPlayer(itr->guid);
-            if(!member || !sServerFacade.IsAlive(member) || member == bot || bot->GetMapId() != member->GetMapId())
-                continue;
-
-            if (!ai->IsTank(member))
-                continue;
-
-            float distance = sServerFacade.GetDistance2d(member, creature);
-            if (distance < minDistance)
-                minDistance = distance;
-        }
-
-        if ((!result && !creature->IsPlayer()) || minDistance > maxDistance)
-        {
-            result = creature;
-            maxDistance = minDistance;
         }
     }
 
@@ -95,7 +106,7 @@ private:
     float maxDistance;
 };
 
-Unit* CcTargetValue::Calculate()
+ObjectGuid CcTargetValue::Calculate()
 {
     std::list<ObjectGuid> possible = AI_VALUE(std::list<ObjectGuid>,"possible targets no los");
 
@@ -110,17 +121,18 @@ Unit* CcTargetValue::Calculate()
             continue;
 
         if (ai->HasMyAura(qualifier, add))
-            return NULL;
+            return ObjectGuid();
 
         if (qualifier == "polymorph")
         {
             if (ai->HasMyAura("polymorph: pig", add))
-                return NULL;
+                return ObjectGuid();
             if (ai->HasMyAura("polymorph: turtle", add))
-                return NULL;
+                return ObjectGuid();
         }
     }
 
     FindTargetForCcStrategy strategy(ai, qualifier);
-    return FindTarget(&strategy);
+    Unit* target = FindTarget(&strategy);
+    return target ? target->GetObjectGuid() : ObjectGuid();
 }

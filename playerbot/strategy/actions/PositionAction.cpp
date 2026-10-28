@@ -109,14 +109,14 @@ bool MoveToPositionAction::isUseful()
 {
     ai::PositionEntry pos = context->GetValue<ai::PositionMap&>("position")->Get()[qualifier];
     float distance = AI_VALUE2(float, "distance", std::string("position_") + qualifier);
-    return pos.isSet() && distance > ai->GetRange("follow") && IsMovingAllowed();
+    return pos.isSet() && distance > ai->GetRange("follow") && ai->CanMove();
 }
 
 bool GuardAction::isUseful()
 {
     if (ai->IsStateActive(BotState::BOT_STATE_COMBAT))
     {
-        Unit* target = AI_VALUE(Unit*, "current target");
+        Unit* target = ai->GetUnit(AI_VALUE(ObjectGuid, "current target"));
 
         if (!target)
             return true;

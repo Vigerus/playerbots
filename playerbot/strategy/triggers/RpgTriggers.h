@@ -264,4 +264,34 @@ namespace ai
         RandomJumpTrigger(PlayerbotAI* ai, std::string name = "random jump") : Trigger(ai, name, 2) {}
         bool IsActive() override;
     };
+
+    class RpgBankDepositTrigger : public RpgTrigger
+    {
+    public:
+        RpgBankDepositTrigger(PlayerbotAI* ai, std::string name = "rpg bank deposit") : RpgTrigger(ai, name) {}
+        virtual bool IsActive() override;
+    };
+
+    class RpgBankWithdrawTrigger : public RpgTrigger
+    {
+    public:
+        RpgBankWithdrawTrigger(PlayerbotAI* ai, std::string name = "rpg bank withdraw") : RpgTrigger(ai, name) {}
+        virtual bool IsActive() override;
+    };
+
+#ifndef MANGOSBOT_ZERO
+    class RpgGuildBankDepositTrigger : public RpgTrigger
+    {
+    public:
+        RpgGuildBankDepositTrigger(PlayerbotAI* ai, std::string name = "rpg guild bank deposit") : RpgTrigger(ai, name) {}
+        virtual bool IsActive() override;
+    };
+
+    class RpgGuildBankWithdrawTrigger : public RpgTrigger
+    {
+    public:
+        RpgGuildBankWithdrawTrigger(PlayerbotAI* ai, std::string name = "rpg guild bank withdraw") : RpgTrigger(ai, name) {}
+        virtual bool IsActive() override;
+    };
+#endif
 }

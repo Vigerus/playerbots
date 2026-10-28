@@ -137,7 +137,7 @@ void FireMageAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
     MageAoeStrategy::InitCombatTriggers(triggers);
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "ranged high aoe",
         NextAction::array(0, new NextAction("flamestrike", ACTION_HIGH + 1), NULL)));
 
     triggers.push_back(new TriggerNode(
@@ -499,7 +499,7 @@ void FireMageAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
         NextAction::array(0, new NextAction("living bomb", ACTION_HIGH + 2), NULL)));
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "ranged high aoe",
         NextAction::array(0, new NextAction("flamestrike", ACTION_HIGH + 1), NULL)));
 
     triggers.push_back(new TriggerNode(
@@ -562,12 +562,20 @@ void FireMageBuffPveStrategy::InitCombatTriggers(std::list<TriggerNode*>& trigge
 {
     FireMageBuffStrategy::InitCombatTriggers(triggers);
     MageBuffPveStrategy::InitCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "molten armor",
+        NextAction::array(0, new NextAction("molten armor", ACTION_HIGH), NULL)));
 }
 
 void FireMageBuffPveStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
 {
     FireMageBuffStrategy::InitNonCombatTriggers(triggers);
     MageBuffPveStrategy::InitNonCombatTriggers(triggers);
+
+    triggers.push_back(new TriggerNode(
+        "molten armor",
+        NextAction::array(0, new NextAction("molten armor", ACTION_HIGH), NULL)));
 }
 
 void FireMageBuffPvpStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
@@ -869,7 +877,7 @@ void FireMageAoeStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
         NextAction::array(0, new NextAction("living bomb", ACTION_HIGH + 2), NULL)));
 
     triggers.push_back(new TriggerNode(
-        "ranged medium aoe",
+        "ranged high aoe",
         NextAction::array(0, new NextAction("flamestrike", ACTION_HIGH + 1), NULL)));
 
     triggers.push_back(new TriggerNode(
