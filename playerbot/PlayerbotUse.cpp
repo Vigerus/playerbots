@@ -41,6 +41,18 @@ namespace
         return -1;
     }
 
+    // the spell a book teaches the bot that it already knows, 0 when none (the client checks this, the core doesn't)
+    uint32 GetKnownLearnedSpell(Player* bot, const SpellEntry* spellInfo)
+    {
+        for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+        {
+            if (spellInfo->Effect[i] == SPELL_EFFECT_LEARN_SPELL && spellInfo->EffectImplicitTargetA[i] != TARGET_UNIT_CASTER_PET &&
+                bot->HasSpell(spellInfo->EffectTriggerSpell[i]))
+                return spellInfo->EffectTriggerSpell[i];
+        }
+        return 0;
+    }
+
     std::string Lower(std::string text)
     {
         std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
@@ -190,6 +202,13 @@ bool PlayerbotUse::UseItem(PlayerbotAI* ai, Player* requester, uint32 itemId, It
     const std::string itemText = ChatHelper::formatItem(proto);
     const int spellIndex = GetUseSpellIndex(proto);
     const SpellEntry* spellInfo = spellIndex >= 0 ? sSpellTemplate.LookupEntry<SpellEntry>(proto->Spells[spellIndex].SpellId) : nullptr;
+
+    if (const uint32 knownSpell = spellInfo ? GetKnownLearnedSpell(bot, spellInfo) : 0)
+    {
+        const SpellEntry* known = sSpellTemplate.LookupEntry<SpellEntry>(knownSpell);
+        ai->TellError(requester, "I already know " + (known ? ChatHelper::formatSpell(known) : std::to_string(knownSpell)));
+        return false;
+    }
 
     // the bot's item, an equipped one first (trinkets, engineering helmets)
     Item* item = nullptr;
