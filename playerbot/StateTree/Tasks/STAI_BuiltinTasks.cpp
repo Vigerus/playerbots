@@ -4,7 +4,9 @@
 #include "playerbot/StateTree/Providers/CCProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CooldownProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CorpseProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/CreatureProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/DispelProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/EncounterProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/HazardProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/HealProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/InstanceProvider_GlobalTask.h"
@@ -69,6 +71,8 @@ namespace ai
         factory.RegisterTask("CooldownProvider_GlobalTask", { &CooldownProvider_GlobalTask::Validate, &CooldownProvider_GlobalTask::Create });
         factory.RegisterTask("SpecProvider_GlobalTask", { &SpecProvider_GlobalTask::Validate, &SpecProvider_GlobalTask::Create });
         factory.RegisterTask("HazardProvider_GlobalTask", { &HazardProvider_GlobalTask::Validate, &HazardProvider_GlobalTask::Create });
+        factory.RegisterTask("CreatureProvider_GlobalTask", { &CreatureProvider_GlobalTask::Validate, &CreatureProvider_GlobalTask::Create });
+        factory.RegisterTask("EncounterProvider_GlobalTask", { &EncounterProvider_GlobalTask::Validate, &EncounterProvider_GlobalTask::Create });
         factory.RegisterTask("Task_UseItem", { &Task_UseItem::Validate, &Task_UseItem::Create });
         factory.RegisterTask("Task_Shoot", { &Task_Shoot::Validate, &Task_Shoot::Create });
         factory.RegisterTask("HealProvider_GlobalTask", { &HealProvider_GlobalTask::Validate, &HealProvider_GlobalTask::Create });

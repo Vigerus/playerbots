@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Combat state tree for Mage bots: AiPlayerbot.StateTree.Combat.Mage -->
-<!-- picks the subtree for the bot's spec; a spec change (talents learned or reset) selects again -->
+<!-- picks the subtree of a boss tactic while one applies, else the subtree for the bot's spec; a tactic or spec change
+     (talents learned or reset) selects again -->
 <Root>
   <Global>
     <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
@@ -9,6 +10,10 @@
     </Task>
     <!-- the bot's spec: specName, onSpecChanged -->
     <Task class="SpecProvider_GlobalTask"/>
+    <!-- the boss tactic that replaces the spec subtree while it applies: tactic, onTacticChanged -->
+    <Task class="EncounterProvider_GlobalTask">
+      <Tactic name="jandice illusions" map="289" entry="11439"/>  <!-- Scholomance: Illusion of Jandice Barov -->
+    </Task>
     <!-- movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
          goals want -->
     <Task class="MovementGoal_GlobalTask" name="Escape Hazard" priority="100" kind="position" interruptCast="true">
@@ -19,6 +24,18 @@
       </Conditions>
     </Task>
   </Global>
+  <!-- boss tactics, one subtree each; left when the tactic ends -->
+  <Node name="Jandice Illusions">
+    <Conditions>
+      <Condition binding="Root|EncounterProvider_GlobalTask::tactic" compare="equal" value="jandice illusions"/>
+    </Conditions>
+    <Task class="Task_RunSubtree">
+      <Subtree filename="statetree/Mage/STAI_Combat_Scholomance_Jandice_Mage.xml"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" node="Root"/>
+    </Transitions>
+  </Node>
   <Node name="Frost Mage">
     <Conditions>
       <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>
@@ -28,6 +45,7 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" node="Root"/>
     </Transitions>
   </Node>
   <Node name="Fire Mage">
@@ -39,6 +57,7 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" node="Root"/>
     </Transitions>
   </Node>
   <Node name="Idle">
@@ -49,6 +68,7 @@
     </Task>
     <Transitions>
       <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition type="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" node="Root"/>
     </Transitions>
   </Node>
 </Root>

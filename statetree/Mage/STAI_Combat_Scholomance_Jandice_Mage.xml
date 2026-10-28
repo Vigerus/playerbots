@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Combat subtree for Mage bots at Jandice Barov in Scholomance (run by STAI_Combat_Mage.xml while its
+     EncounterProvider_GlobalTask has the tactic "jandice illusions"; the class tree leaves it when the tactic ends):
+     runs into the illusions and clears them with Arcane Explosion -->
+<Root>
+  <Global>
+    <!-- the illusions around the bot, the closest first: closest, count, onAppeared, onGone -->
+    <Task class="CreatureProvider_GlobalTask">
+      <Creature entry="11439"/>  <!-- Illusion of Jandice Barov -->
+      <Range value="40"/>
+    </Task>
+    <!-- movement goal: into Arcane Explosion's reach (10 yards) of the closest illusion, above Position Yourself (45) and
+         Attack Range (40), below Escape Hazard (100) -->
+    <Task class="MovementGoal_GlobalTask" name="Illusions" priority="70" kind="range">
+      <Range max="8"/>
+      <Binding local="target" external="Root|CreatureProvider_GlobalTask::closest"/>
+    </Task>
+  </Global>
+  <Node name="Arcane Explosion">
+    <Conditions>
+      <Condition binding="Root|CreatureProvider_GlobalTask::closest"/>
+      <Condition binding="Root|MovementGoal_GlobalTask[Illusions]::inRange"/>
+    </Conditions>
+    <!-- a spell name: the bot's highest rank -->
+    <Task class="Task_CastSpell" spellid="Arcane Explosion">
+      <Target value="self"/>
+    </Task>
+  </Node>
+  <Node name="Approach">
+    <Conditions/>
+    <!-- on the way to the illusions (or none left in range): checks again every 100ms, sooner when the goal arrives -->
+    <Task class="Task_Wait">
+      <Delay value="100"/>
+    </Task>
+    <Transitions>
+      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Illusions]::onArrived" node="Root|Arcane Explosion"/>
+    </Transitions>
+  </Node>
+</Root>
