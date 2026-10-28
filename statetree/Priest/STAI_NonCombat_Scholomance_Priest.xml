@@ -21,7 +21,7 @@
       <Dispel type="magic"/>
       <Dispel type="disease"/>
       <!-- nothing yet: list here the Scholomance auras worth the dispel's mana and GCD -->
-      <Observe spellid=""/>
+      <Observe spellid="3436"/>
     </Task>
     <!-- watches the buffs of the bot and its group (the prayers cover a subgroup): needs, onMissingBuff -->
     <Task class="BuffProvider_GlobalTask">
