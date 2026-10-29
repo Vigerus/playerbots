@@ -27,6 +27,7 @@ the live versions are in `playerbot/`).
 | `playerbot/LootObjectStack.*` | loot candidates of a bot and whether it can loot them |
 | `playerbot/PlayerbotDbStore.*` | saved the bots' legacy values to `ai_playerbot_db_store` |
 | `playerbot/BotState.h` | the legacy engine states (NonCombat, Combat, Dead, Reaction), replaced by `HLSStateType` |
+| `instancebot/InstanceBot.*` | per-map helper the core `Map` created for raid / dungeon maps: gave its players the guild progress auras and Continuous items on entering and every 10 s; replaced by `GuildProgressSubsystem::UpdateMap` (every map, every guild member) |
 
 Rescued out of `strategy/` (now live code): `playerbot/ItemQualifier.*` (`ItemQualifier`, `ItemUsage`),
 `playerbot/ItemVisitors.h` (without the two "item usage" visitors), `playerbot/IterateItemsMask.h`,
