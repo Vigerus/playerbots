@@ -367,11 +367,14 @@ void InstanceProvider_GlobalTaskContext::UpdateStages()
 
     // the active pull of the preset: before its creatures are dead the waypoints of its path, then the waiting
     // position; once dead the cleared position. The bot's rtsc spot for the pull and state wins over the preset's
-    // position; without either the bot follows the master
+    // position; without either (or a preset without pulls) the bot follows the master
     if (hasPreset)
     {
         preset = int32(pull.presetId);
         presetName = pull.presetName;
+    }
+    if (hasPreset && pull.count > 0)
+    {
         activePull = int32(pull.index);
         activePullName = pull.name;
         const std::string which = "pull " + std::to_string(pull.index) + " " + pull.name + (pull.cleared ? " cleared, " : ", ");
