@@ -10,6 +10,7 @@
 #include "Globals/ObjectAccessor.h"
 #include "Chat/Chat.h"
 #include "Maps/Map.h"
+#include "Spells/Spell.h"
 
 #include "playerbot/ItemID.h"
 #include "playerbot/PlayerbotAIConfig.h"
@@ -19,6 +20,7 @@
 
 #define ITEM_TYPE_ITEM 0
 #define ITEM_TYPE_BUFF 1
+#define ITEM_TYPE_ENCHANT 2
 
 #define QUEST_IN_DREAMS 5944
 #define QUEST_SIGNETS_OF_THE_ZANDALAR 8246
@@ -275,6 +277,11 @@ GuildProgressSubsystem::GuildProgressSubsystem()
     {
         OnQuestRewarded(player, questId);
     });
+
+    GlobalEventSubsystem::instance().GetOnItemEnchantedDelegate().Add([&](Player* player, uint32 spellId)
+    {
+        OnItemEnchanted(player, spellId);
+    });
 }
 
 GuildProgressSubsystem::~GuildProgressSubsystem()
@@ -304,6 +311,10 @@ void GuildProgressSubsystem::Load(const ConfigAccess& config)
             if (item_type == ITEM_TYPE_ITEM)
             {
                 guildItemsMap[guild_id].push_back(item_id);
+            }
+            else if (item_type == ITEM_TYPE_ENCHANT)
+            {
+                guildEnchantsMap[guild_id].push_back(item_id);
             }
             else
             {
@@ -487,6 +498,47 @@ void GuildProgressSubsystem::OnQuestRewarded(Player* player, uint32 questId)
     }
 
     UnlockQuest(player->GetGuildId(), questId);
+}
+
+void GuildProgressSubsystem::OnItemEnchanted(Player* player, uint32 spellId)
+{
+    if (player == nullptr)
+    {
+        return;
+    }
+
+    SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+    uint32 guildId = player->GetGuildId();
+    Guild* guild = sGuildMgr.GetGuildById(guildId);
+
+    if (spellInfo == nullptr || guild == nullptr)
+    {
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_lock);
+        std::vector<uint32>& guildEnchants = guildEnchantsMap[guildId];
+
+        if (std::find(guildEnchants.begin(), guildEnchants.end(), spellId) != guildEnchants.end())
+        {
+            return;
+        }
+
+        guildEnchants.push_back(spellId);
+    }
+
+    std::ostringstream ss;
+    ss << "New enchant " << spellInfo->SpellName[0] << " added to the guild pool!";
+    Save(guildId, ITEM_TYPE_ENCHANT, spellId);
+    guild->BroadcastEvent(GE_MOTD, ss.str().c_str());
+}
+
+bool GuildProgressSubsystem::IsEnchantUnlocked(uint32 guildId, uint32 spellId) const
+{
+    std::lock_guard<std::mutex> lock(m_lock);
+    auto it = guildEnchantsMap.find(guildId);
+    return it != guildEnchantsMap.end() && std::find(it->second.begin(), it->second.end(), spellId) != it->second.end();
 }
 
 void GuildProgressSubsystem::ApplyGuildProgress(Player* player)
@@ -704,22 +756,77 @@ void GuildProgressSubsystem::HandleRequest(Player* player, std::string const& ms
 
         // stored on the member's own map thread
         QueueRequest(target->GetObjectGuid(), "spawn " + std::to_string(itemId) + " " + std::to_string(player->GetObjectGuid().GetRawValue()), true);
+        return;
+    }
+
+    if (command == "enchant")
+    {
+        EnchantItem(player, in);
     }
 }
 
-// "BOTGP" chunks of "A^<spell>^<acquired>^<name>" and "I^<item>^<tab C|R|Q>^<C continuous|D on demand>^<acquired>^<name>",
-// separated by '~'
+// "guildprogress enchant <spell> <bag> <slot>": the client refuses a recipe without its reagents on its own, so the
+// server casts it; <bag> -1 is an equipped item (<slot> 1-19), 0 the backpack, 1-4 the bags, as in the client's API
+void GuildProgressSubsystem::EnchantItem(Player* player, std::istream& in)
+{
+    uint32 spellId = 0;
+    int32 bag = 0;
+    int32 slot = 0;
+    in >> spellId >> bag >> slot;
+
+    SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+    if (spellInfo == nullptr || !player->HasActiveSpell(spellId) || !IsEnchantUnlocked(player->GetGuildId(), spellId))
+    {
+        ChatHandler(player).SendSysMessage("Your guild has not unlocked that enchant.");
+        return;
+    }
+
+    Item* item = nullptr;
+    if (bag == -1 && slot >= 1 && slot <= EQUIPMENT_SLOT_END)
+    {
+        item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot - 1);
+    }
+    else if (bag == 0 && slot >= 1)
+    {
+        item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, INVENTORY_SLOT_ITEM_START + slot - 1);
+    }
+    else if (bag >= 1 && bag <= 4 && slot >= 1)
+    {
+        item = player->GetItemByPos(INVENTORY_SLOT_BAG_START + bag - 1, slot - 1);
+    }
+
+    if (item == nullptr)
+    {
+        ChatHandler(player).SendSysMessage("No item there to enchant.");
+        return;
+    }
+
+    // a normal cast: the cast bar, the tools, the item's class; only the reagents are skipped
+    SpellCastTargets targets;
+    targets.setItemTarget(item);
+    Spell* spell = new Spell(player, spellInfo, TRIGGERED_NONE);
+    spell->SpellStart(&targets);
+}
+
+// "BOTGP" chunks of "A^<spell>^<acquired>^<name>", "I^<item>^<tab C|R|Q>^<C continuous|D on demand>^<acquired>^<name>"
+// and "E^<spell>^<name>" (the guild's enchants), separated by '~'
 void GuildProgressSubsystem::SendList(Player* player)
 {
     uint32 guildId = player->GetGuildId();
     std::vector<uint32> buffs = GetGuildBuffs(guildId);
     std::vector<uint32> items;
+    std::vector<uint32> enchants;
     {
         std::lock_guard<std::mutex> lock(m_lock);
         auto it = guildItemsMap.find(guildId);
         if (it != guildItemsMap.end())
         {
             items = it->second;
+        }
+        auto enchantIt = guildEnchantsMap.find(guildId);
+        if (enchantIt != guildEnchantsMap.end())
+        {
+            enchants = enchantIt->second;
         }
     }
 
@@ -742,6 +849,12 @@ void GuildProgressSubsystem::SendList(Player* player)
             payload << "~I^" << item.id << "^" << code << "^" << (item.acquireMethod == ItemAcquireMethod::Continuous ? 'C' : 'D') << "^"
                 << (acquired ? 1 : 0) << "^" << Clean(proto ? proto->Name1 : std::to_string(item.id));
         }
+    }
+
+    for (uint32 spellId : enchants)
+    {
+        SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+        payload << "~E^" << spellId << "^" << Clean(spellInfo ? spellInfo->SpellName[0] : std::to_string(spellId));
     }
 
     std::string const text = payload.str();

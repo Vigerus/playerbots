@@ -3,6 +3,7 @@
 #include "Entities/ObjectGuid.h"
 
 #include <atomic>
+#include <istream>
 #include <map>
 #include <mutex>
 #include <string>
@@ -35,7 +36,8 @@ struct AuraProgressSet
 };
 
 // What a guild has acquired: auras seen on its members, consumables / crafted items they made, quest items unlocked by
-// rewarding a quest. Guild members get the auras and the Continuous items (UpdateMap, on entering a map and every few
+// rewarding a quest, enchants its enchanters made (with the reagents; then free for every enchanter of the guild who
+// knows the recipe, Player::CanNoReagentCast). Guild members get the auras and the Continuous items (UpdateMap, on entering a map and every few
 // seconds); OnDemand items are given by the GuildProgress addon ("BOT\tguildprogress list|give <item> <member>",
 // answers "BOTGP").
 class GuildProgressSubsystem
@@ -56,6 +58,9 @@ public:
 
     std::vector<uint32> GetGuildBuffsForClass(uint32 guildId, uint8 classId) const;
     std::vector<uint32> GetGuildItemsForClass(uint32 guildId, uint8 classId) const;
+
+    // any thread: a permanent enchant spell the guild has made once
+    bool IsEnchantUnlocked(uint32 guildId, uint32 spellId) const;
 
     // map thread: the guild members on the map get the guild's auras / items, the addon requests of its players
     void UpdateMap(Map* map);
@@ -79,6 +84,7 @@ private:
     void OnItemCreated(Player* player, uint32 itemId);
     void OnAuraApplied(Unit* unit, uint32 itemId);
     void OnQuestRewarded(Player* player, uint32 questId);
+    void OnItemEnchanted(Player* player, uint32 spellId);
 
     bool UnlockItem(uint32 guildId, uint32 itemId);
     void UnlockQuest(uint32 guildId, uint32 questId);
@@ -89,6 +95,7 @@ private:
     void QueueRequest(ObjectGuid guid, std::string const& msg, bool internal);
     void HandleRequest(Player* player, std::string const& msg, bool internal);
     void SendList(Player* player);
+    void EnchantItem(Player* player, std::istream& in);
     void Reply(ObjectGuid requester, std::string const& text);
 
     void BuildReducedSet(const std::vector<uint32>& fullSet, std::vector<uint32>& reducedSet);
@@ -97,6 +104,7 @@ private:
     std::map<uint32, std::vector<uint32>> guildItemsMap;
     std::map<uint32, std::vector<uint32>> guildReducedItemsMap;
     std::map<uint32, std::vector<uint32>> guildBuffsMap;
+    std::map<uint32, std::vector<uint32>> guildEnchantsMap;
     std::unordered_map<ObjectGuid, time_t> m_nextCheck;
 
     std::mutex m_requestLock;
