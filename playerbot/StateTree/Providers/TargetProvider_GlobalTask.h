@@ -78,25 +78,25 @@ namespace ai
     // highest other entry (the tank, usually; also before anybody else has threat) is not published: target is empty
     // and onTargetChanged fires, so dps nodes are not selected; it is published again (onTargetChanged) once the
     // bot's share drops below. The legacy "current target" keeps the chosen unit.
-    class TargetProvider_GlobalTask : public STAI_GlobalTask
+    class TargetProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         TargetProvider_GlobalTask(bool withThreat, float threatShare, bool assistTank, float tankRange, std::vector<STAI_WatchedAura> auras)
             : withThreat(withThreat), threatShare(threatShare), assistTank(assistTank), tankRange(tankRange), auras(std::move(auras)) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "TargetProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "TargetProvider_GlobalTask"; }
         inline static std::string task_name = "TargetProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<TargetProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
+        virtual void OnExitState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

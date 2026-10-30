@@ -104,7 +104,7 @@ void TargetProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     STAI_TargetAuraWatch::Parse(config);
 }
 
-std::unique_ptr<STAI_Task> TargetProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> TargetProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<TargetProvider_GlobalTask>(ParseWithThreat(config), ParseThreatShare(config), ParseAssistTank(config),
         ParseTankRange(config), STAI_TargetAuraWatch::Parse(config));
@@ -325,9 +325,9 @@ void TargetProvider_GlobalTask::Choose(TargetProvider_GlobalTaskContext& context
     SetChosen(context, FindAssistTarget(context, ccMarks, assistTank), false);
 }
 
-EActionRunStatus TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus TargetProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnEnterState);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
     context.target.Clear();
     context.chosen.Clear();
@@ -342,9 +342,9 @@ EActionRunStatus TargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContex
     return EActionRunStatus::Running;
 }
 
-void TargetProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void TargetProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TargetProvider_GlobalTask::OnExitState);
     TargetProvider_GlobalTaskContext& context = ContextAs<TargetProvider_GlobalTaskContext>(baseContext);
     context.target.Clear();
     context.chosen.Clear();

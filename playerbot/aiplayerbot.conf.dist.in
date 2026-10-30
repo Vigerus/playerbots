@@ -920,7 +920,7 @@ AiPlayerbot.FleeingEnabled = 1
 # State trees (STAI_*.xml) of the bot states. Each tree lists nodes with conditions and a task, checked top
 # to bottom. The class entry wins over Default; an empty value (or a file that fails to load, see the
 # server log) uses a single Idle node.
-# Formats are described in statetree/README.md. Paths are relative to the directory of aiplayerbot.conf.
+# Formats are described in statetree/STATETREE_FORMAT.md (v2, RedStateTree-like) and statetree/README.md. Paths are relative to the directory of aiplayerbot.conf.
 # Class trees are in statetree/<Class>/; every class but Shaman (Reincarnation) uses the Default Dead tree.
 
 AiPlayerbot.StateTree.NonCombat.Default = statetree/STAI_NonCombat.xml

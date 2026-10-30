@@ -24,14 +24,14 @@ namespace ai
     //   <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Eat and Drink">
     //     <Conditions> <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/> </Conditions>
     //   </Transition>
-    class ResourceProvider_GlobalTask : public STAI_GlobalTask
+    class ResourceProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<ResourceProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
 
     protected:
@@ -43,9 +43,9 @@ namespace ai
     {
     public:
         static void Validate(const STAI_TaskConfig& config) {}
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<HealthProvider_GlobalTask>(); }
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config) { return std::make_unique<HealthProvider_GlobalTask>(); }
 
-        virtual const char* GetTaskClass() const override { return "HealthProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "HealthProvider_GlobalTask"; }
         inline static std::string task_name = "HealthProvider";
         virtual std::string GetName() const override { return task_name; }
 
@@ -61,9 +61,9 @@ namespace ai
     {
     public:
         static void Validate(const STAI_TaskConfig& config) {}
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<ManaProvider_GlobalTask>(); }
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config) { return std::make_unique<ManaProvider_GlobalTask>(); }
 
-        virtual const char* GetTaskClass() const override { return "ManaProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "ManaProvider_GlobalTask"; }
         inline static std::string task_name = "ManaProvider";
         virtual std::string GetName() const override { return task_name; }
 

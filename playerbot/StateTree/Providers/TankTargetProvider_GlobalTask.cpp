@@ -179,9 +179,9 @@ void TankTargetProvider_GlobalTask::Choose(TankTargetProvider_GlobalTaskContext&
         }
 }
 
-EActionRunStatus TankTargetProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus TankTargetProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(TankTargetProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TankTargetProvider_GlobalTask::OnEnterState);
     TankTargetProvider_GlobalTaskContext& context = ContextAs<TankTargetProvider_GlobalTaskContext>(baseContext);
     context.target.Clear();
     context.taunt.Clear();
@@ -210,9 +210,9 @@ EActionRunStatus TankTargetProvider_GlobalTask::OnTick(STAI_TaskContext& baseCon
     return EActionRunStatus::Running;
 }
 
-void TankTargetProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void TankTargetProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(TankTargetProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TankTargetProvider_GlobalTask::OnExitState);
     TankTargetProvider_GlobalTaskContext& context = ContextAs<TankTargetProvider_GlobalTaskContext>(baseContext);
     context.roles.Unsubscribe();
     context.auraWatch.Unsubscribe();

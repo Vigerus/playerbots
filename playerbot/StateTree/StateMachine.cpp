@@ -158,16 +158,18 @@ static std::string SanitizeTransition(const std::string& text)
 //                             {spell:<id>} shown as the spell)
 //       ^<node disabled 0|1>  (switched off in the addon: never selected)
 //       ^<override 0|1|2,...> (per condition: 0 checked, 1 forced to pass, 2 forced to fail in the addon)
-//       nodes of the top tree; task class / info of the running task (the first one while inactive), every task
-//       of the node in the order they run, its transitions "<type> Root/<node>" in the order they are checked
+//       ^<depth>              (the state's nesting: 0 a top level state, its children follow it with depth + 1)
+//       states of the top tree, depth first; task class / info of the running task (the first one while inactive),
+//       every task of the state (they run at the same time), its transitions "<trigger> <target>" in the order
+//       they are checked
 //       conditions: [ANY:]<result><condition>&&<result><condition>..., result + passed, - failed, ? not checked;
 //       ANY: one of them has to pass (<Conditions match="any">), else all
 //   U^<type>^<tree id>^<parent tree id>^<node index>^<task index>^<tree name>
 //       a tree a task of a node runs (Task_RunSubtree) while it does not run: the tree file's nodes (V records)
 //       down to the leaves; parent 0 is the top tree (its C records), else the U tree of that id; ids count from 1
 //       per state, a U record comes after the records of its parent tree; node / task index 0-based
-//   V^<type>^<tree id>^<node name>^<conditions>^<task;task;...>^<transition;transition;...>^<info;info;...>
-//       node of the U tree <tree id>, not running (conditions '?', not checked), fields as in C
+//   V^<type>^<tree id>^<node name>^<conditions>^<task;task;...>^<transition;transition;...>^<info;info;...>^<depth>
+//       state of the U tree <tree id>, not running (conditions '?', not checked), fields as in C
 //   T^<from type or *>^<to type>^<condition label>
 // a task's debug info inside the ';' separated list of a node's tasks
 static std::string SanitizeTaskInfo(const std::string& info)
@@ -210,6 +212,7 @@ static void AppendDebugSubtrees(std::ostream& out, const char* type, const std::
                 out << "^";
                 for (size_t task = 0; task < child.taskInfos.size(); ++task)
                     out << (task ? ";" : "") << SanitizeTaskInfo(child.taskInfos[task]);
+                out << "^" << child.depth;
             }
             AppendDebugSubtrees(out, type, subtree.nodes, id, nextId);
         }
@@ -269,6 +272,7 @@ std::string StateMachine::BuildDebugSnapshot() const
             out << "^" << (child.disabled ? 1 : 0) << "^";
             for (size_t condition = 0; condition < child.conditionOverrides.size(); ++condition)
                 out << (condition ? "," : "") << int(child.conditionOverrides[condition]);
+            out << "^" << child.depth;
         }
 
         int nextSubtree = 0;

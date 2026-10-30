@@ -23,7 +23,7 @@ void InterruptProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     STAI_SpellFilter::Parse(config);
 }
 
-std::unique_ptr<STAI_Task> InterruptProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> InterruptProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<InterruptProvider_GlobalTask>(STAI_ConfiguredSpell::Parse(config), STAI_SpellFilter::Parse(config));
 }
@@ -91,9 +91,9 @@ void InterruptProvider_GlobalTask::Update(InterruptProvider_GlobalTaskContext& c
     }
 }
 
-EActionRunStatus InterruptProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus InterruptProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(InterruptProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(InterruptProvider_GlobalTask::OnEnterState);
     InterruptProvider_GlobalTaskContext& context = ContextAs<InterruptProvider_GlobalTaskContext>(baseContext);
     context.whoNeeds.clear();
     context.causes.clear();

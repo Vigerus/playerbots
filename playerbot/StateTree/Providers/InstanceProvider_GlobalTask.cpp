@@ -138,9 +138,9 @@ namespace
     }
 }
 
-EActionRunStatus InstanceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus InstanceProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(InstanceProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(InstanceProvider_GlobalTask::OnEnterState);
     InstanceProvider_GlobalTaskContext& context = ContextAs<InstanceProvider_GlobalTaskContext>(baseContext);
     context.Subscribe();
     if (context.bot->IsInWorld())
@@ -149,9 +149,9 @@ EActionRunStatus InstanceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseCont
     return EActionRunStatus::Running;
 }
 
-void InstanceProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void InstanceProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(InstanceProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(InstanceProvider_GlobalTask::OnExitState);
     // mapId / instanceId stay: a change while the tree does not run fires when it starts again
     ContextAs<InstanceProvider_GlobalTaskContext>(baseContext).Unsubscribe();
 }

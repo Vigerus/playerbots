@@ -44,23 +44,23 @@ namespace ai
     // the interrupt is on cooldown. Ticked: checks every 100ms; onInterruptNeeded fires when the first caster of
     // whoNeeds or its spell changes. Property causes (the spell of each caster) bound into Task_CastSpell's causes
     // shows what the interrupt stops.
-    class InterruptProvider_GlobalTask : public STAI_GlobalTask
+    class InterruptProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         InterruptProvider_GlobalTask(STAI_ConfiguredSpell spell, STAI_SpellFilter filter) : spell(std::move(spell)), filter(std::move(filter)) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "InterruptProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "InterruptProvider_GlobalTask"; }
         inline static std::string task_name = "InterruptProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<InterruptProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

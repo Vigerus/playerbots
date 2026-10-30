@@ -1,97 +1,110 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat state tree for Priest bots: AiPlayerbot.StateTree.Combat.Priest -->
-<!-- picks the subtree for the bot's spec (Holy and Disc share the healer subtree, its Scholomance variant there); a spec
-     change (talents learned or reset) or an instance change selects again -->
-<Root>
-  <Global>
-    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
+<StateTree version="2">
+  <Comment>Combat state tree for Priest bots: AiPlayerbot.StateTree.Combat.Priest
+    picks the subtree for the bot's spec (Holy and Disc share the healer subtree, its Scholomance variant there); a spec
+    change (talents learned or reset) or an instance change selects again</Comment>
+  <GlobalTasks>
     <Task class="HazardProvider_GlobalTask">
+      <Comment>hostile area effects on the ground around the bot: inHazard, safePosition, onHazard</Comment>
       <Margin value="2"/>
     </Task>
-    <!-- the bot's map / instance: mapId, onInstanceChanged -->
-    <Task class="InstanceProvider_GlobalTask"/>
-    <!-- the bot's spec: specName, onSpecChanged -->
-    <Task class="SpecProvider_GlobalTask"/>
-    <!-- movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
-         goals want -->
+    <Task class="InstanceProvider_GlobalTask">
+      <Comment>the bot's map / instance: mapId, onInstanceChanged</Comment>
+    </Task>
+    <Task class="SpecProvider_GlobalTask">
+      <Comment>the bot's spec: specName, onSpecChanged</Comment>
+    </Task>
     <Task class="MovementGoal_GlobalTask" name="Escape Hazard" priority="100" kind="position" interruptCast="true">
+      <Comment>movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
+        goals want</Comment>
       <Radius value="1"/>
       <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
       <Conditions>
-        <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
+        <Condition class="Condition_Compare" binding="Root|HazardProvider_GlobalTask::inHazard"/>
       </Conditions>
     </Task>
-  </Global>
-  <!-- Scholomance (map 289): the healer subtree with its own dispel exceptions -->
-  <Node name="Holy Priest Scholomance">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="holy priest"/>
-      <Condition binding="Root|InstanceProvider_GlobalTask::mapId" compare="equal" value="289"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Priest/STAI_Combat_Healer_Scholomance_Priest.xml"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Holy Priest Scholomance">
+    <Comment>Scholomance (map 289): the healer subtree with its own dispel exceptions</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="holy priest"/>
+      <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::mapId" compare="equal" value="289"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Priest/STAI_Combat_Healer_Scholomance_Priest.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Disc Priest Scholomance">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="disc priest"/>
-      <Condition binding="Root|InstanceProvider_GlobalTask::mapId" compare="equal" value="289"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Priest/STAI_Combat_Healer_Scholomance_Priest.xml"/>
-    </Task>
+  </State>
+  <State name="Disc Priest Scholomance">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="disc priest"/>
+      <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::mapId" compare="equal" value="289"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Priest/STAI_Combat_Healer_Scholomance_Priest.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Holy Priest">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="holy priest"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Priest/STAI_Combat_Healer_Priest.xml"/>
-    </Task>
+  </State>
+  <State name="Holy Priest">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="holy priest"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Priest/STAI_Combat_Healer_Priest.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Disc Priest">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="disc priest"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Priest/STAI_Combat_Healer_Priest.xml"/>
-    </Task>
+  </State>
+  <State name="Disc Priest">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="disc priest"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Priest/STAI_Combat_Healer_Priest.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Shadow Priest">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="shadow priest"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Priest/STAI_Combat_Shadow_Priest.xml"/>
-    </Task>
+  </State>
+  <State name="Shadow Priest">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="shadow priest"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Priest/STAI_Combat_Shadow_Priest.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- no spec subtree: waits for a spec change -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>no spec subtree: waits for a spec change</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

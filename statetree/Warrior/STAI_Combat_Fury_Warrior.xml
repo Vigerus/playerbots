@@ -1,240 +1,292 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat subtree for Fury Warrior bots (run by STAI_Combat_Warrior.xml): berserker stance (battle until the bot knows
-     it), the tank's unit from behind, Bloodthirst / Whirlwind, Execute, rage dumps; Intercept only when it pulls nothing -->
-<Root>
-  <Global>
-    <!-- health of the bot: healthPct, onHealthChanged -->
-    <Task class="HealthProvider_GlobalTask"/>
-    <!-- rage, stance, Revenge / Overpower: rage, stance, knowsBerserker, onReactive -->
-    <Task class="WarriorProvider_GlobalTask"/>
-    <!-- known and off cooldown: ready[<spell id>] (an unknown spell is never ready) -->
+<StateTree version="2">
+  <Comment>Combat subtree for Fury Warrior bots (run by STAI_Combat_Warrior.xml): berserker stance (battle until the bot knows
+    it), the tank's unit from behind, Bloodthirst / Whirlwind, Execute, rage dumps; Intercept only when it pulls nothing</Comment>
+  <GlobalTasks>
+    <Task class="HealthProvider_GlobalTask">
+      <Comment>health of the bot: healthPct, onHealthChanged</Comment>
+    </Task>
+    <Task class="WarriorProvider_GlobalTask">
+      <Comment>rage, stance, Revenge / Overpower: rage, stance, knowsBerserker, onReactive</Comment>
+    </Task>
     <Task class="CooldownProvider_GlobalTask">
-      <Spell id="23881"/>  <!-- Bloodthirst -->
-      <Spell id="1680"/>   <!-- Whirlwind -->
-      <Spell id="20252"/>  <!-- Intercept -->
-      <Spell id="2687"/>   <!-- Bloodrage -->
-      <Spell id="6552"/>   <!-- Pummel -->
-      <Spell id="5308"/>   <!-- Execute -->
-      <Spell id="845"/>    <!-- Cleave -->
-      <Spell id="78"/>     <!-- Heroic Strike -->
-      <Spell id="12328"/>  <!-- Death Wish -->
-      <Spell id="7386"/>   <!-- Sunder Armor -->
+      <Comment>known and off cooldown: ready[&lt;spell id&gt;] (an unknown spell is never ready)</Comment>
+      <Spell id="23881"/>
+      <!-- Bloodthirst -->
+      <Spell id="1680"/>
+      <!-- Whirlwind -->
+      <Spell id="20252"/>
+      <!-- Intercept -->
+      <Spell id="2687"/>
+      <!-- Bloodrage -->
+      <Spell id="6552"/>
+      <!-- Pummel -->
+      <Spell id="5308"/>
+      <!-- Execute -->
+      <Spell id="845"/>
+      <!-- Cleave -->
+      <Spell id="78"/>
+      <!-- Heroic Strike -->
+      <Spell id="12328"/>
+      <!-- Death Wish -->
+      <Spell id="7386"/>
+      <!-- Sunder Armor -->
     </Task>
-    <!-- interruptible casts of the enemies that Pummel reaches now: whoNeeds, onInterruptNeeded -->
-    <Task class="InterruptProvider_GlobalTask" spellid="Pummel"/>
-    <!-- Battle Shout on the bot (its party gets it with it): needs, onMissingBuff -->
+    <Task class="InterruptProvider_GlobalTask" spellid="Pummel">
+      <Comment>interruptible casts of the enemies that Pummel reaches now: whoNeeds, onInterruptNeeded</Comment>
+    </Task>
     <Task class="BuffProvider_GlobalTask">
-      <Buff spellid="6673" scope="self"/>  <!-- Battle Shout -->
+      <Comment>Battle Shout on the bot (its party gets it with it): needs, onMissingBuff</Comment>
+      <Buff spellid="6673" scope="self"/>
+      <!-- Battle Shout -->
     </Task>
-    <!-- the unit to attack: the first living rti mark, else the unit the tank attacks; held back (empty, threatHigh)
-         while the bot's threat is at 90% of the tank's, also before the tank has any (the bot waits for the pull);
-         tankNear once the tank has been within 10 yards of it (the tank pulls with a bow and waits out of sight for
-         the units to come); auraStacks[7386]: Sunder Armor on the target -->
     <Task class="TargetProvider_GlobalTask">
+      <Comment>the unit to attack: the first living rti mark, else the unit the tank attacks; held back (empty, threatHigh)
+        while the bot's threat is at 90% of the tank's, also before the tank has any (the bot waits for the pull);
+        tankNear once the tank has been within 10 yards of it (the tank pulls with a bow and waits out of sight for
+        the units to come); auraStacks[7386]: Sunder Armor on the target</Comment>
       <WithThreat value="true"/>
       <ThreatAmount value="90"/>
       <AssistTank value="true"/>
       <TankRange value="10"/>
-      <Aura spellid="7386"/>  <!-- Sunder Armor -->
+      <Aura spellid="7386"/>
+      <!-- Sunder Armor -->
     </Task>
-    <!-- the bot against that unit: inMelee, behind, attacking, targetHealthPct, enemiesInMelee, inCombat, canCharge,
-         swingQueued; onMeleeChanged, onCanCharge -->
     <Task class="MeleeProvider_GlobalTask">
+      <Comment>the bot against that unit: inMelee, behind, attacking, targetHealthPct, enemiesInMelee, inCombat, canCharge,
+        swingQueued; onMeleeChanged, onCanCharge</Comment>
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
       <ChargeRange min="8" max="25"/>
       <PullRadius value="15"/>
       <FightTime value="2000"/>
     </Task>
-    <!-- movement goal (MovementGoal_GlobalTask): in melee reach of the target, at its back; only once the tank is
-         near it (no rushing to a unit the tank pulls to itself) -->
     <Task class="MovementGoal_GlobalTask" name="Melee" priority="50" kind="range">
+      <Comment>movement goal (MovementGoal_GlobalTask): in melee reach of the target, at its back; only once the tank is
+        near it (no rushing to a unit the tank pulls to itself)</Comment>
       <Range max="melee"/>
       <Side value="behind"/>
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
       <Conditions>
-        <Condition binding="Root|TargetProvider_GlobalTask::tankNear"/>
+        <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::tankNear"/>
       </Conditions>
     </Task>
-  </Global>
-  <!-- the threat is too high (or the tank has none yet): stop hitting, stay where the bot is -->
-  <Node name="Hold Threat">
-    <Conditions>
-      <Condition binding="Root|TargetProvider_GlobalTask::threatHigh"/>
-      <Condition binding="Root|MeleeProvider_GlobalTask::attacking"/>
-    </Conditions>
-    <Task class="Task_StopAttack"/>
-  </Node>
-  <!-- low health: the best healing potion of the bags (fails while none can be used, not selected again for 3s) -->
-  <Node name="Health Potion">
-    <Conditions>
-      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="25"/>
-    </Conditions>
-    <Task class="Task_UseItem">
-      <Item id="13446"/>  <!-- Major Healing Potion -->
-      <Item id="3928"/>   <!-- Superior Healing Potion -->
-      <Item id="1710"/>   <!-- Greater Healing Potion -->
-      <Item id="929"/>    <!-- Healing Potion -->
-      <Item id="858"/>    <!-- Lesser Healing Potion -->
-      <Item id="118"/>    <!-- Minor Healing Potion -->
-    </Task>
-  </Node>
-  <Node name="Berserker Stance">
-    <Conditions>
-      <Condition binding="Root|WarriorProvider_GlobalTask::knowsBerserker"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="berserker" negate="true"/>
-    </Conditions>
-    <Task class="Task_Stance">
-      <Stance value="berserker"/>
-    </Task>
-  </Node>
-  <!-- below 30 (no Berserker Stance yet): battle stance -->
-  <Node name="Battle Stance">
-    <Conditions>
-      <Condition binding="Root|WarriorProvider_GlobalTask::knowsBerserker" negate="true"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="battle" negate="true"/>
-    </Conditions>
-    <Task class="Task_Stance">
-      <Stance value="battle"/>
-    </Task>
-  </Node>
-  <Node name="Interrupt">
-    <Conditions>
-      <Condition binding="Root|InterruptProvider_GlobalTask::whoNeeds"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="berserker"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Pummel">
-      <Binding local="whoNeeds" external="Root|InterruptProvider_GlobalTask::whoNeeds"/>
-      <Binding local="causes" external="Root|InterruptProvider_GlobalTask::causes"/>
-    </Task>
-  </Node>
-  <!-- rage for the opening: only while the bot has a target and is healthy -->
-  <Node name="Bloodrage">
-    <Conditions>
-      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="2687"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="lesser" value="20"/>
-      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="greater" value="50"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Bloodrage">
-      <Target value="self"/>
-    </Task>
-  </Node>
-  <!-- Intercept to a unit that has fought the group for 2s, 8 - 25 yards away, with nothing idle near it or the bot,
-       once the tank is near it -->
-  <Node name="Intercept">
-    <Conditions>
-      <Condition binding="Root|MeleeProvider_GlobalTask::canCharge"/>
-      <Condition binding="Root|TargetProvider_GlobalTask::tankNear"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="berserker"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="20252"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Intercept">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
-  </Node>
-  <!-- the auto attack on the target (also out of reach: the swings start in reach); the Melee movement goal
-       walks the bot to it and keeps it behind it -->
-  <Node name="Start Attack">
-    <Conditions>
-      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition binding="Root|MeleeProvider_GlobalTask::attacking" negate="true"/>
-    </Conditions>
-    <Task class="Task_StartAttack">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
-  </Node>
-  <!-- Sunder Armor stacks first: up to 5 on the target (any warrior's), not in the execute phase -->
-  <Node name="Sunder Armor">
-    <Conditions>
-      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
-      <Condition binding="Root|TargetProvider_GlobalTask::auraStacks" key="7386" compare="lesser" value="5"/>
-      <Condition binding="Root|MeleeProvider_GlobalTask::targetHealthPct" compare="greater or equal" value="20"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="7386"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="15"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Sunder Armor">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
-  </Node>
-  <Node name="Battle Shout">
-    <Conditions>
-      <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
-    </Conditions>
-    <Task class="Task_CastBuff">
-      <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
-    </Task>
-  </Node>
-  <Node name="Execute">
-    <Conditions>
-      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
-      <Condition binding="Root|MeleeProvider_GlobalTask::targetHealthPct" compare="lesser" value="20"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="5308"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="15"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Execute">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
-  </Node>
-  <Node name="Bloodthirst">
-    <Conditions>
-      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="23881"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="30"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Bloodthirst">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
-  </Node>
-  <Node name="Whirlwind">
-    <Conditions>
-      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="berserker"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="1680"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="25"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Whirlwind">
-      <Target value="self"/>
-    </Task>
-  </Node>
-  <!-- rage to spare: on the next swing (once queued, it waits for the swing) -->
-  <Node name="Cleave">
-    <Conditions>
-      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
-      <Condition binding="Root|MeleeProvider_GlobalTask::enemiesInMelee" compare="greater or equal" value="2"/>
-      <Condition binding="Root|MeleeProvider_GlobalTask::swingQueued" negate="true"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="845"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="50"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Cleave">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
-  </Node>
-  <Node name="Heroic Strike">
-    <Conditions>
-      <Condition binding="Root|MeleeProvider_GlobalTask::inMelee"/>
-      <Condition binding="Root|MeleeProvider_GlobalTask::swingQueued" negate="true"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="78"/>
-      <Condition binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="60"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Heroic Strike">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- no target (none, or held back by threat): waits briefly, sooner on the delegates -->
-    <Task class="Task_Wait" show_log="false">
-      <Delay value="200"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Hold Threat">
+    <Comment>the threat is too high (or the tank has none yet): stop hitting, stay where the bot is</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::threatHigh"/>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::attacking"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_StopAttack"/>
+    </Tasks>
+  </State>
+  <State name="Health Potion">
+    <Comment>low health: the best healing potion of the bags (fails while none can be used, not selected again for 3s)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="25"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_UseItem">
+        <Item id="13446"/>
+        <!-- Major Healing Potion -->
+        <Item id="3928"/>
+        <!-- Superior Healing Potion -->
+        <Item id="1710"/>
+        <!-- Greater Healing Potion -->
+        <Item id="929"/>
+        <!-- Healing Potion -->
+        <Item id="858"/>
+        <!-- Lesser Healing Potion -->
+        <Item id="118"/>
+        <!-- Minor Healing Potion -->
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Berserker Stance">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::knowsBerserker"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="berserker" inverted="true"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Stance">
+        <Stance value="berserker"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Battle Stance">
+    <Comment>below 30 (no Berserker Stance yet): battle stance</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::knowsBerserker" inverted="true"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="battle" inverted="true"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Stance">
+        <Stance value="battle"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Interrupt">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="berserker"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Pummel">
+        <Binding local="whoNeeds" external="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+        <Binding local="causes" external="Root|InterruptProvider_GlobalTask::causes"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Bloodrage">
+    <Comment>rage for the opening: only while the bot has a target and is healthy</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="2687"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="lesser" value="20"/>
+      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="greater" value="50"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Bloodrage">
+        <Target value="self"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Intercept">
+    <Comment>Intercept to a unit that has fought the group for 2s, 8 - 25 yards away, with nothing idle near it or the bot,
+      once the tank is near it</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::canCharge"/>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::tankNear"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="berserker"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="20252"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Intercept">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Start Attack">
+    <Comment>the auto attack on the target (also out of reach: the swings start in reach); the Melee movement goal
+      walks the bot to it and keeps it behind it</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::attacking" inverted="true"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_StartAttack">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Sunder Armor">
+    <Comment>Sunder Armor stacks first: up to 5 on the target (any warrior's), not in the execute phase</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::auraStacks" key="7386" compare="lesser" value="5"/>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::targetHealthPct" compare="greater or equal" value="20"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="7386"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="15"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Sunder Armor">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Battle Shout">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|BuffProvider_GlobalTask::needs"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="10"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastBuff">
+        <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Execute">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::targetHealthPct" compare="lesser" value="20"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="5308"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="15"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Execute">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Bloodthirst">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="23881"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="30"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Bloodthirst">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Whirlwind">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="berserker"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="1680"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="25"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Whirlwind">
+        <Target value="self"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Cleave">
+    <Comment>rage to spare: on the next swing (once queued, it waits for the swing)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::enemiesInMelee" compare="greater or equal" value="2"/>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::swingQueued" inverted="true"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="845"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="50"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Cleave">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Heroic Strike">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::inMelee"/>
+      <Condition class="Condition_Compare" binding="Root|MeleeProvider_GlobalTask::swingQueued" inverted="true"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="78"/>
+      <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="greater or equal" value="60"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Heroic Strike">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait" show_log="false">
+        <Comment>no target (none, or held back by threat): waits briefly, sooner on the delegates</Comment>
+        <Delay value="200"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTankNear" node="Root"/>
-      <Transition type="OnDelegate" source="Root|MeleeProvider_GlobalTask::onMeleeChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|MeleeProvider_GlobalTask::onCanCharge" node="Root|Intercept"/>
-      <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
+      <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTankNear" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MeleeProvider_GlobalTask::onMeleeChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MeleeProvider_GlobalTask::onCanCharge" target="Root|Intercept"/>
+      <Transition trigger="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" target="Root|Interrupt"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

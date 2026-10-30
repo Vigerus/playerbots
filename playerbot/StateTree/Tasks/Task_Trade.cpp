@@ -17,9 +17,9 @@ namespace
     }
 }
 
-EActionRunStatus Task_OpenTrade::OnEnter(STAI_TaskContext& context) const
+EActionRunStatus Task_OpenTrade::OnEnterState(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_OpenTrade::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_OpenTrade::OnEnterState);
     StartLog(context);
     Player* bot = context.bot;
     Player* trader = bot->GetTrader();
@@ -41,9 +41,9 @@ EActionRunStatus Task_OpenTrade::OnEnter(STAI_TaskContext& context) const
     return EActionRunStatus::Succeeded;
 }
 
-EActionRunStatus Task_AcceptTrade::OnEnter(STAI_TaskContext& context) const
+EActionRunStatus Task_AcceptTrade::OnEnterState(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_AcceptTrade::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_AcceptTrade::OnEnterState);
     StartLog(context);
     Player* bot = context.bot;
     Player* trader = bot->GetTrader();

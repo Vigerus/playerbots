@@ -1,8 +1,8 @@
 #pragma once
 
 #include "playerbot/StateTree/Tasks/STAI_Task.h"
-
-#include <boost/property_tree/ptree.hpp>
+#include "playerbot/StateTree/Conditions/STAI_ConditionBase.h"
+#include "playerbot/StateTree/Considerations/STAI_ConsiderationBase.h"
 
 #include <filesystem>
 #include <functional>
@@ -13,24 +13,30 @@
 
 namespace ai
 {
-    // <Task class="..."> element of a STAI tree, children are the task's own settings
-    using STAI_TaskConfig = boost::property_tree::ptree;
-
-    // Task classes usable in STAI_*.xml. Each class validates its config when the tree file is loaded
-    // (throw std::runtime_error to reject the file) and creates the node's task, shared by every bot.
-    class STAI_TaskFactory
+    // Node classes usable in STAI_*.xml: tasks (<Task class="...">), conditions (<Condition class="...">) and
+    // considerations (<Consideration class="...">). Each class validates its config when the tree file is loaded
+    // (throw std::runtime_error to reject the file) and creates the node, shared by every bot.
+    class STAI_NodeFactory
     {
     public:
-        struct TaskClass
+        template<class Node>
+        struct NodeClass
         {
             std::function<void(const STAI_TaskConfig& config)> validate;
-            std::function<std::unique_ptr<STAI_Task>(const STAI_TaskConfig& config)> create;
+            std::function<std::unique_ptr<Node>(const STAI_TaskConfig& config)> create;
         };
+        using TaskClass = NodeClass<STAI_TaskBase>;
+        using ConditionClass = NodeClass<STAI_ConditionBase>;
+        using ConsiderationClass = NodeClass<STAI_ConsiderationBase>;
 
-        static STAI_TaskFactory& instance();
+        static STAI_NodeFactory& instance();
 
         void RegisterTask(const std::string& name, TaskClass taskClass) { tasks[name] = std::move(taskClass); }
+        void RegisterCondition(const std::string& name, ConditionClass conditionClass) { conditions[name] = std::move(conditionClass); }
+        void RegisterConsideration(const std::string& name, ConsiderationClass considerationClass) { considerations[name] = std::move(considerationClass); }
         const TaskClass* FindTask(const std::string& name) const;
+        const ConditionClass* FindCondition(const std::string& name) const;
+        const ConsiderationClass* FindConsideration(const std::string& name) const;
 
         // files named in tree/task configs are relative to the directory of aiplayerbot.conf
         static std::filesystem::path ResolvePath(const std::string& file);
@@ -42,13 +48,18 @@ namespace ai
         static std::string GetBindingSource(const STAI_TaskConfig& config, const std::string& local);
 
     private:
-        STAI_TaskFactory();
+        STAI_NodeFactory();
 
         std::map<std::string, TaskClass> tasks;
+        std::map<std::string, ConditionClass> conditions;
+        std::map<std::string, ConsiderationClass> considerations;
     };
 
-    // registers the built-in task classes (Tasks/STAI_BuiltinTasks.cpp)
-    void RegisterBuiltinStateTreeTasks(STAI_TaskFactory& factory);
+    // the factory under the name the tasks use
+    using STAI_TaskFactory = STAI_NodeFactory;
+
+    // registers the built-in task, condition and consideration classes (Tasks/STAI_BuiltinTasks.cpp)
+    void RegisterBuiltinStateTreeTasks(STAI_NodeFactory& factory);
 }
 
-#define sSTAITaskFactory ai::STAI_TaskFactory::instance()
+#define sSTAITaskFactory ai::STAI_NodeFactory::instance()

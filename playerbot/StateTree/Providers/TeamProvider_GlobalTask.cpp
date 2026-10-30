@@ -35,9 +35,9 @@ void TeamProvider_GlobalTask::Publish(TeamProvider_GlobalTaskContext& context)
     context.isHealer = context.roles.HasRole(self, BOT_ROLE_HEALER);
 }
 
-EActionRunStatus TeamProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus TeamProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(TeamProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TeamProvider_GlobalTask::OnEnterState);
     TeamProvider_GlobalTaskContext& context = ContextAs<TeamProvider_GlobalTaskContext>(baseContext);
     context.roles.Subscribe(context.bot);
     context.roles.Update(context.bot, 0);
@@ -68,9 +68,9 @@ EActionRunStatus TeamProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, 
     return EActionRunStatus::Running;
 }
 
-void TeamProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void TeamProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(TeamProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(TeamProvider_GlobalTask::OnExitState);
     TeamProvider_GlobalTaskContext& context = ContextAs<TeamProvider_GlobalTaskContext>(baseContext);
     context.roles.Unsubscribe();
 }

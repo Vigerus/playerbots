@@ -46,23 +46,23 @@ namespace ai
     // Ticked (nothing broadcasts mark changes or deaths): checks every 250ms; onCCNeeded fires when the target
     // changes to another unit (a new mark, the old crowd control broke) and again every second while it still needs
     // crowd control (a cast that could not be done, out of range or sight, is retried).
-    class CCProvider_GlobalTask : public STAI_GlobalTask, public ISTAI_DebugSpells
+    class CCProvider_GlobalTask : public STAI_DataProviderBase, public ISTAI_DebugSpells
     {
     public:
         explicit CCProvider_GlobalTask(std::vector<uint32> auras) : auras(std::move(auras)) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "CCProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "CCProvider_GlobalTask"; }
         inline static std::string task_name = "CCProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<CCProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

@@ -31,7 +31,7 @@ namespace ai
     // ready[id] is true while the bot knows the spell or another rank of it and that rank's own and category
     // cooldowns are over (the global cooldown does not count). Ticked: checks every 250ms; onCooldownChanged fires
     // when an entry changed (and on the first check).
-    class CooldownProvider_GlobalTask : public STAI_GlobalTask, public ISTAI_DebugSpells
+    class CooldownProvider_GlobalTask : public STAI_DataProviderBase, public ISTAI_DebugSpells
     {
     public:
         // a configured spell and every rank of it, highest first
@@ -44,17 +44,17 @@ namespace ai
         explicit CooldownProvider_GlobalTask(std::vector<WatchedSpell> spells) : spells(std::move(spells)) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "CooldownProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "CooldownProvider_GlobalTask"; }
         inline static std::string task_name = "CooldownProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<CooldownProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

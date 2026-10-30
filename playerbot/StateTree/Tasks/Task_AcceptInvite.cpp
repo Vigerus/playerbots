@@ -10,9 +10,9 @@
 
 using namespace ai;
 
-EActionRunStatus Task_AcceptInvite::OnEnter(STAI_TaskContext& context) const
+EActionRunStatus Task_AcceptInvite::OnEnterState(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_AcceptInvite::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_AcceptInvite::OnEnterState);
     Player* bot = context.bot;
     Group* group = bot->GetGroupInvite();
     if (!group)

@@ -15,9 +15,9 @@ namespace
     constexpr uint32 castTimeoutMs = 10000;
 }
 
-EActionRunStatus Task_CastBuff::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_CastBuff::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnEnterState);
     Task_CastBuffContext& context = ContextAs<Task_CastBuffContext>(baseContext);
     context.spellId = 0;
     context.target.Clear();
@@ -68,9 +68,9 @@ const std::vector<STAI_PropertyDef>& Task_CastBuff::GetProperties() const
     return properties;
 }
 
-void Task_CastBuff::OnExit(STAI_TaskContext& baseContext) const
+void Task_CastBuff::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastBuff::OnExitState);
     // a cast in progress is left alone: a transition to follow stops it by moving if it has to; a run left during
     // the GCD went well (the buff was cast and is not being cast any more)
     EndLog(baseContext, !baseContext.bot->IsNonMeleeSpellCasted(false));

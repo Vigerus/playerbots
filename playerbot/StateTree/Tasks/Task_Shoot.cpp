@@ -52,9 +52,9 @@ bool Task_Shoot::Start(Task_ShootContext& context, Unit* target)
     return true;
 }
 
-EActionRunStatus Task_Shoot::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_Shoot::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Shoot::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Shoot::OnEnterState);
     Task_ShootContext& context = ContextAs<Task_ShootContext>(baseContext);
     context.shooting.Clear();
     context.sinceShotMs = 0;
@@ -101,9 +101,9 @@ EActionRunStatus Task_Shoot::OnTick(STAI_TaskContext& baseContext, uint32 elapse
     return LogStatus(context, Start(context, target) ? EActionRunStatus::Running : EActionRunStatus::Failed);
 }
 
-void Task_Shoot::OnExit(STAI_TaskContext& baseContext) const
+void Task_Shoot::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Shoot::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Shoot::OnExitState);
     Task_ShootContext& context = ContextAs<Task_ShootContext>(baseContext);
     if (IsShooting(context.bot))
         context.bot->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);

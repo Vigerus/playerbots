@@ -21,23 +21,23 @@ namespace ai
     // Running while it shoots; Succeeded without a living target or when the bound target changed (the node selects
     // again), Failed without a wand, when the bot cannot shoot the target (range, sight) or the shooting stopped for
     // 2s and cannot be started again. Not finished by itself while the target lives: the node is left through its
-    // transitions. OnExit stops the shooting.
-    class Task_Shoot : public STAI_Task
+    // transitions. OnExitState stops the shooting.
+    class Task_Shoot : public STAI_TaskBase
     {
     public:
         static void Validate(const STAI_TaskConfig& config) {}
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<Task_Shoot>(); }
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config) { return std::make_unique<Task_Shoot>(); }
 
-        virtual const char* GetTaskClass() const override { return "Task_Shoot"; }
+        virtual const char* GetNodeClass() const override { return "Task_Shoot"; }
         inline static std::string task_name = "Shoot";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_ShootContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual void OnExitState(STAI_TaskContext& context) const override;
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 

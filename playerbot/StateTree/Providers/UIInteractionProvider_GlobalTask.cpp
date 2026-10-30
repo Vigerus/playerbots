@@ -24,9 +24,9 @@ bool ai::STAI_CanTradeWith(PlayerbotAI* ai, Player* bot, Player* trader)
     return ai->GetSecurity()->CheckLevelFor(PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, false, trader);
 }
 
-EActionRunStatus UIInteractionProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus UIInteractionProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(UIInteractionProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(UIInteractionProvider_GlobalTask::OnEnterState);
     UIInteractionProvider_GlobalTaskContext& context = ContextAs<UIInteractionProvider_GlobalTaskContext>(baseContext);
     context.Subscribe();
     context.UpdateTrade();
@@ -56,9 +56,9 @@ EActionRunStatus UIInteractionProvider_GlobalTask::OnTick(STAI_TaskContext& base
     return EActionRunStatus::Running;
 }
 
-void UIInteractionProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void UIInteractionProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(UIInteractionProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(UIInteractionProvider_GlobalTask::OnExitState);
     UIInteractionProvider_GlobalTaskContext& context = ContextAs<UIInteractionProvider_GlobalTaskContext>(baseContext);
     context.Unsubscribe();
     context.rolls.clear();

@@ -8,9 +8,9 @@
 
 using namespace ai;
 
-EActionRunStatus Task_ReleaseSpirit::OnEnter(STAI_TaskContext& context) const
+EActionRunStatus Task_ReleaseSpirit::OnEnterState(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_ReleaseSpirit::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_ReleaseSpirit::OnEnterState);
     Player* bot = context.bot;
     if (bot->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
         return EActionRunStatus::Succeeded;
@@ -26,9 +26,9 @@ EActionRunStatus Task_ReleaseSpirit::OnEnter(STAI_TaskContext& context) const
     return LogStatus(context, bot->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) ? EActionRunStatus::Succeeded : EActionRunStatus::Failed);
 }
 
-EActionRunStatus Task_ReclaimCorpse::OnEnter(STAI_TaskContext& context) const
+EActionRunStatus Task_ReclaimCorpse::OnEnterState(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_ReclaimCorpse::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_ReclaimCorpse::OnEnterState);
     Player* bot = context.bot;
     if (sServerFacade.IsAlive(bot))
         return EActionRunStatus::Succeeded;

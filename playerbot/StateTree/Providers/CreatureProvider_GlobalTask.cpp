@@ -77,7 +77,7 @@ void CreatureProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseRange(config);
 }
 
-std::unique_ptr<STAI_Task> CreatureProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> CreatureProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<CreatureProvider_GlobalTask>(ParseCreatures(config), ParseRange(config));
 }
@@ -122,9 +122,9 @@ void CreatureProvider_GlobalTask::Update(CreatureProvider_GlobalTaskContext& con
         context.onGone.Broadcast();
 }
 
-EActionRunStatus CreatureProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus CreatureProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(CreatureProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(CreatureProvider_GlobalTask::OnEnterState);
     CreatureProvider_GlobalTaskContext& context = ContextAs<CreatureProvider_GlobalTaskContext>(baseContext);
     context.units.clear();
     context.closest = ObjectGuid();

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StateTree version="2">
+  <GlobalTasks>
+    <Task class="Host_Counter"/>
+  </GlobalTasks>
+  <State name="Seq">
+    <State name="A">
+      <Tasks>
+        <Task class="Host_Result" result="Succeeded"/>
+      </Tasks>
+      <Transitions>
+        <Transition trigger="OnStateSucceeded" target="NextState"/>
+      </Transitions>
+    </State>
+    <State name="B">
+      <Tasks>
+        <Task class="Task_Wait">
+          <Delay value="300"/>
+        </Task>
+      </Tasks>
+      <Transitions>
+        <Transition trigger="OnStateCompleted" target="Root|Done"/>
+      </Transitions>
+    </State>
+  </State>
+  <State name="Done">
+    <Tasks>
+      <Task class="STAI_FinishTreeTask"/>
+    </Tasks>
+  </State>
+</StateTree>

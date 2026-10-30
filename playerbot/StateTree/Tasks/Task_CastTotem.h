@@ -24,29 +24,29 @@ namespace ai
     //       <Binding local="needs" external="Root|TotemProvider_GlobalTask::needs"/>
     //     </Task>
     //   </Node>
-    // OnEnter casts the first need the bot can cast now. Succeeded once the cast and the GCD are over, or in OnEnter
-    // when nothing is needed; Failed in OnEnter when no need can be cast (mana, the totem's tool, cooldown...).
-    class Task_CastTotem : public STAI_Task, public ISTAI_DebugSpells
+    // OnEnterState casts the first need the bot can cast now. Succeeded once the cast and the GCD are over, or in OnEnterState
+    // when nothing is needed; Failed in OnEnterState when no need can be cast (mana, the totem's tool, cooldown...).
+    class Task_CastTotem : public STAI_TaskBase, public ISTAI_DebugSpells
     {
     public:
         static void Validate(const STAI_TaskConfig& config) {}
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config)
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config)
         {
             return std::make_unique<Task_CastTotem>(STAI_TaskFactory::GetBindingSource(config, "needs"));
         }
 
         explicit Task_CastTotem(const std::string& needsSource) : needsSource(needsSource) {}
 
-        virtual const char* GetTaskClass() const override { return "Task_CastTotem"; }
+        virtual const char* GetNodeClass() const override { return "Task_CastTotem"; }
         inline static std::string task_name = "CastTotem";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_CastTotemContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual void OnExitState(STAI_TaskContext& context) const override;
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 

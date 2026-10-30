@@ -43,7 +43,7 @@ namespace ai
     // it when any rank of any of them is on it. Self spells are only checked on the bot. Otherwise a group spell is
     // cast when 2+ members of a subgroup miss the buff, a single target spell on a member missing it alone (a group
     // spell when the bot knows no single target one).
-    class BuffProvider_GlobalTask : public STAI_GlobalTask, public ISTAI_DebugSpells
+    class BuffProvider_GlobalTask : public STAI_DataProviderBase, public ISTAI_DebugSpells
     {
     public:
         struct BuffSpell
@@ -63,16 +63,16 @@ namespace ai
         explicit BuffProvider_GlobalTask(std::vector<Buff> buffs) : buffs(std::move(buffs)) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "BuffProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "BuffProvider_GlobalTask"; }
         inline static std::string task_name = "BuffProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<BuffProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
+        virtual void OnExitState(STAI_TaskContext& context) const override;
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

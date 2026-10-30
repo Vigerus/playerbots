@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat subtree for Retri Paladin bots (run by STAI_Combat_Paladin.xml) -->
-<Root>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the spec's combat exists: waits forever, leaves only through a transition -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
-  </Node>
-</Root>
+<StateTree version="2">
+  <Comment>Combat subtree for Retri Paladin bots (run by STAI_Combat_Paladin.xml)</Comment>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>placeholder until the spec's combat exists: waits forever, leaves only through a transition</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
+  </State>
+</StateTree>

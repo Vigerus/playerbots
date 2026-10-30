@@ -1338,6 +1338,9 @@ namespace
                 caption.push_back({ L">> ", Color::brightGreen, 0, true });
             else
                 caption.push_back({ isExpanded ? L"\u2212 " : L"+ ", Color::marker });
+            // a child state below its parent
+            if (child.depth > 0)
+                caption.push_back({ std::wstring(size_t(child.depth) * 3, L' ') + L"\u2514 ", Color::dark });
             if (nodeDisabled)
                 caption.push_back({ Wide(child.name) + L"  (switched off)", Color::gray });
             else
@@ -1348,7 +1351,7 @@ namespace
                 for (size_t task = 0; task < child.tasks.size(); ++task)
                 {
                     if (task)
-                        caption.push_back({ L" > ", Color::dark });
+                        caption.push_back({ L" + ", Color::dark });
                     if (taskDisabled(task))
                         caption.push_back({ L"x " + Wide(child.tasks[task]), Color::darkRed });
                     else
@@ -1489,12 +1492,14 @@ namespace
 
             Runs caption;
             caption.push_back({ isExpanded ? L"− " : L"+ ", Color::marker });
+            if (child.depth > 0)
+                caption.push_back({ std::wstring(size_t(child.depth) * 3, L' ') + L"\u2514 ", Color::dark });
             caption.push_back({ Wide(child.name), Color::text });
             if (!isExpanded)
             {
                 caption.push_back({ L"  ", Color::dark });
                 for (size_t task = 0; task < child.tasks.size(); ++task)
-                    caption.push_back({ (task ? L" > " : L"") + Wide(child.tasks[task]), Color::dark });
+                    caption.push_back({ (task ? L" + " : L"") + Wide(child.tasks[task]), Color::dark });
             }
             const RECT box = Box(childX, y, caption, Color::childFill, Color::stateBorder, 18);
             AddHit(childX, y, box.right - box.left, 18, nullptr, [this, key, isExpanded]() { expanded[key] = !isExpanded; },

@@ -1,177 +1,198 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- NonCombat subtree for Priest bots in Scholomance (run by STAI_NonCombat_Priest.xml): the dungeon subtree
-     (STAI_NonCombat_Dungeon_Priest.xml) dispelling only the auras it observes -->
-<Root>
-  <Global>
-    <!-- the rooms (InstanceSubsystem stages) of the bot and its master: stage, masterStage, masterStageCleared,
-         pathBlocked, stagePosition, stagePositionFar, onStageBlocked, onStageCleared, onStagePositionFar -->
-    <Task class="InstanceProvider_GlobalTask"/>
-    <!-- fires onMasterFar while the master is beyond follow range -->
+<StateTree version="2">
+  <Comment>NonCombat subtree for Priest bots in Scholomance (run by STAI_NonCombat_Priest.xml): the dungeon subtree
+    (STAI_NonCombat_Dungeon_Priest.xml) dispelling only the auras it observes</Comment>
+  <GlobalTasks>
+    <Task class="InstanceProvider_GlobalTask">
+      <Comment>the rooms (InstanceSubsystem stages) of the bot and its master: stage, masterStage, masterStageCleared,
+        pathBlocked, stagePosition, stagePositionFar, onStageBlocked, onStageCleared, onStagePositionFar</Comment>
+    </Task>
     <Task class="MasterDistance_GlobalTask">
+      <Comment>fires onMasterFar while the master is beyond follow range</Comment>
       <Range value="follow"/>
     </Task>
-    <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
-    <Task class="HealthProvider_GlobalTask"/>
+    <Task class="HealthProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
+    </Task>
     <Task class="ManaProvider_GlobalTask"/>
-    <!-- the health of the bot and its group (medium: below 70%), the dead members: medium, healTarget, dead,
-         resurrectTarget; onNeedsHeal, onDead -->
-    <Task class="HealProvider_GlobalTask"/>
-    <!-- harmful magic and diseases on the bot and its group: magic, disease, onNeedsHelp -->
+    <Task class="HealProvider_GlobalTask">
+      <Comment>the health of the bot and its group (medium: below 70%), the dead members: medium, healTarget, dead,
+        resurrectTarget; onNeedsHeal, onDead</Comment>
+    </Task>
     <Task class="DispelProvider_GlobalTask">
+      <Comment>harmful magic and diseases on the bot and its group: magic, disease, onNeedsHelp</Comment>
       <Dispel type="magic"/>
       <Dispel type="disease"/>
       <!-- nothing yet: list here the Scholomance auras worth the dispel's mana and GCD -->
       <Observe spellid="3436"/>
     </Task>
-    <!-- watches the buffs of the bot and its group (the prayers cover a subgroup): needs, onMissingBuff -->
     <Task class="BuffProvider_GlobalTask">
-      <Buff spellid="1243"/>               <!-- Power Word: Fortitude (single) -->
-      <Buff spellid="21562"/>              <!-- Prayer of Fortitude (group, same buff) -->
+      <Comment>watches the buffs of the bot and its group (the prayers cover a subgroup): needs, onMissingBuff</Comment>
+      <Buff spellid="1243"/>
+      <!-- Power Word: Fortitude (single) -->
+      <Buff spellid="21562"/>
+      <!-- Prayer of Fortitude (group, same buff) -->
       <!-- Divine Spirit (talent); Prayer of Spirit is a higher rank of its spell chain here, so it is not listed on its
            own: the bot casts the highest rank it knows -->
       <Buff spellid="14752"/>
-      <Buff spellid="976"/>                <!-- Shadow Protection (single) -->
-      <Buff spellid="27683"/>              <!-- Prayer of Shadow Protection (group, same buff) -->
-      <Buff spellid="588" scope="self"/>   <!-- Inner Fire -->
+      <Buff spellid="976"/>
+      <!-- Shadow Protection (single) -->
+      <Buff spellid="27683"/>
+      <!-- Prayer of Shadow Protection (group, same buff) -->
+      <Buff spellid="588" scope="self"/>
+      <!-- Inner Fire -->
     </Task>
-    <!-- movement goals (MovementGoal_GlobalTask, the highest wanted one drives the bot): the bot's point in the master's
-         room (its rtsc / entrance override, else the room's position; the reason says which), reached at it, while the way
-         is open -->
     <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="35" kind="position">
+      <Comment>movement goals (MovementGoal_GlobalTask, the highest wanted one drives the bot): the bot's point in the master's
+        room (its rtsc / entrance override, else the room's position; the reason says which), reached at it, while the way
+        is open</Comment>
       <Radius value="2"/>
       <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
       <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
       <Conditions>
-        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
       </Conditions>
     </Task>
-    <!-- after the master (a path across dungeon portals), reached within follow range: not while the master is in a
-         room that is not cleared or between rooms, not through such a room, not with a point for the bot in the master's
-         room -->
     <Task class="MovementGoal_GlobalTask" name="Follow Master" priority="10" kind="location">
+      <Comment>after the master (a path across dungeon portals), reached within follow range: not while the master is in a
+        room that is not cleared or between rooms, not through such a room, not with a point for the bot in the master's
+        room</Comment>
       <Radius value="follow"/>
       <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
       <Conditions>
-        <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
-        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
-        <Condition binding="Root|InstanceProvider_GlobalTask::stagePosition" negate="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::stagePosition" inverted="true"/>
       </Conditions>
     </Task>
-    <!-- to the body of a dead member (or the corpse of a released one) for the resurrection -->
     <Task class="MovementGoal_GlobalTask" name="Resurrect Range" priority="40" kind="range">
+      <Comment>to the body of a dead member (or the corpse of a released one) for the resurrection</Comment>
       <Range max="25"/>
       <Dead value="true"/>
       <Binding local="target" external="Root|HealProvider_GlobalTask::resurrectTarget"/>
       <Conditions>
-        <Condition binding="Root|HealProvider_GlobalTask::dead"/>
+        <Condition class="Condition_Compare" binding="Root|HealProvider_GlobalTask::dead"/>
       </Conditions>
     </Task>
-    <!-- in heal range of the most wounded member below 70% -->
     <Task class="MovementGoal_GlobalTask" name="Heal Range" priority="25" kind="range">
+      <Comment>in heal range of the most wounded member below 70%</Comment>
       <Range max="35"/>
       <Binding local="target" external="Root|HealProvider_GlobalTask::healTarget"/>
       <Conditions>
-        <Condition binding="Root|HealProvider_GlobalTask::medium"/>
+        <Condition class="Condition_Compare" binding="Root|HealProvider_GlobalTask::medium"/>
       </Conditions>
     </Task>
-  </Global>
-  <!-- a member died: walk to the body and resurrect it (bodies that are not released, no resurrection offered yet) -->
-  <Node name="Resurrect">
-    <Conditions>
-      <Condition binding="Root|HealProvider_GlobalTask::dead"/>
-      <Condition binding="Root|MovementGoal_GlobalTask[Resurrect Range]::inRange"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Resurrection">
-      <Target value="dead"/>
-      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::dead"/>
-    </Task>
-  </Node>
-  <!-- after the fight: heal everybody below 70% (the bot included) before eating and drinking -->
-  <Node name="Heal Group">
-    <Conditions>
-      <Condition binding="Root|HealProvider_GlobalTask::medium"/>
-      <Condition binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Heal">
-      <Fallback spellid="Lesser Heal"/>
-      <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::medium"/>
-    </Task>
-  </Node>
-  <Node name="Dispel Magic">
-    <Conditions>
-      <Condition binding="Root|DispelProvider_GlobalTask::magic"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Dispel Magic">
-      <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::magic"/>
-      <Binding local="causes" external="Root|DispelProvider_GlobalTask::causes"/>
-    </Task>
-  </Node>
-  <Node name="Cure Disease">
-    <Conditions>
-      <Condition binding="Root|DispelProvider_GlobalTask::disease"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Abolish Disease">
-      <Fallback spellid="Cure Disease"/>
-      <SkipAura own="true"/>
-      <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::disease"/>
-      <Binding local="causes" external="Root|DispelProvider_GlobalTask::causes"/>
-    </Task>
-  </Node>
-  <!-- not at low mana: the buffs wait for Eat and Drink instead of failing every time -->
-  <Node name="Check Missing Buffs">
-    <Conditions>
-      <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
-    </Conditions>
-    <Task class="Task_CastBuff">
-      <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
-    </Task>
-  </Node>
-  <!-- eating and drinking while the bot stands (its movement goal "reached"); moving again leaves the node -->
-  <Node name="Eat and Drink">
-    <Conditions>
+  </GlobalTasks>
+  <State name="Resurrect">
+    <Comment>a member died: walk to the body and resurrect it (bodies that are not released, no resurrection offered yet)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|HealProvider_GlobalTask::dead"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Resurrect Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Resurrection">
+        <Target value="dead"/>
+        <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::dead"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Heal Group">
+    <Comment>after the fight: heal everybody below 70% (the bot included) before eating and drinking</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|HealProvider_GlobalTask::medium"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Heal">
+        <Fallback spellid="Lesser Heal"/>
+        <Binding local="whoNeeds" external="Root|HealProvider_GlobalTask::medium"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Dispel Magic">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|DispelProvider_GlobalTask::magic"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Dispel Magic">
+        <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::magic"/>
+        <Binding local="causes" external="Root|DispelProvider_GlobalTask::causes"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Cure Disease">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|DispelProvider_GlobalTask::disease"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Abolish Disease">
+        <Fallback spellid="Cure Disease"/>
+        <SkipAura own="true"/>
+        <Binding local="whoNeeds" external="Root|DispelProvider_GlobalTask::disease"/>
+        <Binding local="causes" external="Root|DispelProvider_GlobalTask::causes"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Check Missing Buffs">
+    <Comment>not at low mana: the buffs wait for Eat and Drink instead of failing every time</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|BuffProvider_GlobalTask::needs"/>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastBuff">
+        <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Eat and Drink">
+    <Comment>eating and drinking while the bot stands (its movement goal "reached"); moving again leaves the node</Comment>
+    <EnterConditions>
       <Any>
-        <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
-        <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+        <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+        <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
       </Any>
-      <Condition binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
-    </Conditions>
-    <Task class="Task_EatAndDrink">
-      <Health until="100"/>
-      <Mana until="100"/>
-    </Task>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_EatAndDrink">
+        <Health until="100"/>
+        <Mana until="100"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- waits forever, leaves only through a transition -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>waits forever, leaves only through a transition</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Eat and Drink">
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root|Eat and Drink">
         <Conditions>
-          <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
         </Conditions>
       </Transition>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Eat and Drink">
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root|Eat and Drink">
         <Conditions>
-          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
         </Conditions>
       </Transition>
-      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onDead" node="Root|Resurrect"/>
-      <Transition type="OnDelegate" source="Root|HealProvider_GlobalTask::onNeedsHeal" node="Root|Heal Group"/>
-      <Transition type="OnDelegate" source="Root|DispelProvider_GlobalTask::onNeedsHelp" node="Root"/>
-      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Missing Buffs">
+      <Transition trigger="OnDelegate" source="Root|HealProvider_GlobalTask::onDead" target="Root|Resurrect"/>
+      <Transition trigger="OnDelegate" source="Root|HealProvider_GlobalTask::onNeedsHeal" target="Root|Heal Group"/>
+      <Transition trigger="OnDelegate" source="Root|DispelProvider_GlobalTask::onNeedsHelp" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" target="Root|Check Missing Buffs">
         <Conditions>
-          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
         </Conditions>
       </Transition>
-      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Resurrect Range]::onArrived" node="Root"/>
-      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Heal Range]::onArrived" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Resurrect Range]::onArrived" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Heal Range]::onArrived" target="Root"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

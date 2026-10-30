@@ -102,16 +102,16 @@ void Task_CastSpell::Validate(const STAI_TaskConfig& config)
     ParseFallbacks(config);
 }
 
-std::unique_ptr<STAI_Task> Task_CastSpell::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> Task_CastSpell::Create(const STAI_TaskConfig& config)
 {
     const std::string target = ParseTarget(config);
     return std::make_unique<Task_CastSpell>(STAI_ConfiguredSpell::Parse(config), target == "self", target == "dead", ParseSkipAuras(config),
         ParseFallbacks(config));
 }
 
-EActionRunStatus Task_CastSpell::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_CastSpell::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastSpell::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastSpell::OnEnterState);
     Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
     context.spellId = 0;
     context.causeSpellId = 0;
@@ -257,9 +257,9 @@ EActionRunStatus Task_CastSpell::OnTick(STAI_TaskContext& baseContext, uint32 el
     return EActionRunStatus::Succeeded;
 }
 
-void Task_CastSpell::OnExit(STAI_TaskContext& baseContext) const
+void Task_CastSpell::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastSpell::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastSpell::OnExitState);
     // left during the cast: it went off only if its spell go came already (an instant / channeled one did)
     Task_CastSpellContext& context = ContextAs<Task_CastSpellContext>(baseContext);
     EndLog(context, (context.result < 0 ? CastResult(context) : context.result) == 1);

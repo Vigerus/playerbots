@@ -1,74 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat state tree for Warlock bots: AiPlayerbot.StateTree.Combat.Warlock -->
-<Root>
-  <Global>
-    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
+<StateTree version="2">
+  <Comment>Combat state tree for Warlock bots: AiPlayerbot.StateTree.Combat.Warlock</Comment>
+  <GlobalTasks>
     <Task class="HazardProvider_GlobalTask">
+      <Comment>hostile area effects on the ground around the bot: inHazard, safePosition, onHazard</Comment>
       <Margin value="2"/>
     </Task>
-    <!-- mana of the bot: manaPct, onManaChanged -->
-    <Task class="ManaProvider_GlobalTask"/>
-    <!-- the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
-         target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's -->
+    <Task class="ManaProvider_GlobalTask">
+      <Comment>mana of the bot: manaPct, onManaChanged</Comment>
+    </Task>
     <Task class="TargetProvider_GlobalTask">
+      <Comment>the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
+        target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's</Comment>
       <WithThreat value="true"/>
       <ThreatAmount value="90"/>
     </Task>
-    <!-- movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
-         goals want -->
     <Task class="MovementGoal_GlobalTask" name="Escape Hazard" priority="100" kind="position" interruptCast="true">
+      <Comment>movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
+        goals want</Comment>
       <Radius value="1"/>
       <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
       <Conditions>
-        <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
+        <Condition class="Condition_Compare" binding="Root|HazardProvider_GlobalTask::inHazard"/>
       </Conditions>
     </Task>
-    <!-- movement goal (MovementGoal_GlobalTask): in spell range and sight of the target -->
     <Task class="MovementGoal_GlobalTask" name="Attack Range" priority="40" kind="range">
+      <Comment>movement goal (MovementGoal_GlobalTask): in spell range and sight of the target</Comment>
       <Range max="spell"/>
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>
-    <!-- the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
-         by rtsc), stagePositionFrom, pathBlocked -->
-    <Task class="InstanceProvider_GlobalTask"/>
-    <!-- movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range) -->
+    <Task class="InstanceProvider_GlobalTask">
+      <Comment>the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
+        by rtsc), stagePositionFrom, pathBlocked</Comment>
+    </Task>
     <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="45" kind="position">
+      <Comment>movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range)</Comment>
       <Radius value="2"/>
       <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
       <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
       <Conditions>
-        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
       </Conditions>
     </Task>
-  </Global>
-  <!-- out of mana: the wand until the mana is back at 20% (no regeneration while casting) -->
-  <Node name="Wand">
-    <Conditions>
-      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
-      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
-    </Conditions>
-    <Task class="Task_Shoot">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Wand">
+    <Comment>out of mana: the wand until the mana is back at 20% (no regeneration while casting)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Shoot">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root">
+      <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
         </Conditions>
       </Transition>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the rest of the combat exists: waits, leaves through its transitions -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>placeholder until the rest of the combat exists: waits, leaves through its transitions</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root|Wand"/>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Wand"/>
+      <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root|Wand"/>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root|Wand"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

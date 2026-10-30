@@ -1,54 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat state tree for Druid bots: AiPlayerbot.StateTree.Combat.Druid -->
-<!-- picks the subtree for the bot's spec; a spec change (talents learned or reset) selects again -->
-<Root>
-  <Global>
-    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
+<StateTree version="2">
+  <Comment>Combat state tree for Druid bots: AiPlayerbot.StateTree.Combat.Druid
+    picks the subtree for the bot's spec; a spec change (talents learned or reset) selects again</Comment>
+  <GlobalTasks>
     <Task class="HazardProvider_GlobalTask">
+      <Comment>hostile area effects on the ground around the bot: inHazard, safePosition, onHazard</Comment>
       <Margin value="2"/>
     </Task>
-    <!-- the bot's spec: specName, onSpecChanged -->
-    <Task class="SpecProvider_GlobalTask"/>
-    <!-- movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
-         goals want -->
+    <Task class="SpecProvider_GlobalTask">
+      <Comment>the bot's spec: specName, onSpecChanged</Comment>
+    </Task>
     <Task class="MovementGoal_GlobalTask" name="Escape Hazard" priority="100" kind="position" interruptCast="true">
+      <Comment>movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
+        goals want</Comment>
       <Radius value="1"/>
       <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
       <Conditions>
-        <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
+        <Condition class="Condition_Compare" binding="Root|HazardProvider_GlobalTask::inHazard"/>
       </Conditions>
     </Task>
-  </Global>
-  <Node name="Resto Druid">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="resto druid"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Druid/STAI_Combat_Resto_Druid.xml"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Resto Druid">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="resto druid"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Druid/STAI_Combat_Resto_Druid.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Prot Druid">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="prot druid"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Druid/STAI_Combat_Prot_Druid.xml"/>
-    </Task>
+  </State>
+  <State name="Prot Druid">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="prot druid"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Druid/STAI_Combat_Prot_Druid.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- no spec subtree: waits for a spec change -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>no spec subtree: waits for a spec change</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

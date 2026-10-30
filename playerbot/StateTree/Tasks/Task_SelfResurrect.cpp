@@ -41,14 +41,14 @@ void Task_SelfResurrect::Validate(const STAI_TaskConfig& config)
     ParseSpells(config);
 }
 
-std::unique_ptr<STAI_Task> Task_SelfResurrect::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> Task_SelfResurrect::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<Task_SelfResurrect>(ParseSpells(config));
 }
 
-EActionRunStatus Task_SelfResurrect::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_SelfResurrect::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_SelfResurrect::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_SelfResurrect::OnEnterState);
     Task_SelfResurrectContext& context = ContextAs<Task_SelfResurrectContext>(baseContext);
     context.spellId = 0;
     context.sinceUseMs = 0;

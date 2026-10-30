@@ -1,0 +1,2567 @@
+{
+  "generatedBy": "tools/StateTreeEditor/gen_schema.py",
+  "formatVersion": 2,
+  "tasks": {
+    "BuffProvider_GlobalTask": {
+      "cppClass": "BuffProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/BuffProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "needs",
+          "type": "std::vector<BuffNeed>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onMissingBuff"
+      ],
+      "description": "global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any ...",
+      "doc": "global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any; spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance)",
+      "settingsHelp": "`<Buff spellid=\"...\" scope=\"self|single|group\"/>` per spell (any rank; scope optional, read from the spell's targets)",
+      "taskAttributes": {},
+      "settings": {
+        "Buff": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "1459",
+                "23028",
+                "6117",
+                "1243",
+                "21562",
+                "14752",
+                "976",
+                "27683"
+              ]
+            },
+            "scope": {
+              "examples": [
+                "self"
+              ],
+              "options": [
+                "self",
+                "single",
+                "group"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 8
+    },
+    "CCProvider_GlobalTask": {
+      "cppClass": "CCProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/CCProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "whoNeeds",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onCCNeeded"
+      ],
+      "description": "global task, ticked (every 250ms): the first unit marked with one of the bot's `rti cc` icons (default moon) that is alive, hostile, in sight, not crowd-controlled yet (polymorph, frost, sap, .. ...",
+      "doc": "global task, ticked (every 250ms): the first unit marked with one of the bot's `rti cc` icons (default moon) that is alive, hostile, in sight, not crowd-controlled yet (polymorph, frost, sap, ... or a listed aura) and not the group's kill target (the first living `rti` mark, default skull); property `whoNeeds` (that unit), delegate `onCCNeeded` (a new target, and every second while it still needs crowd control)",
+      "settingsHelp": "`<Aura spellid=\"...\"/>` per aura, optional",
+      "taskAttributes": {},
+      "settings": {
+        "Aura": {
+          "attributes": {
+            "spellid": {
+              "examples": []
+            }
+          },
+          "repeat": true,
+          "seen": false
+        }
+      },
+      "uses": 4
+    },
+    "CooldownProvider_GlobalTask": {
+      "cppClass": "CooldownProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/CooldownProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "ready",
+          "type": "std::map<uint32,bool>",
+          "traits": [
+            "numberMap",
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onCooldownChanged"
+      ],
+      "description": "global task, ticked (every 250ms): property `ready` (`std::map` spell id -> the bot knows the spell or another rank of it and its own and category cooldowns are over, the GCD not included) ...",
+      "doc": "global task, ticked (every 250ms): property `ready` (`std::map` spell id -> the bot knows the spell or another rank of it and its own and category cooldowns are over, the GCD not included), read with a keyed condition `<Condition binding=\"Root|CooldownProvider_GlobalTask::ready\" key=\"11958\"/>`; delegate `onCooldownChanged` fired when an entry changed",
+      "settingsHelp": "`<Spell id=\"...\"/>` per spell (any rank)",
+      "taskAttributes": {},
+      "settings": {
+        "Spell": {
+          "attributes": {
+            "id": {
+              "examples": [
+                "12051",
+                "11958",
+                "586",
+                "12294",
+                "7384",
+                "12292",
+                "100",
+                "2687"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 7
+    },
+    "CorpseProvider_GlobalTask": {
+      "cppClass": "CorpseProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/CorpseProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "released",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "corpseLocation",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "corpseFar",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onCorpseFar"
+      ],
+      "description": "global task of the Dead trees, ticked (every 500ms): property `released` (the bot is a ghost), `corpseLocation` (its corpse, any map, for a `location` movement goal), `corpseFar` (released and the corpse on another map or beyond 34 yards) ...",
+      "doc": "global task of the Dead trees, ticked (every 500ms): property `released` (the bot is a ghost), `corpseLocation` (its corpse, any map, for a `location` movement goal), `corpseFar` (released and the corpse on another map or beyond 34 yards); delegate `onCorpseFar` (it turned true)",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 2
+    },
+    "CreatureProvider_GlobalTask": {
+      "cppClass": "CreatureProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/CreatureProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "units",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "closest",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "count",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onAppeared",
+        "onGone"
+      ],
+      "description": "global task, ticked (every 250ms): the living creatures of the entries within range of the bot that are hostile to it (an encounter's adds, a boss's illusions) ...",
+      "doc": "global task, ticked (every 250ms): the living creatures of the entries within range of the bot that are hostile to it (an encounter's adds, a boss's illusions); property `units` (closest first), `closest` (the first, for a `range` movement goal or `Task_CastSpell`), `count`; delegates `onAppeared` (a creature that was not there at the last check), `onGone` (the last one died or left the range)",
+      "settingsHelp": "`<Creature entry=\"...\"/>` per creature entry (one or more; comma separated also), `<Range value=\"40\"/>` (yards, default 40)",
+      "taskAttributes": {},
+      "settings": {
+        "Creature": {
+          "attributes": {
+            "entry": {
+              "examples": [
+                "11439"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        },
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "40"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 1
+    },
+    "CurseProvider_GlobalTask": {
+      "cppClass": "CurseProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/DispelProvider_GlobalTask.h",
+      "base": "DispelProvider_GlobalTask",
+      "propertiesFrom": "DispelProvider_GlobalTask",
+      "delegatesFrom": "DispelProvider_GlobalTask",
+      "properties": [
+        {
+          "name": "whoNeeds",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "magic",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "curse",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "disease",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "poison",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "causes",
+          "type": "STAI_SpellCauses",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onNeedsHelp"
+      ],
+      "description": "`DispelProvider_GlobalTask` for curses only (every dispellable curse without `<Observe>` / `<Ignore>`), for the trees that only decurse; same properties and delegate",
+      "doc": "`DispelProvider_GlobalTask` for curses only (every dispellable curse without `<Observe>` / `<Ignore>`), for the trees that only decurse; same properties and delegate",
+      "settingsHelp": "`<Observe spellid=\"...\"/>` or `<Ignore spellid=\"...\"/>` as for `DispelProvider_GlobalTask`",
+      "taskAttributes": {},
+      "settings": {
+        "Observe": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "8399,12345"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": false
+        },
+        "Ignore": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "8399,12345"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": false
+        }
+      },
+      "uses": 4
+    },
+    "DispelProvider_GlobalTask": {
+      "cppClass": "DispelProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/DispelProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "whoNeeds",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "magic",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "curse",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "disease",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "poison",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "causes",
+          "type": "STAI_SpellCauses",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onNeedsHelp"
+      ],
+      "description": "global task, not ticked: watches the bot and its group for harmful auras of the watched dispel types (only the observed ones, or all but the ignored ones: the others fire no delegate and put nobody in the lists) ...",
+      "doc": "global task, not ticked: watches the bot and its group for harmful auras of the watched dispel types (only the observed ones, or all but the ignored ones: the others fire no delegate and put nobody in the lists); property `whoNeeds` (every member with one, the bot first), properties `magic`, `curse`, `disease`, `poison` (the same by type, for one dispel spell each), property `causes` (per member and type its first watched aura, bound into `Task_CastSpell`'s `causes`), delegate `onNeedsHelp` fired when an evaluation finds any",
+      "settingsHelp": "`<Dispel type=\"magic|curse|disease|poison\"/>` per watched type (one or more); optional, one of them (both: the tree is not loaded, the error is logged): `<Observe spellid=\"8399,12345\"/>` (comma separated, any rank: only these; `spellid=\"\"`: none) or `<Ignore spellid=\"8399,12345\"/>` (all but these; empty: all)",
+      "taskAttributes": {},
+      "settings": {
+        "Dispel": {
+          "attributes": {
+            "type": {
+              "examples": [
+                "magic",
+                "disease"
+              ],
+              "options": [
+                "magic",
+                "curse",
+                "disease",
+                "poison"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        },
+        "Observe": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "",
+                "3436",
+                "8399,12345"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Ignore": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "8399,12345"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": false
+        }
+      },
+      "uses": 5
+    },
+    "EncounterProvider_GlobalTask": {
+      "cppClass": "EncounterProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/EncounterProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "tactic",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onTacticChanged"
+      ],
+      "description": "global task, ticked (every 250ms): property `tactic`, the name of the first tactic that applies (the bot is on its map and a living, hostile creature of its entries is within its range, as `CreatureProvider_GlobalTask` finds them) ...",
+      "doc": "global task, ticked (every 250ms): property `tactic`, the name of the first tactic that applies (the bot is on its map and a living, hostile creature of its entries is within its range, as `CreatureProvider_GlobalTask` finds them), empty for none; delegate `onTacticChanged`. The class Combat trees run a tactic's subtree instead of the spec subtree while it applies (see Boss tactics)",
+      "settingsHelp": "`<Tactic name=\"...\" map=\"<map id>\" entry=\"<entries, comma separated>\" range=\"40\"/>` per tactic (range in yards, default 40), in priority order",
+      "taskAttributes": {},
+      "settings": {
+        "Tactic": {
+          "attributes": {
+            "name": {
+              "examples": [
+                "jandice illusions"
+              ]
+            },
+            "map": {
+              "examples": [
+                "289"
+              ]
+            },
+            "entry": {
+              "examples": [
+                "11439"
+              ]
+            },
+            "range": {
+              "examples": [
+                "40"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 1
+    },
+    "HazardProvider_GlobalTask": {
+      "cppClass": "HazardProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/HazardProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "inHazard",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "safePosition",
+          "type": "STAI_Position",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onHazard"
+      ],
+      "description": "global task, ticked (every 250ms): the area effects on the ground (dynamic objects) of units hostile to the bot with a harmful effect ...",
+      "doc": "global task, ticked (every 250ms): the area effects on the ground (dynamic objects) of units hostile to the bot with a harmful effect; property `inHazard` (the bot stands in one), property `safePosition` (the closest spot around the bot, 16 directions up to 20 yards, outside every hazard by the margin, in sight and walkable; kept while it stays safe; unset outside hazards), delegate `onHazard` fired when the bot got into one and every second while it is still in one",
+      "settingsHelp": "`<Margin value=\"2\"/>` (yards, default 2)",
+      "taskAttributes": {},
+      "settings": {
+        "Margin": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "2"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 10
+    },
+    "HealProvider_GlobalTask": {
+      "cppClass": "HealProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/HealProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "critical",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "low",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "medium",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "almostFull",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "healTarget",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "lowestPct",
+          "type": "float",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "aggroed",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "selfAttacked",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "dead",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "resurrectTarget",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "mainTank",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "tankOutOfRange",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onNeedsHeal",
+        "onAggro",
+        "onDead",
+        "onTankOutOfRange"
+      ],
+      "description": "global task, ticked (every 200ms): the bot and its group members on its map. Properties `critical` / `low` / `medium` / `almostFull` (the living members below each bound, lowest health first, a tank before others of the same health ...",
+      "doc": "global task, ticked (every 200ms): the bot and its group members on its map. Properties `critical` / `low` / `medium` / `almostFull` (the living members below each bound, lowest health first, a tank before others of the same health; a member is in every band above its own; duelling members left out), `healTarget` (the first of them) and `lowestPct`; delegate `onNeedsHeal` (a member got wounded below `AlmostFull`, or a band got more members). `aggroed` (living members that are no tank and are the victim of a hostile unit, the bot first), `selfAttacked` (a hostile unit attacks the bot), delegate `onAggro` (a new member in `aggroed`). `dead` (members that are dead and not offered a resurrection yet: on the bot's map with the body not released, else released, a ghost anywhere, with the corpse on the bot's map, as the corpse's guid), `resurrectTarget` (the first), delegate `onDead`. `mainTank` (the first living tank other than the bot), `tankOutOfRange` (beyond `TankRange` or out of sight), delegate `onTankOutOfRange` (it turned true). Tanks come from `STAI_TeamRoles` (see `TeamProvider_GlobalTask`)",
+      "settingsHelp": "`<Critical value=\"20\"/>`, `<Low value=\"50\"/>`, `<Medium value=\"70\"/>`, `<AlmostFull value=\"90\"/>` (percent, the bands' upper bounds), `<TankRange value=\"30\"/>` (yards)",
+      "taskAttributes": {},
+      "settings": {
+        "Critical": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "20"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Low": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "50"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Medium": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "70"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "AlmostFull": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "90"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "TankRange": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "30"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 7
+    },
+    "HealthProvider_GlobalTask": {
+      "cppClass": "HealthProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h",
+      "base": "ResourceProvider_GlobalTask",
+      "properties": [
+        {
+          "name": "healthPct",
+          "type": "float",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onHealthChanged"
+      ],
+      "description": "global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second",
+      "doc": "global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 24
+    },
+    "InstanceProvider_GlobalTask": {
+      "cppClass": "InstanceProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/InstanceProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "mapId",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "instanceId",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "inDungeon",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "stage",
+          "type": "int32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "masterStage",
+          "type": "int32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "masterStageCleared",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "pathBlocked",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "stagePosition",
+          "type": "STAI_Position",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "stagePositionFar",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "stagePositionFrom",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "preset",
+          "type": "int32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "presetName",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "activePull",
+          "type": "int32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "activePullName",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "blockedBy",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onInstanceChanged",
+        "onStageCleared",
+        "onStageBlocked",
+        "onStagePositionFar",
+        "onPlanChanged"
+      ],
+      "description": "global task: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem) ...",
+      "doc": "global task: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again. On maps with stages (see below) ticked every 500ms: properties `stage` / `masterStage` (the stage the bot / master stands in, -1 none), `masterStageCleared` (the master is in a cleared stage; false while it is in no stage, true while it is not on the bot's map), `pathBlocked` (the way to `stagePosition`, else to the master out of follow range, crosses a stage that is not cleared other than the bot's and the master's), `stagePosition` (the bot's cleared point in the master's stage once it is cleared, else its uncleared point; unset without one; while the bot stands in a stage that is not cleared other than the master's, where it last stood outside such a stage: it leaves the way it came instead of crossing the stage), `stagePositionFar`, `stagePositionFrom` (where the point comes from: `<stage> cleared|uncleared, rtsc|entrance / rtsc|stage file`, `pull <n> <name> [cleared], rtsc|waiting|planned|path <i>/<n>`, or `<bot's stage> uncleared, way back`; the Position Yourself goal's reason), `preset` / `presetName` (the master's Bot Dungeon Planner preset, 0 none), `activePull` / `activePullName` (its active pull, 0 none; see Plans below), `blockedBy` (the creature that would aggro on the way); delegates `onStageBlocked` (the bot can neither follow nor go to a point: `pathBlocked` turned true, or the master went into a stage that is not cleared without an uncleared point, or out of every stage), `onStageCleared` (the master's stage got cleared), `onStagePositionFar` (every check while away from `stagePosition` and not blocked), `onPlanChanged` (the master's preset, its content or its active pull changed)",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 38
+    },
+    "InterruptProvider_GlobalTask": {
+      "cppClass": "InterruptProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/InterruptProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "whoNeeds",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "causes",
+          "type": "STAI_SpellCauses",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onInterruptNeeded"
+      ],
+      "description": "global task, ticked (every 100ms): the enemies on the threat lists of the bot and its group that cast or channel an interruptible spell the filter allows and that the interrupt reaches now (known, off cooldown, range, sight, mana) ...",
+      "doc": "global task, ticked (every 100ms): the enemies on the threat lists of the bot and its group that cast or channel an interruptible spell the filter allows and that the interrupt reaches now (known, off cooldown, range, sight, mana); property `whoNeeds` (healing casts first), property `causes` (the spell each of them casts), delegate `onInterruptNeeded` fired when the first caster or its spell changes",
+      "settingsHelp": "`spellid=\"...\"` on the `<Task>` (the bot's interrupt, id or name); `<Observe spellid=\"8399,12345\"/>` (comma separated, any rank: only these casts; `spellid=\"\"`: none) or `<Ignore spellid=\"8399,12345\"/>` (all but these), optional, not both (the tree is not loaded, the error is logged)",
+      "taskAttributes": {
+        "spellid": {
+          "examples": [
+            "Counterspell",
+            "Earth Shock",
+            "Pummel",
+            "Shield Bash"
+          ]
+        }
+      },
+      "settings": {
+        "Observe": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "8399,12345"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": false
+        },
+        "Ignore": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "8399,12345"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": false
+        }
+      },
+      "uses": 5
+    },
+    "ManaProvider_GlobalTask": {
+      "cppClass": "ManaProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h",
+      "base": "ResourceProvider_GlobalTask",
+      "properties": [
+        {
+          "name": "manaPct",
+          "type": "float",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onManaChanged"
+      ],
+      "description": "global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second",
+      "doc": "global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 29
+    },
+    "MasterDistance_GlobalTask": {
+      "cppClass": "MasterDistance_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/MasterDistance_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "masterFar",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "location",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onMasterFar"
+      ],
+      "description": "global task: property `masterFar` (a living master on another map or instance is always far), property `location` (where the master is, for a `location` movement goal) ...",
+      "doc": "global task: property `masterFar` (a living master on another map or instance is always far), property `location` (where the master is, for a `location` movement goal), delegate `onMasterFar` fired every update while the master is beyond the range",
+      "settingsHelp": "`<Range value=\"follow\"/>` (yards or a range name, default `follow`)",
+      "taskAttributes": {},
+      "settings": {
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "follow"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 20
+    },
+    "MeleeProvider_GlobalTask": {
+      "cppClass": "MeleeProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/MeleeProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "inMelee",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "behind",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "targetAttacksBot",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "targetHealthPct",
+          "type": "float",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "targetDistance",
+          "type": "float",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "enemiesInMelee",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "inCombat",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "canCharge",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "attacking",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "swingQueued",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onMeleeChanged",
+        "onCanCharge"
+      ],
+      "description": "global task, ticked (every 100ms), listed after the provider of its target: properties `inMelee` (in melee reach), `behind` (outside the target's front arc ...",
+      "doc": "global task, ticked (every 100ms), listed after the provider of its target: properties `inMelee` (in melee reach), `behind` (outside the target's front arc; a target turned to the bot for less than 1s still counts), `targetAttacksBot`, `targetHealthPct`, `targetDistance`, `enemiesInMelee` (units fighting the group within 8 yards), `inCombat` (the bot), `attacking` (the bot's auto attack is on the target), `swingQueued` (Heroic Strike / Cleave waits for the swing), `canCharge` (Charge / Intercept pull nothing else: the target has fought the group for `FightTime` and does not attack the bot, it is within `ChargeRange` and in sight, no hostile creature that is not fighting yet within `PullRadius` of the target or of the bot, never into a stage that is not cleared, also not its boxes that may be entered in combat); delegates `onMeleeChanged`, `onCanCharge`",
+      "settingsHelp": "`<Binding local=\"target\" .../>` (the unit fought: `TargetProvider_GlobalTask::target`, `TankTargetProvider_GlobalTask::target`), `<ChargeRange min=\"8\" max=\"25\"/>`, `<PullRadius value=\"15\"/>` (yards), `<FightTime value=\"2000\"/>` (ms)",
+      "taskAttributes": {},
+      "settings": {
+        "ChargeRange": {
+          "attributes": {
+            "min": {
+              "examples": [
+                "8"
+              ]
+            },
+            "max": {
+              "examples": [
+                "25"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "PullRadius": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "15"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "FightTime": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "2000"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 3
+    },
+    "MovementGoal_GlobalTask": {
+      "cppClass": "MovementGoal_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/MovementGoal_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "location",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "position",
+          "type": "STAI_Position",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "reason",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "wanted",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "inRange",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "activeGoal",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "activeSource",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "movement",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onGoalChanged",
+        "onArrived",
+        "onMovementChanged"
+      ],
+      "description": "a movement goal (see Movement): ticked, submits the goal to the bot's movement every update while its conditions pass and its spot is set ...",
+      "doc": "a movement goal (see Movement): ticked, submits the goal to the bot's movement every update while its conditions pass and its spot is set; properties `wanted`, `active` (it drives the bot), `inRange` (the bot is where the goal wants it, also while another goal drives), `activeGoal` / `activeSource` (the goal driving the bot, `<goal> (<reason>)`)| <goal>`), `movement` (\"moving\", \"reached\", \"blocked\", \"yielding\", \"stopped\", \"none\"); delegates `onGoalChanged` (it started / stopped driving), `onArrived` (`inRange` turned true)",
+      "settingsHelp": "`name=\"...\"`, `priority=\"...\"`, `kind=\"location|position|range\"`, `interruptCast=\"false\"` on the `<Task>`; `<Radius value=\"2\"/>` (location / position, yards or a range name), `<Range max=\"melee|<yards>|<range name>\" min=\"0\"/>`, `<Side value=\"any|behind|front\"/>`, `<Sight value=\"true\"/>`, `<Dead value=\"false\"/>` (range); `<Binding local=\"location|position|target\" .../>`; `<Conditions>`",
+      "taskAttributes": {
+        "priority": {
+          "examples": [
+            "100",
+            "10",
+            "35",
+            "40",
+            "45",
+            "70",
+            "60",
+            "50"
+          ]
+        },
+        "kind": {
+          "examples": [
+            "position",
+            "location",
+            "range"
+          ],
+          "options": [
+            "location",
+            "position",
+            "range"
+          ]
+        },
+        "interruptCast": {
+          "examples": [
+            "true",
+            "false"
+          ]
+        }
+      },
+      "settings": {
+        "Radius": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "1",
+                "10",
+                "2",
+                "follow"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Range": {
+          "attributes": {
+            "max": {
+              "examples": [
+                "spell",
+                "8",
+                "35",
+                "25",
+                "melee"
+              ],
+              "options": [
+                "melee"
+              ]
+            },
+            "min": {
+              "examples": [
+                "0"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Dead": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Side": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "behind",
+                "front"
+              ],
+              "options": [
+                "any",
+                "behind",
+                "front"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Sight": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "true"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": false
+        }
+      },
+      "uses": 83
+    },
+    "STAI_FinishTreeTask": {
+      "cppClass": "STAI_FinishTreeTask",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "Finishes the tree that contains its state (a transition with target=\"Succeeded\" does the same).",
+      "doc": "Finishes the tree that contains its state (a transition with target=\"Succeeded\" does the same).",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 0
+    },
+    "STAI_GlobalTask": {
+      "cppClass": "STAI_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Tasks/STAI_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [],
+      "delegates": [],
+      "description": "Global task that does nothing; base for global tasks written against the old name.",
+      "doc": "Global task that does nothing; base for global tasks written against the old name.",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 0
+    },
+    "STAI_SendEventTask": {
+      "cppClass": "STAI_SendEventTask",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/STAI_SendEventTask.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "Sends an event to the tree running the task (RedStateTree / UE StateTree events): <Transition trigger=\"OnEvent\" event=\"...\"> of the active states see it in the next update of the tree.",
+      "doc": "Sends an event to the tree running the task (RedStateTree / UE StateTree events): <Transition trigger=\"OnEvent\" event=\"...\"> of the active states see it in the next update of the tree.",
+      "settingsHelp": "",
+      "taskAttributes": {
+        "event": {
+          "examples": [
+            "pull"
+          ]
+        }
+      },
+      "settings": {},
+      "uses": 0
+    },
+    "SpecProvider_GlobalTask": {
+      "cppClass": "SpecProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "specName",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onSpecChanged"
+      ],
+      "description": "global task, ticked (every 2s, and on the next update after the core `TeamSubsystem`'s `OnTalentsChanged`: talents learned, removed or a premade spec applied) ...",
+      "doc": "global task, ticked (every 2s, and on the next update after the core `TeamSubsystem`'s `OnTalentsChanged`: talents learned, removed or a premade spec applied): property `specName`, the bot's spec from its talent tab with the most points (`PlayerSpec`, a class default below level 10): \"frost mage\", \"fire mage\" (arcane counts as frost), \"holy priest\", \"disc priest\", \"shadow priest\", \"warlock\", \"rogue\", \"hunter\", \"elem shaman\", \"enh shaman\", \"resto shaman\", \"prot druid\" (balance and feral), \"resto druid\", \"holy paladin\", \"prot paladin\", \"retri paladin\", \"arms warrior\", \"fury warrior\", \"prot warrior\"; delegate `onSpecChanged` fired when it changed",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 8
+    },
+    "TankTargetProvider_GlobalTask": {
+      "cppClass": "TankTargetProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/TankTargetProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "taunt",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "loose",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "mainTank",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "auraStacks",
+          "type": "std::map<uint32,uint32>",
+          "traits": [
+            "numberMap",
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [
+        "onTargetChanged",
+        "onLoose",
+        "onAuraChanged"
+      ],
+      "description": "global task of tank trees, ticked (every 250ms): the unit the bot holds among the units fighting the group (players, crowd-controlled units and the bot's `rti cc` marks left out) ...",
+      "doc": "global task of tank trees, ticked (every 250ms): the unit the bot holds among the units fighting the group (players, crowd-controlled units and the bot's `rti cc` marks left out). Main tank (the first living tank of the group, `STAI_TeamRoles`): a unit attacking a member that is no tank (the healers' first, the closest), else the `rti` mark, else the current target, else the closest unit not attacking the bot yet; off tank: a loose unit that does not attack the main tank, else the current target unless it attacks the main tank, else a unit attacking the bot, else the main tank's unit. Properties `target`, `taunt` (target while it attacks a member that is no tank), `loose`, `mainTank`; delegates `onTargetChanged`, `onLoose` (a new loose unit); `auraStacks` / `onAuraChanged` as on `TargetProvider_GlobalTask`",
+      "settingsHelp": "`<Aura spellid=\"...\"/>` per aura watched on the target, optional",
+      "taskAttributes": {},
+      "settings": {
+        "Aura": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "7386"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 1
+    },
+    "TargetProvider_GlobalTask": {
+      "cppClass": "TargetProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/TargetProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "threatHigh",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "auraStacks",
+          "type": "std::map<uint32,uint32>",
+          "traits": [
+            "numberMap",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "tankNear",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onTargetChanged",
+        "onAuraChanged",
+        "onTankNear"
+      ],
+      "description": "global task, ticked: the unit to attack, the first living, hostile, in-sight mark of the bot's `rti` icons, else the least-health non-player unit on the threat lists of the bot and its group (kept while it stays valid) ...",
+      "doc": "global task, ticked: the unit to attack, the first living, hostile, in-sight mark of the bot's `rti` icons, else the least-health non-player unit on the threat lists of the bot and its group (kept while it stays valid); crowd-controlled units and the bot's `rti cc` marks are skipped; property `target` (a guid), delegate `onTargetChanged`. With `WithThreat` true and a living tank in the group, `target` is empty (property `threatHigh`, `onTargetChanged` fires) while the bot's threat on the creature is at `ThreatAmount` or more of the highest other threat on it (also before anybody else has threat), and is set again once it drops below. With `TankRange`, property `tankNear` is true once a living tank of the group (not the bot) has come within `TankRange` of the chosen unit and stays true while it is chosen (also true without a group or another tank; always true without `TankRange`), delegate `onTankNear` (it turned true): melee dps waits with its Melee goal while the tank pulls the unit to itself. Property `auraStacks` (per configured aura id, read by key: the highest stack on `target`, 0 without it), delegate `onAuraChanged`: an internal subscription (`STAI_TargetAuraWatch`) to the target's aura events of the core `SpellAuraWorldSubsystem`, moved along with the target",
+      "settingsHelp": "`<WithThreat value=\"false\"/>`, `<ThreatAmount value=\"90\"/>` (percent, default 90), `<AssistTank value=\"false\"/>` (without a mark: the unit a living tank of the group attacks, melee), `<TankRange value=\"0\"/>` (yards, 0: off), `<Aura spellid=\"...\"/>` per aura watched on the target (any rank, any caster), optional",
+      "taskAttributes": {},
+      "settings": {
+        "WithThreat": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "ThreatAmount": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "90"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "AssistTank": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "TankRange": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "10",
+                "0"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Aura": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "7386"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 9
+    },
+    "Task_AcceptInvite": {
+      "cppClass": "Task_AcceptInvite",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_AcceptInvite.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "answers the bot's group invite: accepts it (`CMSG_GROUP_ACCEPT`, leaves AFK first) when the inviting leader has the security level to invite the bot, declines it otherwise (the leader gets the decline) ...",
+      "doc": "answers the bot's group invite: accepts it (`CMSG_GROUP_ACCEPT`, leaves AFK first) when the inviting leader has the security level to invite the bot, declines it otherwise (the leader gets the decline); the master then follows from the group; not tickable, Succeeded once in the group (or no invite), Failed when it declined or could not join",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 10
+    },
+    "Task_AcceptResurrection": {
+      "cppClass": "Task_AcceptResurrection",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_AcceptResurrection.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "waits, dead, until a resurrection is offered to the bot and accepts it (as the client's `CMSG_RESURRECT_RESPONSE` would); Running while nothing is offered, Succeeded once accepted or when the bot is alive",
+      "doc": "waits, dead, until a resurrection is offered to the bot and accepts it (as the client's `CMSG_RESURRECT_RESPONSE` would); Running while nothing is offered, Succeeded once accepted or when the bot is alive",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 10
+    },
+    "Task_AcceptTrade": {
+      "cppClass": "Task_AcceptTrade",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Trade.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "accepts the trade (the other player accepted first), with the same trader rule; Failed when it cancelled",
+      "doc": "accepts the trade (the other player accepted first), with the same trader rule; Failed when it cancelled",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 10
+    },
+    "Task_CastBuff": {
+      "cppClass": "Task_CastBuff",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_CastBuff.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "needs",
+          "type": "std::vector<BuffNeed>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD ...",
+      "doc": "casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast",
+      "settingsHelp": "`<Binding local=\"needs\" external=\"Root|BuffProvider_GlobalTask::needs\"/>`",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 8
+    },
+    "Task_CastSpell": {
+      "cppClass": "Task_CastSpell",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_CastSpell.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "whoNeeds",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "causes",
+          "type": "STAI_SpellCauses",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target ...",
+      "doc": "casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target, or every target is skipped by `<SkipAura>` (so the state waits its retry delay instead of being selected again at once)",
+      "settingsHelp": "`spellid=\"...\"` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local=\"target\" .../>` and / or `<Binding local=\"whoNeeds\" .../>`, or `<Target value=\"self\"/>` (the bot first); `<Target value=\"dead\"/>`: only dead targets (resurrections; a corpse guid of `HealProvider_GlobalTask::dead` is cast at as the corpse, `PlayerbotAI::CastSpellOnCorpse`); `<Fallback spellid=\"...\"/>` per spell, cast instead while the bot knows none of the spells before it (Flash Heal, then Heal, then Lesser Heal); `<SkipAura spellid=\"...\"/>` (targets with that aura, any rank and caster, are skipped: Weakened Soul) / `<SkipAura own=\"true\"/>` (targets with the bot's own aura of the cast spell: Renew); `<Binding local=\"causes\" .../>` (optional, `DispelProvider_GlobalTask` / `CurseProvider_GlobalTask` / `InterruptProvider_GlobalTask::causes`: its History entry and, while it runs, its task info in the debug views read `Cast <spell> (cause <spell>)`, the aura the dispel removes or the spell the interrupt stops on the cast target, both shown with their icons)",
+      "taskAttributes": {
+        "spellid": {
+          "examples": [
+            "Counterspell",
+            "Polymorph",
+            "Remove Lesser Curse",
+            "Evocation",
+            "Fireball",
+            "Ice Block",
+            "Frostbolt",
+            "Arcane Explosion"
+          ]
+        }
+      },
+      "settings": {
+        "Target": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "self",
+                "dead"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "SkipAura": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "6788"
+              ]
+            },
+            "own": {
+              "examples": [
+                "true"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Fallback": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "Heal",
+                "Lesser Heal",
+                "Cure Disease"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 90
+    },
+    "Task_CastTotem": {
+      "cppClass": "Task_CastTotem",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_CastTotem.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "needs",
+          "type": "std::vector<uint32>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "casts the first of its `needs` the bot can cast now (at itself); waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast (mana, cooldown)",
+      "doc": "casts the first of its `needs` the bot can cast now (at itself); waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast (mana, cooldown)",
+      "settingsHelp": "`<Binding local=\"needs\" external=\"Root|TotemProvider_GlobalTask::needs\"/>`",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 3
+    },
+    "Task_EatAndDrink": {
+      "cppClass": "Task_EatAndDrink",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_EatAndDrink.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or with the item cheat the spell of the conjured food / drink of the bot's level) ...",
+      "doc": "one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or with the item cheat the spell of the conjured food / drink of the bot's level); a food / drink that ends before its target is followed by the next one; Succeeded when both targets are reached or nothing is left to eat or drink after the bot ate or drank, Failed when nothing could be started within 3s; `OnExitState` stands the bot up",
+      "settingsHelp": "`<Health until=\"100\"/>`, `<Mana until=\"100\"/>` (percent, default 100)",
+      "taskAttributes": {},
+      "settings": {
+        "Health": {
+          "attributes": {
+            "until": {
+              "examples": [
+                "100"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Mana": {
+          "attributes": {
+            "until": {
+              "examples": [
+                "100"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 20
+    },
+    "Task_OpenTrade": {
+      "cppClass": "Task_OpenTrade",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Trade.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "opens the bot's trade window (faces the trader); cancels the trade unless the trader is a bot, the master or a group member (with the security level for everything); Failed when it cancelled",
+      "doc": "opens the bot's trade window (faces the trader); cancels the trade unless the trader is a bot, the master or a group member (with the security level for everything); Failed when it cancelled",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 10
+    },
+    "Task_ReclaimCorpse": {
+      "cppClass": "Task_ReclaimCorpse",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Corpse.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "comes back at the body as the client's \"Resurrect\" button does (`CMSG_RECLAIM_CORPSE`); not tickable, Succeeded once alive, Failed while it cannot (distance, reclaim delay)",
+      "doc": "comes back at the body as the client's \"Resurrect\" button does (`CMSG_RECLAIM_CORPSE`); not tickable, Succeeded once alive, Failed while it cannot (distance, reclaim delay)",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 10
+    },
+    "Task_ReleaseSpirit": {
+      "cppClass": "Task_ReleaseSpirit",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Corpse.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "releases the spirit as the client's \"Release Spirit\" button does (`CMSG_REPOP_REQUEST`), the ghost appears at the graveyard; not tickable, Succeeded once a ghost, Failed while it cannot (alive, just dying)",
+      "doc": "releases the spirit as the client's \"Release Spirit\" button does (`CMSG_REPOP_REQUEST`), the ghost appears at the graveyard; not tickable, Succeeded once a ghost, Failed while it cannot (alive, just dying)",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 2
+    },
+    "Task_RollForItem": {
+      "cppClass": "Task_RollForItem",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_RollForItem.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "rolls",
+          "type": "std::vector<std::shared_ptr<STAI_ItemRoll>>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "votes on every bound roll: greed for now (pass when greed is not allowed); not tickable, Succeeded in `OnEnterState`",
+      "doc": "votes on every bound roll: greed for now (pass when greed is not allowed); not tickable, Succeeded in `OnEnterState`",
+      "settingsHelp": "`<Binding local=\"rolls\" external=\"Root|UIInteractionProvider_GlobalTask::rolls\"/>`",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 10
+    },
+    "Task_RunSubtree": {
+      "cppClass": "Task_RunSubtree",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_RunSubtree.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "Runs another STAI tree file as the task of this node.",
+      "doc": "Runs another STAI tree file as the task of this node.",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {
+        "Subtree": {
+          "attributes": {
+            "filename": {
+              "examples": [
+                "statetree/Druid/STAI_Combat_Resto_Druid.xml",
+                "statetree/Druid/STAI_Combat_Prot_Druid.xml",
+                "statetree/Druid/STAI_NonCombat_Dungeon_Druid.xml",
+                "statetree/Druid/STAI_NonCombat_Outdoors_Druid.xml",
+                "statetree/Hunter/STAI_NonCombat_Dungeon_Hunter.xml",
+                "statetree/Hunter/STAI_NonCombat_Outdoors_Hunter.xml",
+                "statetree/Mage/STAI_Combat_Scholomance_Jandice_Mage.xml",
+                "statetree/Mage/STAI_Combat_Frost_Mage.xml"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 38
+    },
+    "Task_SelfResurrect": {
+      "cppClass": "Task_SelfResurrect",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_SelfResurrect.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "comes back by itself, dead, as the client's \"Use Reincarnation / Soulstone\" button does (`CMSG_SELF_RES`): uses the self resurrection the core set when the bot died (`PLAYER_SELF_RES_SPELL` ...",
+      "doc": "comes back by itself, dead, as the client's \"Use Reincarnation / Soulstone\" button does (`CMSG_SELF_RES`): uses the self resurrection the core set when the bot died (`PLAYER_SELF_RES_SPELL`: Reincarnation while known, off cooldown and an Ankh in the bags; a Soulstone) when it is allowed, off cooldown and its reagents are in the bags; Succeeded once alive (or when the bot is alive), Failed without one or when it did not bring the bot back within 5s",
+      "settingsHelp": "`<Spell id=\"...\"/>` per allowed self resurrection (any rank), optional: every one",
+      "taskAttributes": {},
+      "settings": {
+        "Spell": {
+          "attributes": {
+            "id": {
+              "examples": [
+                "21169"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 1
+    },
+    "Task_Shoot": {
+      "cppClass": "Task_Shoot",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Shoot.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "shoots the target with the equipped wand (Shoot, auto-repeat) while the state runs; Succeeded without a living target or when the bound target changed, Failed without a wand ...",
+      "doc": "shoots the target with the equipped wand (Shoot, auto-repeat) while the state runs; Succeeded without a living target or when the bound target changed, Failed without a wand, when the target cannot be shot or the shooting stopped for 2s and cannot be started again; `OnExitState` stops the shooting",
+      "settingsHelp": "`<Binding local=\"target\" .../>`",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 6
+    },
+    "Task_Stance": {
+      "cppClass": "Task_Stance",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Stance.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "casts the stance; not tickable, Succeeded when the bot is in it, Failed when it knows none or the switch did not happen",
+      "doc": "casts the stance; not tickable, Succeeded when the bot is in it, Failed when it knows none or the switch did not happen",
+      "settingsHelp": "`<Stance value=\"battle|defensive|berserker\"/>` per stance, the first one the bot knows",
+      "taskAttributes": {},
+      "settings": {
+        "Stance": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "battle",
+                "berserker",
+                "defensive"
+              ],
+              "options": [
+                "battle",
+                "defensive",
+                "berserker"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 10
+    },
+    "Task_StartAttack": {
+      "cppClass": "Task_StartAttack",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Attack.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "puts the auto attack on the target without moving (the tree's Melee goal brings the bot into reach); not tickable, Succeeded once the attack is on it, Failed without a living hostile target",
+      "doc": "puts the auto attack on the target without moving (the tree's Melee goal brings the bot into reach); not tickable, Succeeded once the attack is on it, Failed without a living hostile target",
+      "settingsHelp": "`<Binding local=\"target\" .../>`",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 3
+    },
+    "Task_StopAttack": {
+      "cppClass": "Task_StopAttack",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Attack.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "stops the auto attack; the Melee goal goes with the target (held back by threat), the bot stays where it is; not tickable, Succeeded",
+      "doc": "stops the auto attack; the Melee goal goes with the target (held back by threat), the bot stays where it is; not tickable, Succeeded",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 2
+    },
+    "Task_UseItem": {
+      "cppClass": "Task_UseItem",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_UseItem.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "uses the first listed item of the bags whose spell is off cooldown (and its level allows) on the bot; with the item cheat an item it does not have by casting its spell ...",
+      "doc": "uses the first listed item of the bags whose spell is off cooldown (and its level allows) on the bot; with the item cheat an item it does not have by casting its spell; Succeeded once the item's spell went off, Failed when nothing can be used or the spell did not go off within 3s",
+      "settingsHelp": "`<Item id=\"...\"/>` per item, in the order they are tried",
+      "taskAttributes": {},
+      "settings": {
+        "Item": {
+          "attributes": {
+            "id": {
+              "examples": [
+                "13444",
+                "13443",
+                "6149",
+                "3827",
+                "3385",
+                "2455",
+                "8008",
+                "8007"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        }
+      },
+      "uses": 13
+    },
+    "Task_Wait": {
+      "cppClass": "Task_Wait",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Wait.h",
+      "base": "STAI_TaskBase",
+      "properties": [],
+      "delegates": [],
+      "description": "waits: Succeeded once its updates add up to the delay; with 0 it never finishes, the state is left through its transitions (an idle state)",
+      "doc": "waits: Succeeded once its updates add up to the delay; with 0 it never finishes, the state is left through its transitions (an idle state)",
+      "settingsHelp": "`<Delay value=\"0\" deviation=\"0\"/>` (ms, default 0; deviation: each run waits up to that much shorter or longer, RedSTTask_Wait's random deviation)",
+      "taskAttributes": {},
+      "settings": {
+        "Delay": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "0",
+                "1000",
+                "1",
+                "100",
+                "200"
+              ]
+            },
+            "deviation": {
+              "examples": [
+                "0"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 59
+    },
+    "TeamProvider_GlobalTask": {
+      "cppClass": "TeamProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/TeamProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "tanks",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "healers",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "damage",
+          "type": "std::vector<ObjectGuid>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "mainTank",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "specName",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "isTank",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "isHealer",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onRolesChanged"
+      ],
+      "description": "global task, ticked: the spec and roles of the bot and its group members on its map (`STAI_TeamRoles`: `PlayerSpec`, read again on the core `TeamSubsystem`'s group events and `OnTalentsChanged` / `OnMemberTalentsChanged` ...",
+      "doc": "global task, ticked: the spec and roles of the bot and its group members on its map (`STAI_TeamRoles`: `PlayerSpec`, read again on the core `TeamSubsystem`'s group events and `OnTalentsChanged` / `OnMemberTalentsChanged`, and every 2s for stances / Righteous Fury); properties `tanks`, `healers`, `damage` (guids in group order, the bot included), `mainTank` (the first living tank other than the bot), `specName` / `isTank` / `isHealer` (the bot's own); delegate `onRolesChanged` (a role, spec, member or the main tank changed)",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 0
+    },
+    "TotemProvider_GlobalTask": {
+      "cppClass": "TotemProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/TotemProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "fire",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "earth",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "water",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "air",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "needs",
+          "type": "std::vector<uint32>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "mapId",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "stage",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onTotemsChanged",
+        "onTotemMissing"
+      ],
+      "description": "global task, ticked (every 250ms, at once after a selection): the shaman's totems (`playerbot/PlayerbotTotems.*`, table `ai_playerbot_totems`) ...",
+      "doc": "global task, ticked (every 250ms, at once after a selection): the shaman's totems (`playerbot/PlayerbotTotems.*`, table `ai_playerbot_totems`): a totem or none per school, from the set of the dungeon stage the master stands in (the bot's own stage without the master on its map) when it has one, else the outdoor set; selected in the WoWAddonInspectBot addon. Properties `fire`, `earth`, `water`, `air` (the spell cast for the school: the highest known rank of the selection, 0 none), `needs` (those whose totem is not up: none in the school, another totem there, dead, or farther than `Range`; school order), `mapId` / `stage` (the set in use, 0 / 0 outdoor); delegates `onTotemsChanged` (a school's spell changed: a selection, a stage with another set, a new rank; and on the first check), `onTotemMissing` (`needs` got a spell it did not have: never cast, expired, destroyed, left behind)",
+      "settingsHelp": "`<Range value=\"30\"/>` (yards, default 30)",
+      "taskAttributes": {},
+      "settings": {
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "30"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 3
+    },
+    "UIInteractionProvider_GlobalTask": {
+      "cppClass": "UIInteractionProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/UIInteractionProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "rolls",
+          "type": "std::vector<std::shared_ptr<STAI_ItemRoll>>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "tradeOpenRequested",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "tradeAcceptRequested",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "resurrectOffered",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "canReclaimCorpse",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "groupInviteRequested",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onRollRequested",
+        "onTradeRequested",
+        "onTradeAccepted",
+        "onResurrectOffered",
+        "onReclaimCorpse",
+        "onGroupInvited"
+      ],
+      "description": "global task, ticked: what a player answers in its UI. Loot rolls the bot is asked to vote on (core `TeamSubsystem::OnLootRollStarted`, fired by `GroupLootRoll` for each voter): property `rolls` (the rolls not voted on yet, oldest first ...",
+      "doc": "global task, ticked: what a player answers in its UI. Loot rolls the bot is asked to vote on (core `TeamSubsystem::OnLootRollStarted`, fired by `GroupLootRoll` for each voter): property `rolls` (the rolls not voted on yet, oldest first; dropped once voted or after the 60s roll timeout), delegate `onRollRequested` fired for every new roll. Trades (the bot's `SMSG_TRADE_STATUS`, `PlayerbotAI::onTradeStatus`): property `tradeOpenRequested` (a player opened a trade, the bot's window is not open yet) with delegate `onTradeRequested`, property `tradeAcceptRequested` (the window is open, the other player accepted, the bot did not) with delegate `onTradeAccepted`. Death popups: property `resurrectOffered` (the dead bot is offered a resurrection, `Task_AcceptResurrection`) with delegate `onResurrectOffered`, property `canReclaimCorpse` (the client's \"Resurrect\" button at the body: a ghost within 39 yards of its corpse, the reclaim delay over; `Task_ReclaimCorpse`) with delegate `onReclaimCorpse`. Group invite: property `groupInviteRequested` (the bot has a group invite not answered yet, `Task_AcceptInvite`) with delegate `onGroupInvited`",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 10
+    },
+    "WarriorProvider_GlobalTask": {
+      "cppClass": "WarriorProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/WarriorProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "rage",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "stance",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "revenge",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "overpower",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "overpowerTarget",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "knowsDefensive",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "knowsBerserker",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onReactive"
+      ],
+      "description": "global task, ticked (every 100ms): properties `rage`, `stance` (\"battle\", \"defensive\", \"berserker\"), `knowsDefensive` / `knowsBerserker` (the stance states switch only to a stance the bot has), `revenge` (the bot blocked ...",
+      "doc": "global task, ticked (every 100ms): properties `rage`, `stance` (\"battle\", \"defensive\", \"berserker\"), `knowsDefensive` / `knowsBerserker` (the stance states switch only to a stance the bot has), `revenge` (the bot blocked, dodged or parried: the core's `AURA_STATE_DEFENSE`), `overpower` / `overpowerTarget` (a target dodged: the warrior's combo point on it); delegate `onReactive` (Revenge or Overpower became usable)",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 5
+    }
+  },
+  "conditions": {
+    "Condition_ActiveStateLocation": {
+      "attributes": [
+        {
+          "name": "location",
+          "kind": "flags",
+          "options": [
+            "above",
+            "this",
+            "below"
+          ],
+          "default": "above,below",
+          "help": "comma separated; default above,below: \"don't reenter\""
+        }
+      ],
+      "description": "where the active leaf state is relative to the state the condition belongs to (RedStateTree's States Order)",
+      "doc": "where the active leaf state is relative to the state the condition belongs to (RedStateTree's States Order)",
+      "attributesHelp": "`location` (`above`, `this`, `below`, comma separated; default `above,below`: \"don't reenter\")",
+      "fromSource": true,
+      "cppClass": "Condition_ActiveStateLocation"
+    },
+    "Condition_Compare": {
+      "attributes": [
+        {
+          "name": "binding",
+          "kind": "property",
+          "required": true,
+          "help": "path of a task property: Root|<TaskClass>::<property> or Root|<state>|<TaskClass>::<property>"
+        },
+        {
+          "name": "compare",
+          "kind": "enum",
+          "options": [
+            "equal",
+            "lesser",
+            "lesser or equal",
+            "greater",
+            "greater or equal"
+          ],
+          "help": "without: passes while the property is set (a container not empty, else its bool value)"
+        },
+        {
+          "name": "value",
+          "kind": "text",
+          "help": "the number (or a text with compare=\"equal\") to compare with"
+        },
+        {
+          "name": "key",
+          "kind": "number",
+          "help": "the entry of a map of numbers instead of the property itself"
+        }
+      ],
+      "description": "without `compare`: passes while the property is set (a container not empty, else its bool value); with `compare`: compares a number property (or a text with `equal`); `key`: the entry of a map of numbers instead",
+      "doc": "without `compare`: passes while the property is set (a container not empty, else its bool value); with `compare`: compares a number property (or a text with `equal`); `key`: the entry of a map of numbers instead",
+      "attributesHelp": "`binding` (path, required), `compare` (`equal`, `lesser`, `lesser or equal`, `greater`, `greater or equal`), `value`, `key`",
+      "fromSource": true,
+      "cppClass": "Condition_Compare"
+    },
+    "Condition_RandomChance": {
+      "attributes": [
+        {
+          "name": "chance",
+          "kind": "number",
+          "min": 0,
+          "max": 100,
+          "help": "percent, 0..100"
+        }
+      ],
+      "description": "passes with that chance on every test",
+      "doc": "passes with that chance on every test",
+      "attributesHelp": "`chance` (percent, 0..100)",
+      "fromSource": true,
+      "cppClass": "Condition_RandomChance"
+    },
+    "Condition_TimeInState": {
+      "attributes": [
+        {
+          "name": "ms",
+          "kind": "number",
+          "required": true,
+          "min": 0,
+          "help": "ms the state has been active"
+        }
+      ],
+      "description": "passes once the state the condition belongs to has been active for that long",
+      "doc": "passes once the state the condition belongs to has been active for that long",
+      "attributesHelp": "`ms` (required)",
+      "fromSource": true,
+      "cppClass": "Condition_TimeInState"
+    }
+  },
+  "considerations": {
+    "Consideration_Constant": {
+      "attributes": [
+        {
+          "name": "value",
+          "kind": "number",
+          "min": 0,
+          "max": 1,
+          "help": "a constant score 0..1"
+        }
+      ],
+      "description": "a constant score",
+      "doc": "a constant score",
+      "attributesHelp": "`value` (0..1)",
+      "fromSource": true,
+      "cppClass": "Consideration_Constant"
+    },
+    "Consideration_Number": {
+      "attributes": [
+        {
+          "name": "binding",
+          "kind": "property",
+          "required": true,
+          "number": true,
+          "help": "path of a number property"
+        },
+        {
+          "name": "min",
+          "kind": "number",
+          "default": "0",
+          "help": "the input mapped to 0"
+        },
+        {
+          "name": "max",
+          "kind": "number",
+          "default": "1",
+          "help": "the input mapped to 1"
+        }
+      ],
+      "description": "normalizes the bound number into 0..1 and maps it through the curve",
+      "doc": "normalizes the bound number into 0..1 and maps it through the curve",
+      "attributesHelp": "`binding` (number path, required), `min` (0), `max` (1), `<Key x=\"0\" y=\"0\"/>` children (a piecewise linear curve over the normalized input; none: the normalized input)",
+      "fromSource": true,
+      "children": {
+        "Key": [
+          "x",
+          "y"
+        ]
+      },
+      "cppClass": "Consideration_Number"
+    }
+  },
+  "typeAliases": {
+    "STAI_SpellCauses": "std::vector<STAI_SpellCause>"
+  }
+}

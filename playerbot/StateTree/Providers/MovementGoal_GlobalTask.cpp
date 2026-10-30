@@ -97,7 +97,7 @@ void MovementGoal_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseSettings(config);
 }
 
-std::unique_ptr<STAI_Task> MovementGoal_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> MovementGoal_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<MovementGoal_GlobalTask>(ParseSettings(config));
 }
@@ -173,9 +173,9 @@ void MovementGoal_GlobalTask::Update(MovementGoal_GlobalTaskContext& context) co
         context.onMovementChanged.Broadcast();
 }
 
-EActionRunStatus MovementGoal_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus MovementGoal_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(MovementGoal_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(MovementGoal_GlobalTask::OnEnterState);
     MovementGoal_GlobalTaskContext& context = ContextAs<MovementGoal_GlobalTaskContext>(baseContext);
     context.active = false;
     context.inRange = false;
@@ -194,9 +194,9 @@ EActionRunStatus MovementGoal_GlobalTask::OnTick(STAI_TaskContext& baseContext, 
     return EActionRunStatus::Running;
 }
 
-void MovementGoal_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void MovementGoal_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(MovementGoal_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(MovementGoal_GlobalTask::OnExitState);
     // not submitted any more: the movement drops the goal on its next update
     MovementGoal_GlobalTaskContext& context = ContextAs<MovementGoal_GlobalTaskContext>(baseContext);
     context.wanted = false;

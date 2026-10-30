@@ -8,9 +8,9 @@
 
 using namespace ai;
 
-EActionRunStatus Task_StartAttack::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_StartAttack::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_StartAttack::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_StartAttack::OnEnterState);
     Task_StartAttackContext& context = ContextAs<Task_StartAttackContext>(baseContext);
     Player* bot = context.bot;
     Unit* target = !context.target.IsEmpty() && bot->IsInWorld() ? bot->GetMap()->GetUnit(context.target) : nullptr;
@@ -33,9 +33,9 @@ const std::vector<STAI_PropertyDef>& Task_StartAttack::GetProperties() const
     return properties;
 }
 
-EActionRunStatus Task_StopAttack::OnEnter(STAI_TaskContext& context) const
+EActionRunStatus Task_StopAttack::OnEnterState(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_StopAttack::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_StopAttack::OnEnterState);
     Player* bot = context.bot;
     if (!bot->GetVictim())
         return EActionRunStatus::Succeeded;

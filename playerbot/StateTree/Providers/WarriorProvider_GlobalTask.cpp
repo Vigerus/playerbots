@@ -67,9 +67,9 @@ void WarriorProvider_GlobalTask::Update(WarriorProvider_GlobalTaskContext& conte
         context.onReactive.Broadcast();
 }
 
-EActionRunStatus WarriorProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus WarriorProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(WarriorProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(WarriorProvider_GlobalTask::OnEnterState);
     WarriorProvider_GlobalTaskContext& context = ContextAs<WarriorProvider_GlobalTaskContext>(baseContext);
     context.revenge = false;
     context.overpower = false;

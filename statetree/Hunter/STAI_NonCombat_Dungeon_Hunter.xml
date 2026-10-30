@@ -1,76 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- NonCombat subtree for Hunter bots in dungeon and raid instances (run by STAI_NonCombat_Hunter.xml) -->
-<Root>
-  <Global>
-    <!-- the rooms (InstanceSubsystem stages) of the bot and its master: stage, masterStage, masterStageCleared,
-         pathBlocked, stagePosition, stagePositionFar, onStageBlocked, onStageCleared, onStagePositionFar -->
-    <Task class="InstanceProvider_GlobalTask"/>
-    <!-- fires onMasterFar while the master is beyond follow range -->
+<StateTree version="2">
+  <Comment>NonCombat subtree for Hunter bots in dungeon and raid instances (run by STAI_NonCombat_Hunter.xml)</Comment>
+  <GlobalTasks>
+    <Task class="InstanceProvider_GlobalTask">
+      <Comment>the rooms (InstanceSubsystem stages) of the bot and its master: stage, masterStage, masterStageCleared,
+        pathBlocked, stagePosition, stagePositionFar, onStageBlocked, onStageCleared, onStagePositionFar</Comment>
+    </Task>
     <Task class="MasterDistance_GlobalTask">
+      <Comment>fires onMasterFar while the master is beyond follow range</Comment>
       <Range value="follow"/>
     </Task>
-    <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
-    <Task class="HealthProvider_GlobalTask"/>
+    <Task class="HealthProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
+    </Task>
     <Task class="ManaProvider_GlobalTask"/>
-    <!-- movement goals (MovementGoal_GlobalTask, the highest wanted one drives the bot): the bot's point in the master's
-         room (its rtsc / entrance override, else the room's position; the reason says which), reached at it, while the way
-         is open -->
     <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="35" kind="position">
+      <Comment>movement goals (MovementGoal_GlobalTask, the highest wanted one drives the bot): the bot's point in the master's
+        room (its rtsc / entrance override, else the room's position; the reason says which), reached at it, while the way
+        is open</Comment>
       <Radius value="2"/>
       <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
       <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
       <Conditions>
-        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
       </Conditions>
     </Task>
-    <!-- after the master (a path across dungeon portals), reached within follow range: not while the master is in a
-         room that is not cleared or between rooms, not through such a room, not with a point for the bot in the master's
-         room -->
     <Task class="MovementGoal_GlobalTask" name="Follow Master" priority="10" kind="location">
+      <Comment>after the master (a path across dungeon portals), reached within follow range: not while the master is in a
+        room that is not cleared or between rooms, not through such a room, not with a point for the bot in the master's
+        room</Comment>
       <Radius value="follow"/>
       <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
       <Conditions>
-        <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
-        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
-        <Condition binding="Root|InstanceProvider_GlobalTask::stagePosition" negate="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::stagePosition" inverted="true"/>
       </Conditions>
     </Task>
-  </Global>
-  <!-- eating and drinking while the bot stands (its movement goal "reached"); moving again leaves the node -->
-  <Node name="Eat and Drink">
-    <Conditions>
+  </GlobalTasks>
+  <State name="Eat and Drink">
+    <Comment>eating and drinking while the bot stands (its movement goal "reached"); moving again leaves the node</Comment>
+    <EnterConditions>
       <Any>
-        <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
-        <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+        <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+        <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
       </Any>
-      <Condition binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
-    </Conditions>
-    <Task class="Task_EatAndDrink">
-      <Health until="100"/>
-      <Mana until="100"/>
-    </Task>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_EatAndDrink">
+        <Health until="100"/>
+        <Mana until="100"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>placeholder until the new AI exists: waits forever, leaves only through a transition</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Eat and Drink">
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root|Eat and Drink">
         <Conditions>
-          <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
         </Conditions>
       </Transition>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Eat and Drink">
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root|Eat and Drink">
         <Conditions>
-          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
         </Conditions>
       </Transition>
-      <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" target="Root"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

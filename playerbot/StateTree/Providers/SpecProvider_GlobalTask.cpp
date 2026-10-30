@@ -47,9 +47,9 @@ void SpecProvider_GlobalTask::Update(SpecProvider_GlobalTaskContext& context)
     context.onSpecChanged.Broadcast();
 }
 
-EActionRunStatus SpecProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus SpecProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(SpecProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(SpecProvider_GlobalTask::OnEnterState);
     SpecProvider_GlobalTaskContext& context = ContextAs<SpecProvider_GlobalTaskContext>(baseContext);
     context.specName.clear();
     context.sinceCheckMs = 0;
@@ -59,9 +59,9 @@ EActionRunStatus SpecProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext)
     return EActionRunStatus::Running;
 }
 
-void SpecProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void SpecProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(SpecProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(SpecProvider_GlobalTask::OnExitState);
     ContextAs<SpecProvider_GlobalTaskContext>(baseContext).Unsubscribe();
 }
 

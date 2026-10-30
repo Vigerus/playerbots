@@ -31,7 +31,7 @@ void Task_RunSubtree::Validate(const STAI_TaskConfig& config)
         throw std::runtime_error("missing <Subtree filename=\"statetree/STAI_*.xml\"/>");
 }
 
-std::unique_ptr<STAI_Task> Task_RunSubtree::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> Task_RunSubtree::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<Task_RunSubtree>(GetSubtreeFile(config));
 }
@@ -46,9 +46,9 @@ const STAI_TaskContextType& Task_RunSubtree::GetContextType() const
     return STAI_TaskContextType::Of<Task_RunSubtreeContext>();
 }
 
-EActionRunStatus Task_RunSubtree::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_RunSubtree::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnEnterState);
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
     if (!context.created)
     {
@@ -75,13 +75,13 @@ EActionRunStatus Task_RunSubtree::OnTick(STAI_TaskContext& baseContext, uint32 e
     TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnTick);
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
 
-    // Succeeded once the subtree finished itself, it never fails
-    return context.subtree->OnTick(elapsed, minimal) == EActionRunStatus::Succeeded ? EActionRunStatus::Succeeded : EActionRunStatus::Running;
+    // finished once the subtree finished itself: Succeeded, or Failed through a transition to Failed
+    return context.subtree->OnTick(elapsed, minimal);
 }
 
-void Task_RunSubtree::OnExit(STAI_TaskContext& baseContext) const
+void Task_RunSubtree::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RunSubtree::OnExitState);
     Task_RunSubtreeContext& context = ContextAs<Task_RunSubtreeContext>(baseContext);
     if (context.subtree && context.subtree->IsRunning())
         context.subtree->OnFinish();

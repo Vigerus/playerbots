@@ -51,7 +51,7 @@ void CCProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseAuras(config);
 }
 
-std::unique_ptr<STAI_Task> CCProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> CCProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<CCProvider_GlobalTask>(ParseAuras(config));
 }
@@ -134,9 +134,9 @@ void CCProvider_GlobalTask::Update(CCProvider_GlobalTaskContext& context) const
     }
 }
 
-EActionRunStatus CCProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus CCProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(CCProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(CCProvider_GlobalTask::OnEnterState);
     CCProvider_GlobalTaskContext& context = ContextAs<CCProvider_GlobalTaskContext>(baseContext);
     context.whoNeeds.clear();
     context.sinceCheckMs = 0;

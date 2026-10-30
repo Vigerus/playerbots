@@ -63,14 +63,14 @@ void Task_UseItem::Validate(const STAI_TaskConfig& config)
     ParseItems(config);
 }
 
-std::unique_ptr<STAI_Task> Task_UseItem::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> Task_UseItem::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<Task_UseItem>(ParseItems(config));
 }
 
-EActionRunStatus Task_UseItem::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_UseItem::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_UseItem::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_UseItem::OnEnterState);
     Task_UseItemContext& context = ContextAs<Task_UseItemContext>(baseContext);
     context.itemId = 0;
     context.spellId = 0;
@@ -142,9 +142,9 @@ EActionRunStatus Task_UseItem::OnTick(STAI_TaskContext& baseContext, uint32 elap
     return LogStatus(context, EActionRunStatus::Running);
 }
 
-void Task_UseItem::OnExit(STAI_TaskContext& baseContext) const
+void Task_UseItem::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_UseItem::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_UseItem::OnExitState);
     Task_UseItemContext& context = ContextAs<Task_UseItemContext>(baseContext);
     const ItemPrototype* proto = sObjectMgr.GetItemPrototype(context.itemId);
     EndLog(context, proto && !IsReady(context.bot, context.spellId, proto));

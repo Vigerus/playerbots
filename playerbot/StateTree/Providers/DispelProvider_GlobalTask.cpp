@@ -51,7 +51,7 @@ void DispelProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ValidateChildren(config);
 }
 
-std::unique_ptr<STAI_Task> DispelProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> DispelProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<DispelProvider_GlobalTask>(ParseDispelMask(config, 0), STAI_SpellFilter::Parse(config));
 }
@@ -63,14 +63,14 @@ void CurseProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ValidateChildren(config);
 }
 
-std::unique_ptr<STAI_Task> CurseProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> CurseProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<CurseProvider_GlobalTask>(curseMask, STAI_SpellFilter::Parse(config));
 }
 
-EActionRunStatus DispelProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus DispelProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(DispelProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(DispelProvider_GlobalTask::OnEnterState);
     DispelProvider_GlobalTaskContext& context = ContextAs<DispelProvider_GlobalTaskContext>(baseContext);
     context.task = this;
     context.Subscribe();
@@ -78,9 +78,9 @@ EActionRunStatus DispelProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContex
     return EActionRunStatus::Running;
 }
 
-void DispelProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void DispelProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(DispelProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(DispelProvider_GlobalTask::OnExitState);
     DispelProvider_GlobalTaskContext& context = ContextAs<DispelProvider_GlobalTaskContext>(baseContext);
     context.Unsubscribe();
     context.whoNeeds.clear();

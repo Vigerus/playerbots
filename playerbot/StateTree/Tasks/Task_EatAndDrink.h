@@ -26,25 +26,25 @@ namespace ai
     // aura.
     // A food / drink that ends before its target is followed by the next one. Succeeded when both targets are reached
     // or nothing is left to eat or drink after the bot ate or drank; Failed when nothing could be eaten or drunk
-    // within 3s (nothing in the bags, the bot kept moving). OnExit stands the bot up, which ends the food and drink.
-    class Task_EatAndDrink : public STAI_Task
+    // within 3s (nothing in the bags, the bot kept moving). OnExitState stands the bot up, which ends the food and drink.
+    class Task_EatAndDrink : public STAI_TaskBase
     {
     public:
         Task_EatAndDrink(float healthUntil, float manaUntil) : healthUntil(healthUntil), manaUntil(manaUntil) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "Task_EatAndDrink"; }
+        virtual const char* GetNodeClass() const override { return "Task_EatAndDrink"; }
         inline static std::string task_name = "EatAndDrink";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_EatAndDrinkContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual void OnExitState(STAI_TaskContext& context) const override;
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual std::string GetDebugInfo() const override;
 

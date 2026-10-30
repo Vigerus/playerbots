@@ -1,172 +1,208 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat subtree for frost Mage bots (run by STAI_Combat_Mage.xml) -->
-<Root>
-  <Global>
-    <!-- health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged -->
-    <Task class="HealthProvider_GlobalTask"/>
-    <Task class="ManaProvider_GlobalTask"/>
-    <!-- the cooldowns the tree waits for: ready[<spell id>], onCooldownChanged -->
-    <Task class="CooldownProvider_GlobalTask">
-      <Spell id="11958"/>  <!-- Ice Block -->
-      <Spell id="12051"/>  <!-- Evocation -->
+<StateTree version="2">
+  <Comment>Combat subtree for frost Mage bots (run by STAI_Combat_Mage.xml)</Comment>
+  <GlobalTasks>
+    <Task class="HealthProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
-    <!-- interruptible casts of the enemies that Counterspell reaches now (healing first): whoNeeds, onInterruptNeeded -->
-    <Task class="InterruptProvider_GlobalTask" spellid="Counterspell"/>
-    <!-- watches the bot and its group for dispellable curses (no <Observe> / <Ignore>: every curse): whoNeeds, onNeedsHelp -->
-    <Task class="CurseProvider_GlobalTask"/>
-    <!-- the bot's crowd-control mark (rti cc, default moon) when it is not the kill target (rti): whoNeeds, onCCNeeded -->
-    <Task class="CCProvider_GlobalTask"/>
-    <!-- the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
-         target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's -->
+    <Task class="ManaProvider_GlobalTask"/>
+    <Task class="CooldownProvider_GlobalTask">
+      <Comment>the cooldowns the tree waits for: ready[&lt;spell id&gt;], onCooldownChanged</Comment>
+      <Spell id="11958"/>
+      <!-- Ice Block -->
+      <Spell id="12051"/>
+      <!-- Evocation -->
+    </Task>
+    <Task class="InterruptProvider_GlobalTask" spellid="Counterspell">
+      <Comment>interruptible casts of the enemies that Counterspell reaches now (healing first): whoNeeds, onInterruptNeeded</Comment>
+    </Task>
+    <Task class="CurseProvider_GlobalTask">
+      <Comment>watches the bot and its group for dispellable curses (no &lt;Observe&gt; / &lt;Ignore&gt;: every curse): whoNeeds, onNeedsHelp</Comment>
+    </Task>
+    <Task class="CCProvider_GlobalTask">
+      <Comment>the bot's crowd-control mark (rti cc, default moon) when it is not the kill target (rti): whoNeeds, onCCNeeded</Comment>
+    </Task>
     <Task class="TargetProvider_GlobalTask">
+      <Comment>the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
+        target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's</Comment>
       <WithThreat value="true"/>
       <ThreatAmount value="90"/>
     </Task>
-    <!-- movement goal (MovementGoal_GlobalTask): in spell range and sight of the target -->
     <Task class="MovementGoal_GlobalTask" name="Attack Range" priority="40" kind="range">
+      <Comment>movement goal (MovementGoal_GlobalTask): in spell range and sight of the target</Comment>
       <Range max="spell"/>
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>
-    <!-- the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
-         by rtsc), stagePositionFrom, pathBlocked -->
-    <Task class="InstanceProvider_GlobalTask"/>
-    <!-- movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range) -->
+    <Task class="InstanceProvider_GlobalTask">
+      <Comment>the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
+        by rtsc), stagePositionFrom, pathBlocked</Comment>
+    </Task>
     <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="45" kind="position">
+      <Comment>movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range)</Comment>
       <Radius value="2"/>
       <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
       <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
       <Conditions>
-        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
       </Conditions>
     </Task>
-  </Global>
-  <Node name="Ice Block">
-    <Conditions>
-      <Condition binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="11958"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Ice Block">
-      <Target value="self"/>
-    </Task>
-  </Node>
-  <Node name="Interrupt">
-    <Conditions>
-      <Condition binding="Root|InterruptProvider_GlobalTask::whoNeeds"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Counterspell">
-      <Binding local="whoNeeds" external="Root|InterruptProvider_GlobalTask::whoNeeds"/>
-      <Binding local="causes" external="Root|InterruptProvider_GlobalTask::causes"/>
-    </Task>
-  </Node>
-  <Node name="CC Target">
-    <Conditions>
-      <Condition binding="Root|CCProvider_GlobalTask::whoNeeds"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Polymorph">
-      <Binding local="whoNeeds" external="Root|CCProvider_GlobalTask::whoNeeds"/>
-    </Task>
-  </Node>
-  <Node name="Decurse">
-    <Conditions>
-      <Condition binding="Root|CurseProvider_GlobalTask::whoNeeds"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Remove Lesser Curse">
-      <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
-      <Binding local="causes" external="Root|CurseProvider_GlobalTask::causes"/>
-    </Task>
-  </Node>
-  <!-- low mana: a mana gem first (its own cooldown), then Evocation (only while ready), then a potion; the items fail
-       while none can be used (none in the bags, on cooldown) and are not selected for 3s -->
-  <Node name="Mana Gem">
-    <Conditions>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="30"/>
-    </Conditions>
-    <Task class="Task_UseItem">
-      <Item id="8008"/>   <!-- Mana Ruby -->
-      <Item id="8007"/>   <!-- Mana Citrine -->
-      <Item id="5513"/>   <!-- Mana Jade -->
-      <Item id="5514"/>   <!-- Mana Agate -->
-    </Task>
-  </Node>
-  <Node name="Evocation">
-    <Conditions>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
-      <Condition binding="Root|CooldownProvider_GlobalTask::ready" key="12051"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Evocation">
-      <Target value="self"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Ice Block">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="11958"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Ice Block">
+        <Target value="self"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Interrupt">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Counterspell">
+        <Binding local="whoNeeds" external="Root|InterruptProvider_GlobalTask::whoNeeds"/>
+        <Binding local="causes" external="Root|InterruptProvider_GlobalTask::causes"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="CC Target">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|CCProvider_GlobalTask::whoNeeds"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Polymorph">
+        <Binding local="whoNeeds" external="Root|CCProvider_GlobalTask::whoNeeds"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Decurse">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|CurseProvider_GlobalTask::whoNeeds"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Remove Lesser Curse">
+        <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
+        <Binding local="causes" external="Root|CurseProvider_GlobalTask::causes"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Mana Gem">
+    <Comment>low mana: a mana gem first (its own cooldown), then Evocation (only while ready), then a potion; the items fail
+      while none can be used (none in the bags, on cooldown) and are not selected for 3s</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="30"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_UseItem">
+        <Item id="8008"/>
+        <!-- Mana Ruby -->
+        <Item id="8007"/>
+        <!-- Mana Citrine -->
+        <Item id="5513"/>
+        <!-- Mana Jade -->
+        <Item id="5514"/>
+        <!-- Mana Agate -->
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Evocation">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="12051"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Evocation">
+        <Target value="self"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Ice Block"/>
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root|Ice Block"/>
     </Transitions>
-  </Node>
-  <Node name="Mana Potion">
-    <Conditions>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
-    </Conditions>
-    <Task class="Task_UseItem">
-      <Item id="13444"/>  <!-- Major Mana Potion -->
-      <Item id="13443"/>  <!-- Superior Mana Potion -->
-      <Item id="6149"/>   <!-- Greater Mana Potion -->
-      <Item id="3827"/>   <!-- Mana Potion -->
-      <Item id="3385"/>   <!-- Lesser Mana Potion -->
-      <Item id="2455"/>   <!-- Minor Mana Potion -->
-    </Task>
-  </Node>
-  <!-- out of mana: the wand until the mana is back at 20% (no regeneration while casting) -->
-  <Node name="Wand">
-    <Conditions>
-      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
-      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
-    </Conditions>
-    <Task class="Task_Shoot">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
+  </State>
+  <State name="Mana Potion">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_UseItem">
+        <Item id="13444"/>
+        <!-- Major Mana Potion -->
+        <Item id="13443"/>
+        <!-- Superior Mana Potion -->
+        <Item id="6149"/>
+        <!-- Greater Mana Potion -->
+        <Item id="3827"/>
+        <!-- Mana Potion -->
+        <Item id="3385"/>
+        <!-- Lesser Mana Potion -->
+        <Item id="2455"/>
+        <!-- Minor Mana Potion -->
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Wand">
+    <Comment>out of mana: the wand until the mana is back at 20% (no regeneration while casting)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Shoot">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Ice Block"/>
-      <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
-      <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>
-      <Transition type="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" node="Root|Decurse"/>
-      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root">
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root|Ice Block"/>
+      <Transition trigger="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" target="Root|Interrupt"/>
+      <Transition trigger="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" target="Root|CC Target"/>
+      <Transition trigger="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" target="Root|Decurse"/>
+      <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
         </Conditions>
       </Transition>
     </Transitions>
-  </Node>
-  <Node name="Attack Target">
-    <Conditions>
-      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
-    </Conditions>
-    <Task class="Task_CastSpell" spellid="Frostbolt">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
+  </State>
+  <State name="Attack Target">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Frostbolt">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Ice Block"/>
-      <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
-      <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root|Ice Block"/>
+      <Transition trigger="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" target="Root|Interrupt"/>
+      <Transition trigger="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" target="Root|CC Target"/>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- nothing to attack: waits until a delegate sends the tree elsewhere -->
-    <Task class="Task_Wait">
-      <Delay value="1"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>nothing to attack: waits until a delegate sends the tree elsewhere</Comment>
+        <Delay value="1"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" node="Root|Ice Block"/>
-      <Transition type="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" node="Root|Interrupt"/>
-      <Transition type="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" node="Root|CC Target"/>
-      <Transition type="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" node="Root|Decurse"/>
-      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root|Attack Target"/>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root">
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root|Ice Block"/>
+      <Transition trigger="OnDelegate" source="Root|InterruptProvider_GlobalTask::onInterruptNeeded" target="Root|Interrupt"/>
+      <Transition trigger="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" target="Root|CC Target"/>
+      <Transition trigger="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" target="Root|Decurse"/>
+      <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root|Attack Target"/>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="30"/>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="30"/>
         </Conditions>
       </Transition>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

@@ -63,7 +63,7 @@ namespace ai
     // victim is not the bot) for FightTime already, it is within ChargeRange and in sight, no other hostile creature
     // that is not fighting yet stands within PullRadius of the target or of the bot, and the way does not enter a
     // dungeon stage that is not cleared. Ticked: checks every 100ms.
-    class MeleeProvider_GlobalTask : public STAI_GlobalTask
+    class MeleeProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         struct Settings
@@ -77,17 +77,17 @@ namespace ai
         explicit MeleeProvider_GlobalTask(const Settings& settings) : settings(settings) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "MeleeProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "MeleeProvider_GlobalTask"; }
         inline static std::string task_name = "MeleeProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<MeleeProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

@@ -136,7 +136,7 @@ void Task_EatAndDrink::Validate(const STAI_TaskConfig& config)
     ParseUntil(config, "Mana");
 }
 
-std::unique_ptr<STAI_Task> Task_EatAndDrink::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> Task_EatAndDrink::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<Task_EatAndDrink>(ParseUntil(config, "Health"), ParseUntil(config, "Mana"));
 }
@@ -169,9 +169,9 @@ void Task_EatAndDrink::Start(Task_EatAndDrinkContext& context) const
     }
 }
 
-EActionRunStatus Task_EatAndDrink::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_EatAndDrink::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnEnterState);
     StartLog(baseContext);
     Task_EatAndDrinkContext& context = ContextAs<Task_EatAndDrinkContext>(baseContext);
     context.startMs = WorldTimer::getMSTime();
@@ -213,9 +213,9 @@ EActionRunStatus Task_EatAndDrink::OnTick(STAI_TaskContext& baseContext, uint32 
     return LogStatus(baseContext, context.consumed ? EActionRunStatus::Succeeded : EActionRunStatus::Failed);
 }
 
-void Task_EatAndDrink::OnExit(STAI_TaskContext& baseContext) const
+void Task_EatAndDrink::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_EatAndDrink::OnExitState);
     // left while running: the run did not get done
     EndLog(baseContext, false);
     // standing up ends the food and drink auras, the next node starts from a standing bot

@@ -21,25 +21,25 @@ namespace ai
     //   </Task>
     // An item is used when it is in the bags and its spell is off cooldown; with the item cheat an item the bot does
     // not have (the first listed one its level allows) is used by casting its spell. Succeeded once the item's spell
-    // went off (its cooldown started), Failed in OnEnter when no item can be used and after 3s without the spell.
-    class Task_UseItem : public STAI_Task
+    // went off (its cooldown started), Failed in OnEnterState when no item can be used and after 3s without the spell.
+    class Task_UseItem : public STAI_TaskBase
     {
     public:
         explicit Task_UseItem(std::vector<uint32> items) : items(std::move(items)) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "Task_UseItem"; }
+        virtual const char* GetNodeClass() const override { return "Task_UseItem"; }
         inline static std::string task_name = "UseItem";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_UseItemContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual void OnExitState(STAI_TaskContext& context) const override;
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual std::string GetDebugInfo() const override;
 

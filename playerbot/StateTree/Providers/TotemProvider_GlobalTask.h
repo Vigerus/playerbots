@@ -53,23 +53,23 @@ namespace ai
     // A totem is up while the bot's totem of the school was summoned by a rank of the selected spell, is alive and in
     // range. Ticked: checks every 250ms; onTotemsChanged fires when a school's spell changed, onTotemMissing when needs
     // got a spell it did not have.
-    class TotemProvider_GlobalTask : public STAI_GlobalTask, public ISTAI_DebugSpells
+    class TotemProvider_GlobalTask : public STAI_DataProviderBase, public ISTAI_DebugSpells
     {
     public:
         explicit TotemProvider_GlobalTask(float range) : range(range) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "TotemProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "TotemProvider_GlobalTask"; }
         inline static std::string task_name = "TotemProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<TotemProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

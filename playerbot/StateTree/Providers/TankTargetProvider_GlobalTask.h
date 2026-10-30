@@ -53,24 +53,24 @@ namespace ai
     // main tank, else the current target while it does not attack the main tank, else a unit attacking the bot, else
     // the main tank's target (assist). Ticked: chooses every 250ms.
     // Optional: <Aura spellid="7386"/> per aura watched on target (auraStacks, onAuraChanged; STAI_TargetAuraWatch).
-    class TankTargetProvider_GlobalTask : public STAI_GlobalTask
+    class TankTargetProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         explicit TankTargetProvider_GlobalTask(std::vector<STAI_WatchedAura> auras) : auras(std::move(auras)) {}
 
         static void Validate(const STAI_TaskConfig& config) { STAI_TargetAuraWatch::Parse(config); }
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<TankTargetProvider_GlobalTask>(STAI_TargetAuraWatch::Parse(config)); }
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config) { return std::make_unique<TankTargetProvider_GlobalTask>(STAI_TargetAuraWatch::Parse(config)); }
 
-        virtual const char* GetTaskClass() const override { return "TankTargetProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "TankTargetProvider_GlobalTask"; }
         inline static std::string task_name = "TankTargetProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<TankTargetProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual void OnExitState(STAI_TaskContext& context) const override;
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

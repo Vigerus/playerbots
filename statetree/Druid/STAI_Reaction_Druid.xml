@@ -1,88 +1,107 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Reaction state tree for Druid bots: AiPlayerbot.StateTree.Reaction.Druid -->
-<Root>
-  <Global>
-    <!-- what a player answers in its UI: loot rolls (rolls, onRollRequested), trades (tradeOpenRequested,
-         tradeAcceptRequested, onTradeRequested, onTradeAccepted), the death popups (resurrectOffered,
-         canReclaimCorpse, onResurrectOffered, onReclaimCorpse) and the group invite (groupInviteRequested,
-         onGroupInvited) -->
-    <Task class="UIInteractionProvider_GlobalTask"/>
-  </Global>
-  <Node name="Roll For Item">
-    <Conditions>
-      <Condition binding="Root|UIInteractionProvider_GlobalTask::rolls"/>
-    </Conditions>
-    <!-- votes on every pending roll, greed for now -->
-    <Task class="Task_RollForItem">
-      <Binding local="rolls" external="Root|UIInteractionProvider_GlobalTask::rolls"/>
+<StateTree version="2">
+  <Comment>Reaction state tree for Druid bots: AiPlayerbot.StateTree.Reaction.Druid</Comment>
+  <GlobalTasks>
+    <Task class="UIInteractionProvider_GlobalTask">
+      <Comment>what a player answers in its UI: loot rolls (rolls, onRollRequested), trades (tradeOpenRequested,
+        tradeAcceptRequested, onTradeRequested, onTradeAccepted), the death popups (resurrectOffered,
+        canReclaimCorpse, onResurrectOffered, onReclaimCorpse) and the group invite (groupInviteRequested,
+        onGroupInvited)</Comment>
     </Task>
+  </GlobalTasks>
+  <State name="Roll For Item">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|UIInteractionProvider_GlobalTask::rolls"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RollForItem">
+        <Comment>votes on every pending roll, greed for now</Comment>
+        <Binding local="rolls" external="Root|UIInteractionProvider_GlobalTask::rolls"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnFinish" node="Root"/>
+      <Transition trigger="OnStateCompleted" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Open Trade">
-    <Conditions>
-      <Condition binding="Root|UIInteractionProvider_GlobalTask::tradeOpenRequested"/>
-    </Conditions>
-    <!-- opens the trade window for the master / a group member / a bot, cancels any other trade -->
-    <Task class="Task_OpenTrade"/>
+  </State>
+  <State name="Open Trade">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|UIInteractionProvider_GlobalTask::tradeOpenRequested"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_OpenTrade">
+        <Comment>opens the trade window for the master / a group member / a bot, cancels any other trade</Comment>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnFinish" node="Root"/>
+      <Transition trigger="OnStateCompleted" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Accept Trade">
-    <Conditions>
-      <Condition binding="Root|UIInteractionProvider_GlobalTask::tradeAcceptRequested"/>
-    </Conditions>
-    <!-- the other player accepted: accept too -->
-    <Task class="Task_AcceptTrade"/>
+  </State>
+  <State name="Accept Trade">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|UIInteractionProvider_GlobalTask::tradeAcceptRequested"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_AcceptTrade">
+        <Comment>the other player accepted: accept too</Comment>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnFinish" node="Root"/>
+      <Transition trigger="OnStateCompleted" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Accept Resurrection">
-    <Conditions>
-      <Condition binding="Root|UIInteractionProvider_GlobalTask::resurrectOffered"/>
-    </Conditions>
-    <!-- the dead bot is offered a resurrection (also one cast at its corpse while it is a ghost): accepts it -->
-    <Task class="Task_AcceptResurrection"/>
+  </State>
+  <State name="Accept Resurrection">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|UIInteractionProvider_GlobalTask::resurrectOffered"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_AcceptResurrection">
+        <Comment>the dead bot is offered a resurrection (also one cast at its corpse while it is a ghost): accepts it</Comment>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnFinish" node="Root"/>
+      <Transition trigger="OnStateCompleted" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Reclaim Corpse">
-    <Conditions>
-      <Condition binding="Root|UIInteractionProvider_GlobalTask::canReclaimCorpse"/>
-    </Conditions>
-    <!-- the ghost is at its body (the corpse run of the Dead tree) and the reclaim delay is over: "Resurrect" -->
-    <Task class="Task_ReclaimCorpse"/>
+  </State>
+  <State name="Reclaim Corpse">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|UIInteractionProvider_GlobalTask::canReclaimCorpse"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_ReclaimCorpse">
+        <Comment>the ghost is at its body (the corpse run of the Dead tree) and the reclaim delay is over: "Resurrect"</Comment>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnFinish" node="Root"/>
+      <Transition trigger="OnStateCompleted" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Accept Invite">
-    <Conditions>
-      <Condition binding="Root|UIInteractionProvider_GlobalTask::groupInviteRequested"/>
-    </Conditions>
-    <!-- a player invited the bot to a group: joins when the leader may invite it, declines otherwise -->
-    <Task class="Task_AcceptInvite"/>
+  </State>
+  <State name="Accept Invite">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|UIInteractionProvider_GlobalTask::groupInviteRequested"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_AcceptInvite">
+        <Comment>a player invited the bot to a group: joins when the leader may invite it, declines otherwise</Comment>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnFinish" node="Root"/>
+      <Transition trigger="OnStateCompleted" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
-    <Task class="Task_Wait" show_log="false">
-      <Delay value="0"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait" show_log="false">
+        <Comment>placeholder until the new AI exists: waits forever, leaves only through a transition</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onRollRequested" node="Root|Roll For Item"/>
-      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onTradeRequested" node="Root|Open Trade"/>
-      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onTradeAccepted" node="Root|Accept Trade"/>
-      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onResurrectOffered" node="Root|Accept Resurrection"/>
-      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onReclaimCorpse" node="Root|Reclaim Corpse"/>
-      <Transition type="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onGroupInvited" node="Root|Accept Invite"/>
+      <Transition trigger="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onRollRequested" target="Root|Roll For Item"/>
+      <Transition trigger="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onTradeRequested" target="Root|Open Trade"/>
+      <Transition trigger="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onTradeAccepted" target="Root|Accept Trade"/>
+      <Transition trigger="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onResurrectOffered" target="Root|Accept Resurrection"/>
+      <Transition trigger="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onReclaimCorpse" target="Root|Reclaim Corpse"/>
+      <Transition trigger="OnDelegate" source="Root|UIInteractionProvider_GlobalTask::onGroupInvited" target="Root|Accept Invite"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

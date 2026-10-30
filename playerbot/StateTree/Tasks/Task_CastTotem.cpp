@@ -10,9 +10,9 @@ namespace
     constexpr uint32 castTimeoutMs = 10000;
 }
 
-EActionRunStatus Task_CastTotem::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_CastTotem::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastTotem::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastTotem::OnEnterState);
     Task_CastTotemContext& context = ContextAs<Task_CastTotemContext>(baseContext);
     context.spellId = 0;
     StartLog(context);
@@ -52,9 +52,9 @@ EActionRunStatus Task_CastTotem::OnTick(STAI_TaskContext& baseContext, uint32 el
     return LogStatus(context, EActionRunStatus::Succeeded);
 }
 
-void Task_CastTotem::OnExit(STAI_TaskContext& baseContext) const
+void Task_CastTotem::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastTotem::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_CastTotem::OnExitState);
     EndLog(baseContext, !baseContext.bot->IsNonMeleeSpellCasted(false));
 }
 

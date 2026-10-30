@@ -1,75 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat subtree for Shadow Priest bots (run by STAI_Combat_Priest.xml) -->
-<Root>
-  <Global>
-    <!-- mana of the bot: manaPct, onManaChanged -->
-    <Task class="ManaProvider_GlobalTask"/>
-    <!-- the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
-         target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's -->
+<StateTree version="2">
+  <Comment>Combat subtree for Shadow Priest bots (run by STAI_Combat_Priest.xml)</Comment>
+  <GlobalTasks>
+    <Task class="ManaProvider_GlobalTask">
+      <Comment>mana of the bot: manaPct, onManaChanged</Comment>
+    </Task>
     <Task class="TargetProvider_GlobalTask">
+      <Comment>the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
+        target is held back (empty, Idle waits) while the bot's threat is at 90% or more of the tank's</Comment>
       <WithThreat value="true"/>
       <ThreatAmount value="90"/>
     </Task>
-    <!-- movement goal (MovementGoal_GlobalTask): in spell range and sight of the target -->
     <Task class="MovementGoal_GlobalTask" name="Attack Range" priority="40" kind="range">
+      <Comment>movement goal (MovementGoal_GlobalTask): in spell range and sight of the target</Comment>
       <Range max="spell"/>
       <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
     </Task>
-    <!-- the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
-         by rtsc), stagePositionFrom, pathBlocked -->
-    <Task class="InstanceProvider_GlobalTask"/>
-    <!-- movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range) -->
+    <Task class="InstanceProvider_GlobalTask">
+      <Comment>the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
+        by rtsc), stagePositionFrom, pathBlocked</Comment>
+    </Task>
     <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="45" kind="position">
+      <Comment>movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range)</Comment>
       <Radius value="2"/>
       <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
       <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
       <Conditions>
-        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
       </Conditions>
     </Task>
-  </Global>
-  <!-- low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s) -->
-  <Node name="Mana Potion">
-    <Conditions>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
-    </Conditions>
-    <Task class="Task_UseItem">
-      <Item id="13444"/>  <!-- Major Mana Potion -->
-      <Item id="13443"/>  <!-- Superior Mana Potion -->
-      <Item id="6149"/>   <!-- Greater Mana Potion -->
-      <Item id="3827"/>   <!-- Mana Potion -->
-      <Item id="3385"/>   <!-- Lesser Mana Potion -->
-      <Item id="2455"/>   <!-- Minor Mana Potion -->
-    </Task>
-  </Node>
-  <!-- out of mana: the wand until the mana is back at 20% (no regeneration while casting) -->
-  <Node name="Wand">
-    <Conditions>
-      <Condition binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
-      <Condition binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
-    </Conditions>
-    <Task class="Task_Shoot">
-      <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Mana Potion">
+    <Comment>low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_UseItem">
+        <Item id="13444"/>
+        <!-- Major Mana Potion -->
+        <Item id="13443"/>
+        <!-- Superior Mana Potion -->
+        <Item id="6149"/>
+        <!-- Greater Mana Potion -->
+        <Item id="3827"/>
+        <!-- Mana Potion -->
+        <Item id="3385"/>
+        <!-- Lesser Mana Potion -->
+        <Item id="2455"/>
+        <!-- Minor Mana Potion -->
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Wand">
+    <Comment>out of mana: the wand until the mana is back at 20% (no regeneration while casting)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Shoot">
+        <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root">
+      <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
         </Conditions>
       </Transition>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the rest of the combat exists: waits, leaves through its transitions -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>placeholder until the rest of the combat exists: waits, leaves through its transitions</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" node="Root|Wand"/>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root|Wand"/>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

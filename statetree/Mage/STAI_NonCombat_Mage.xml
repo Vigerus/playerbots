@@ -1,29 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- NonCombat state tree for Mage bots: AiPlayerbot.StateTree.NonCombat.Mage -->
-<!-- picks the subtree for the bot's map; an instance change selects again -->
-<Root>
-  <Global>
-    <!-- the bot's map / instance: mapId, instanceId, inDungeon, onInstanceChanged -->
-    <Task class="InstanceProvider_GlobalTask"/>
-  </Global>
-  <Node name="Dungeon">
-    <Conditions>
-      <Condition binding="Root|InstanceProvider_GlobalTask::inDungeon"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Mage/STAI_NonCombat_Dungeon_Mage.xml"/>
+<StateTree version="2">
+  <Comment>NonCombat state tree for Mage bots: AiPlayerbot.StateTree.NonCombat.Mage
+    picks the subtree for the bot's map; an instance change selects again</Comment>
+  <GlobalTasks>
+    <Task class="InstanceProvider_GlobalTask">
+      <Comment>the bot's map / instance: mapId, instanceId, inDungeon, onInstanceChanged</Comment>
     </Task>
+  </GlobalTasks>
+  <State name="Dungeon">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::inDungeon"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Mage/STAI_NonCombat_Dungeon_Mage.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Outdoors">
-    <Conditions/>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Mage/STAI_NonCombat_Outdoors_Mage.xml"/>
-    </Task>
+  </State>
+  <State name="Outdoors">
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Mage/STAI_NonCombat_Outdoors_Mage.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" target="Root"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

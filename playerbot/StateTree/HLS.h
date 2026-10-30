@@ -28,16 +28,18 @@ enum class StateTreeSwitch : uint8
 
 struct StateNodeDebugTree;
 
-// child node of a state, as shown by the StateTree debug view
+// state of a tree, as shown by the StateTree debug view (the states of a tree depth first, a state before its children)
 struct StateNodeDebugChild
 {
     std::string name;
-    std::string taskClass;                          // the running task (the first one while the node is inactive)
-    std::vector<std::string> tasks;                 // task classes of the node, run one after another
+    int depth = 0;                                  // 0: a top level state (a child of Root)
+    int parent = -1;                                // index of the parent state in the tree's nodes, -1 top level
+    std::string taskClass;                          // the running task (the first one while the state is inactive, empty without tasks)
+    std::vector<std::string> tasks;                 // task classes of the state, run at the same time
     std::vector<bool> tasksDisabled;                // per task: switched off (STAI_TaskContext::bDisabled)
     std::vector<std::string> taskInfos;             // per task: its static debug info (STAI_Task::GetDebugInfo), the running task its GetActivityInfo
-    int currentTask = -1;                           // index into tasks while the node is active
-    std::vector<std::string> transitions;           // "<type> Root|<node>", in the order they are checked
+    int currentTask = -1;                           // index into tasks of the first running one while the state is active
+    std::vector<std::string> transitions;           // "<trigger> <target>", in the order they are checked
     std::vector<std::pair<std::string, StateNodeConditionResult>> conditions;
     std::vector<uint8> conditionOverrides;          // per condition: 0 checked normally, 1 forced to pass, 2 forced to fail
     bool disabled = false;                          // the node is switched off (never selected)

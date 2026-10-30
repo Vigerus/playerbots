@@ -29,23 +29,23 @@ namespace ai
     //   </Global>
     // Tickable: fires onMasterFar every update while the master is further away, so the running node leaves for
     // Follow (whose conditions decide whether the bot follows: follow / stay strategies).
-    class MasterDistance_GlobalTask : public STAI_GlobalTask
+    class MasterDistance_GlobalTask : public STAI_DataProviderBase
     {
     public:
         explicit MasterDistance_GlobalTask(const std::string& range) : range(range) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "MasterDistance_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "MasterDistance_GlobalTask"; }
         inline static std::string task_name = "MasterDistance";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<MasterDistance_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

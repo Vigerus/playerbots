@@ -111,7 +111,7 @@ void HealProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseSettings(config);
 }
 
-std::unique_ptr<STAI_Task> HealProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> HealProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<HealProvider_GlobalTask>(ParseSettings(config));
 }
@@ -230,9 +230,9 @@ void HealProvider_GlobalTask::Evaluate(HealProvider_GlobalTaskContext& context) 
         context.onTankOutOfRange.Broadcast();
 }
 
-EActionRunStatus HealProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus HealProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(HealProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(HealProvider_GlobalTask::OnEnterState);
     HealProvider_GlobalTaskContext& context = ContextAs<HealProvider_GlobalTaskContext>(baseContext);
     context.critical.clear();
     context.low.clear();
@@ -262,9 +262,9 @@ EActionRunStatus HealProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, 
     return EActionRunStatus::Running;
 }
 
-void HealProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void HealProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(HealProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(HealProvider_GlobalTask::OnExitState);
     HealProvider_GlobalTaskContext& context = ContextAs<HealProvider_GlobalTaskContext>(baseContext);
     context.roles.Unsubscribe();
 }

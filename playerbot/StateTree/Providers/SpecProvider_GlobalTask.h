@@ -42,22 +42,22 @@ namespace ai
     // "prot druid" (balance and feral), "resto druid", "holy paladin", "prot paladin", "retri paladin",
     // "arms warrior", "fury warrior", "prot warrior"; empty for other classes. Ticked: checks every 2s, and on the
     // next update after the core's TeamSubsystem OnTalentsChanged; onSpecChanged fires when the name changed.
-    class SpecProvider_GlobalTask : public STAI_GlobalTask
+    class SpecProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         static void Validate(const STAI_TaskConfig& config) {}
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<SpecProvider_GlobalTask>(); }
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config) { return std::make_unique<SpecProvider_GlobalTask>(); }
 
-        virtual const char* GetTaskClass() const override { return "SpecProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "SpecProvider_GlobalTask"; }
         inline static std::string task_name = "SpecProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<SpecProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual void OnExitState(STAI_TaskContext& context) const override;
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

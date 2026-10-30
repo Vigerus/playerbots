@@ -51,7 +51,7 @@ void CooldownProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseSpells(config);
 }
 
-std::unique_ptr<STAI_Task> CooldownProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> CooldownProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<CooldownProvider_GlobalTask>(ParseSpells(config));
 }
@@ -81,9 +81,9 @@ void CooldownProvider_GlobalTask::Update(CooldownProvider_GlobalTaskContext& con
         context.onCooldownChanged.Broadcast();
 }
 
-EActionRunStatus CooldownProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus CooldownProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(CooldownProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(CooldownProvider_GlobalTask::OnEnterState);
     CooldownProvider_GlobalTaskContext& context = ContextAs<CooldownProvider_GlobalTaskContext>(baseContext);
     context.ready.clear();
     context.sinceCheckMs = 0;

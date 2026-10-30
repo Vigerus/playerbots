@@ -1,29 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Dead state tree for every class: AiPlayerbot.StateTree.Dead.Default -->
-<Root>
-  <Global>
-    <!-- where the body is: released, corpseLocation, corpseFar, onCorpseFar -->
-    <Task class="CorpseProvider_GlobalTask"/>
-    <!-- movement goal (MovementGoal_GlobalTask): the ghost runs back to its body (a body in a dungeon through its
-         portal, where the core resurrects the ghost; outdoors the Reaction tree reclaims the body once in reach) -->
+<StateTree version="2">
+  <Comment>Dead state tree for every class: AiPlayerbot.StateTree.Dead.Default</Comment>
+  <GlobalTasks>
+    <Task class="CorpseProvider_GlobalTask">
+      <Comment>where the body is: released, corpseLocation, corpseFar, onCorpseFar</Comment>
+    </Task>
     <Task class="MovementGoal_GlobalTask" name="Corpse Run" priority="10" kind="location">
+      <Comment>movement goal (MovementGoal_GlobalTask): the ghost runs back to its body (a body in a dungeon through its
+        portal, where the core resurrects the ghost; outdoors the Reaction tree reclaims the body once in reach)</Comment>
       <Radius value="10"/>
       <Binding local="location" external="Root|CorpseProvider_GlobalTask::corpseLocation"/>
     </Task>
-  </Global>
-  <!-- the spirit goes to the graveyard (outside the dungeon after a death inside one); a resurrection offered to the
-       ghost is still accepted by the Reaction tree (Accept Resurrection) -->
-  <Node name="Release Spirit">
-    <Conditions>
-      <Condition binding="Root|CorpseProvider_GlobalTask::released" negate="true"/>
-    </Conditions>
-    <Task class="Task_ReleaseSpirit"/>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- at the body (the Reaction tree reclaims it) or waiting: selects again every second -->
-    <Task class="Task_Wait">
-      <Delay value="1000"/>
-    </Task>
-  </Node>
-</Root>
+  </GlobalTasks>
+  <State name="Release Spirit">
+    <Comment>the spirit goes to the graveyard (outside the dungeon after a death inside one); a resurrection offered to the
+      ghost is still accepted by the Reaction tree (Accept Resurrection)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|CorpseProvider_GlobalTask::released" inverted="true"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_ReleaseSpirit"/>
+    </Tasks>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>at the body (the Reaction tree reclaims it) or waiting: selects again every second</Comment>
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
+  </State>
+</StateTree>

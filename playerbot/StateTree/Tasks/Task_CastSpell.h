@@ -51,7 +51,7 @@ namespace ai
     //     <Fallback spellid="Heal"/>  cast instead while the bot knows none of the spells before (low levels)
     //     <Fallback spellid="Lesser Heal"/>
     //   </Task>
-    // Succeeded once the cast and the GCD are over, or in OnEnter when there is no living target; Failed in OnEnter
+    // Succeeded once the cast and the GCD are over, or in OnEnterState when there is no living target; Failed in OnEnterState
     // when the bot knows none of its spells, when every target is skipped by <SkipAura> (so the node waits its retry
     // delay instead of being selected again at once) or when it can cast on none of the living targets (range,
     // sight, mana...).
@@ -61,7 +61,7 @@ namespace ai
     // left, the tree finished) is a failed run. With causes bound, the entry and the running task's info in the debug
     // view also show the cause of the cast on its target: the aura the dispel removes (of a type the spell dispels),
     // the spell the interrupt stops.
-    class Task_CastSpell : public STAI_Task
+    class Task_CastSpell : public STAI_TaskBase
     {
     public:
         // <SkipAura>: an aura the target must not have
@@ -75,18 +75,18 @@ namespace ai
             : spell(std::move(spell)), self(self), dead(dead), skipAuras(std::move(skipAuras)), fallbacks(std::move(fallbacks)) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "Task_CastSpell"; }
+        virtual const char* GetNodeClass() const override { return "Task_CastSpell"; }
         inline static std::string task_name = "CastSpell";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<Task_CastSpellContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual void OnExitState(STAI_TaskContext& context) const override;
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 

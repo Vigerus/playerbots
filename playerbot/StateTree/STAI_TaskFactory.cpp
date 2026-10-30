@@ -4,24 +4,43 @@
 
 using namespace ai;
 
-STAI_TaskFactory::STAI_TaskFactory()
+namespace
+{
+    template<class Map>
+    const typename Map::mapped_type* FindClass(const Map& classes, const std::string& name)
+    {
+        auto it = classes.find(name);
+        return it == classes.end() ? nullptr : &it->second;
+    }
+}
+
+STAI_NodeFactory::STAI_NodeFactory()
 {
     RegisterBuiltinStateTreeTasks(*this);
 }
 
-STAI_TaskFactory& STAI_TaskFactory::instance()
+STAI_NodeFactory& STAI_NodeFactory::instance()
 {
-    static STAI_TaskFactory factory;
+    static STAI_NodeFactory factory;
     return factory;
 }
 
-const STAI_TaskFactory::TaskClass* STAI_TaskFactory::FindTask(const std::string& name) const
+const STAI_NodeFactory::TaskClass* STAI_NodeFactory::FindTask(const std::string& name) const
 {
-    auto it = tasks.find(name);
-    return it == tasks.end() ? nullptr : &it->second;
+    return FindClass(tasks, name);
 }
 
-std::filesystem::path STAI_TaskFactory::ResolvePath(const std::string& file)
+const STAI_NodeFactory::ConditionClass* STAI_NodeFactory::FindCondition(const std::string& name) const
+{
+    return FindClass(conditions, name);
+}
+
+const STAI_NodeFactory::ConsiderationClass* STAI_NodeFactory::FindConsideration(const std::string& name) const
+{
+    return FindClass(considerations, name);
+}
+
+std::filesystem::path STAI_NodeFactory::ResolvePath(const std::string& file)
 {
     std::filesystem::path path(file);
     if (path.is_relative())
@@ -29,7 +48,7 @@ std::filesystem::path STAI_TaskFactory::ResolvePath(const std::string& file)
     return path.lexically_normal();
 }
 
-std::string STAI_TaskFactory::GetBindingSource(const STAI_TaskConfig& config, const std::string& local)
+std::string STAI_NodeFactory::GetBindingSource(const STAI_TaskConfig& config, const std::string& local)
 {
     for (const auto& child : config)
     {
@@ -44,7 +63,7 @@ std::string STAI_TaskFactory::GetBindingSource(const STAI_TaskConfig& config, co
     return local;
 }
 
-std::optional<std::string> STAI_TaskFactory::GetSetting(const STAI_TaskConfig& config, const std::string& name, const std::string& attribute)
+std::optional<std::string> STAI_NodeFactory::GetSetting(const STAI_TaskConfig& config, const std::string& name, const std::string& attribute)
 {
     auto setting = config.get_child_optional(boost::property_tree::ptree::path_type(name, '\0'));
     if (!setting)

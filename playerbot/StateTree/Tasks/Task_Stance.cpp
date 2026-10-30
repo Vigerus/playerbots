@@ -34,14 +34,14 @@ void Task_Stance::Validate(const STAI_TaskConfig& config)
     ParseStances(config);
 }
 
-std::unique_ptr<STAI_Task> Task_Stance::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> Task_Stance::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<Task_Stance>(ParseStances(config));
 }
 
-EActionRunStatus Task_Stance::OnEnter(STAI_TaskContext& context) const
+EActionRunStatus Task_Stance::OnEnterState(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Stance::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_Stance::OnEnterState);
     Player* bot = context.bot;
 
     // the first stance the bot knows

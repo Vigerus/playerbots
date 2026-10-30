@@ -20,9 +20,9 @@ EActionRunStatus Task_AcceptResurrection::Check(STAI_TaskContext& context) const
     return LogStatus(context, EActionRunStatus::Succeeded);
 }
 
-EActionRunStatus Task_AcceptResurrection::OnEnter(STAI_TaskContext& context) const
+EActionRunStatus Task_AcceptResurrection::OnEnterState(STAI_TaskContext& context) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_AcceptResurrection::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_AcceptResurrection::OnEnterState);
     return Check(context);
 }
 

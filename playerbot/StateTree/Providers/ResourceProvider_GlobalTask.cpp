@@ -13,9 +13,9 @@ namespace
     constexpr uint32 minFireIntervalMs = 1000;
 }
 
-EActionRunStatus ResourceProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus ResourceProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(ResourceProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(ResourceProvider_GlobalTask::OnEnterState);
     ResourceProvider_GlobalTaskContext& context = ContextAs<ResourceProvider_GlobalTaskContext>(baseContext);
     context.percent = ReadPercent(context.bot);
     // the first update fires, so transitions see the value the tree starts with

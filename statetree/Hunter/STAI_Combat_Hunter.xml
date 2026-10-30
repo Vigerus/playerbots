@@ -1,26 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat state tree for Hunter bots: AiPlayerbot.StateTree.Combat.Hunter -->
-<Root>
-  <Global>
-    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
+<StateTree version="2">
+  <Comment>Combat state tree for Hunter bots: AiPlayerbot.StateTree.Combat.Hunter</Comment>
+  <GlobalTasks>
     <Task class="HazardProvider_GlobalTask">
+      <Comment>hostile area effects on the ground around the bot: inHazard, safePosition, onHazard</Comment>
       <Margin value="2"/>
     </Task>
-    <!-- movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
-         goals want -->
     <Task class="MovementGoal_GlobalTask" name="Escape Hazard" priority="100" kind="position" interruptCast="true">
+      <Comment>movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
+        goals want</Comment>
       <Radius value="1"/>
       <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
       <Conditions>
-        <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
+        <Condition class="Condition_Compare" binding="Root|HazardProvider_GlobalTask::inHazard"/>
       </Conditions>
     </Task>
-  </Global>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the new AI exists: waits forever, leaves only through a transition -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
-  </Node>
-</Root>
+  </GlobalTasks>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>placeholder until the new AI exists: waits forever, leaves only through a transition</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
+  </State>
+</StateTree>

@@ -1,5 +1,8 @@
 #include "playerbot/StateTree/STAI_TaskFactory.h"
 
+#include "playerbot/StateTree/Conditions/Condition_Compare.h"
+#include "playerbot/StateTree/Conditions/STAI_BuiltinConditions.h"
+#include "playerbot/StateTree/Considerations/STAI_BuiltinConsiderations.h"
 #include "playerbot/StateTree/Providers/BuffProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CCProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/CooldownProvider_GlobalTask.h"
@@ -24,6 +27,7 @@
 #include "playerbot/StateTree/Providers/WarriorProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h"
 #include "playerbot/StateTree/Tasks/STAI_GlobalTask.h"
+#include "playerbot/StateTree/Tasks/STAI_SendEventTask.h"
 #include "playerbot/StateTree/Tasks/Task_AcceptInvite.h"
 #include "playerbot/StateTree/Tasks/Task_AcceptResurrection.h"
 #include "playerbot/StateTree/Tasks/Task_Attack.h"
@@ -45,6 +49,14 @@ namespace ai
 {
     void RegisterBuiltinStateTreeTasks(STAI_TaskFactory& factory)
     {
+        factory.RegisterCondition("Condition_Compare", { &Condition_Compare::Validate, &Condition_Compare::Create });
+        factory.RegisterCondition("Condition_RandomChance", { &Condition_RandomChance::Validate, &Condition_RandomChance::Create });
+        factory.RegisterCondition("Condition_ActiveStateLocation", { &Condition_ActiveStateLocation::Validate, &Condition_ActiveStateLocation::Create });
+        factory.RegisterCondition("Condition_TimeInState", { &Condition_TimeInState::Validate, &Condition_TimeInState::Create });
+        factory.RegisterConsideration("Consideration_Constant", { &Consideration_Constant::Validate, &Consideration_Constant::Create });
+        factory.RegisterConsideration("Consideration_Number", { &Consideration_Number::Validate, &Consideration_Number::Create });
+
+        factory.RegisterTask("STAI_SendEventTask", { &STAI_SendEventTask::Validate, &STAI_SendEventTask::Create });
         factory.RegisterTask("STAI_FinishTreeTask", { &STAI_FinishTreeTask::Validate, &STAI_FinishTreeTask::Create });
         factory.RegisterTask("STAI_GlobalTask", { &STAI_GlobalTask::Validate, &STAI_GlobalTask::Create });
         factory.RegisterTask("Task_RunSubtree", { &Task_RunSubtree::Validate, &Task_RunSubtree::Create });

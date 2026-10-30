@@ -6,9 +6,9 @@
 
 using namespace ai;
 
-EActionRunStatus Task_RollForItem::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus Task_RollForItem::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RollForItem::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(Task_RollForItem::OnEnterState);
     Task_RollForItemContext& context = ContextAs<Task_RollForItemContext>(baseContext);
     Player* bot = context.bot;
 

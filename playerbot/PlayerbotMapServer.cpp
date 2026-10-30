@@ -133,6 +133,8 @@ namespace
     {
         std::ostringstream out;
         out << "{\"name\":" << Quote(child.name)
+            << ",\"depth\":" << child.depth
+            << ",\"parent\":" << child.parent
             << ",\"active\":" << (child.active ? "true" : "false")
             << ",\"disabled\":" << (child.disabled ? "true" : "false")
             << ",\"any\":" << (child.conditionsAny ? "true" : "false")

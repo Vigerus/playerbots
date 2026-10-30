@@ -38,23 +38,23 @@ namespace ai
     //     </Task>
     //   </Global>
     // Ticked: checks every 250ms.
-    class CreatureProvider_GlobalTask : public STAI_GlobalTask
+    class CreatureProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         CreatureProvider_GlobalTask(std::vector<uint32> entries, float range) : entries(std::move(entries)), range(range) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "CreatureProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "CreatureProvider_GlobalTask"; }
         inline static std::string task_name = "CreatureProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<CreatureProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

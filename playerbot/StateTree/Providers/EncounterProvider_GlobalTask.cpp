@@ -63,7 +63,7 @@ void EncounterProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseTactics(config);
 }
 
-std::unique_ptr<STAI_Task> EncounterProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> EncounterProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<EncounterProvider_GlobalTask>(ParseTactics(config));
 }
@@ -87,9 +87,9 @@ void EncounterProvider_GlobalTask::Update(EncounterProvider_GlobalTaskContext& c
     }
 }
 
-EActionRunStatus EncounterProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus EncounterProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(EncounterProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(EncounterProvider_GlobalTask::OnEnterState);
     EncounterProvider_GlobalTaskContext& context = ContextAs<EncounterProvider_GlobalTaskContext>(baseContext);
     context.tactic.clear();
     context.sinceCheckMs = 0;

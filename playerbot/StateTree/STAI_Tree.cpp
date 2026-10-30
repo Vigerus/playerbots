@@ -41,165 +41,244 @@ namespace
 #endif
     };
 
+    const char* const rootPathPrefix = "Root|";
+
     std::string Attribute(const ptree& node, const std::string& name)
     {
         return node.get<std::string>("<xmlattr>." + name, "");
     }
 
-    STAI_ConditionDef ParseCondition(const ptree& condition, const std::string& where)
+    // children every element may have that are no part of its content
+    bool IsMeta(const std::string& key)
     {
-        STAI_ConditionDef def;
-        def.binding.path = Attribute(condition, "binding");
-        if (def.binding.path.empty())
-            throw std::runtime_error(where + ": <Condition> needs a binding=\"Root|...\" (a task property)");
+        return key == "<xmlattr>" || key == "<xmlcomment>" || key == "Comment";
+    }
 
-        const std::string key = Attribute(condition, "key");
-        if (!key.empty())
+    // <Comment> of an element, its lines trimmed
+    std::string CommentOf(const ptree& node)
+    {
+        std::istringstream in(node.get<std::string>("Comment", ""));
+        std::string comment;
+        std::string line;
+        while (std::getline(in, line))
         {
-            char* end = nullptr;
-            def.key = std::strtod(key.c_str(), &end);
-            if (*end)
-                throw std::runtime_error(where + ": key needs a number, got '" + key + "'");
-            def.hasKey = true;
+            line.erase(0, line.find_first_not_of(" \t\r"));
+            line.erase(line.find_last_not_of(" \t\r") + 1);
+            if (!line.empty())
+                comment += (comment.empty() ? "" : "\n") + line;
+        }
+        return comment;
+    }
+
+    bool ParseBool(const ptree& node, const std::string& name, bool fallback, const std::string& where)
+    {
+        const std::string value = Attribute(node, name);
+        if (value.empty())
+            return fallback;
+        if (value == "true" || value == "1")
+            return true;
+        if (value == "false" || value == "0")
+            return false;
+        throw std::runtime_error(where + ": " + name + " must be true or false, got '" + value + "'");
+    }
+
+    double ParseNumber(const ptree& node, const std::string& name, double fallback, double min, const std::string& where)
+    {
+        const std::string value = Attribute(node, name);
+        if (value.empty())
+            return fallback;
+        char* end = nullptr;
+        const double number = std::strtod(value.c_str(), &end);
+        if (*end || number < min)
+            throw std::runtime_error(where + ": " + name + " needs a number of at least " + std::to_string(int(min)) + ", got '" + value + "'");
+        return number;
+    }
+
+    template<class Enum>
+    Enum ParseEnum(const ptree& node, const std::string& name, Enum fallback, const std::string& where)
+    {
+        const std::string value = Attribute(node, name);
+        if (value.empty())
+            return fallback;
+        Enum parsed = fallback;
+        if (!Parse(value, parsed))
+            throw std::runtime_error(where + ": unknown " + name + " '" + value + "'");
+        return parsed;
+    }
+
+    std::vector<std::string> Split(const std::string& text, char separator)
+    {
+        std::vector<std::string> parts;
+        size_t start = 0;
+        for (size_t at = text.find(separator); at != std::string::npos; at = text.find(separator, start))
+        {
+            parts.push_back(text.substr(start, at - start));
+            start = at + 1;
+        }
+        parts.push_back(text.substr(start));
+        return parts;
+    }
+
+    // builds a STAI_TreeAsset from the <StateTree> element: parses, then resolves paths, targets and linked subtrees
+    class Loader
+    {
+    public:
+        Loader(STAI_TreeAsset& asset) : asset(asset) {}
+
+        void ParseTree(const ptree& root);
+        void Resolve();
+
+    private:
+        int AddNode(const STAI_NodeBase* node, int state)
+        {
+            asset.nodes.push_back({ node, state });
+            return int(asset.nodes.size()) - 1;
         }
 
-        const std::string negate = Attribute(condition, "negate");
-        if (negate == "true" || negate == "1")
-            def.negate = true;
-        else if (!negate.empty() && negate != "false" && negate != "0")
-            throw std::runtime_error(where + ": negate must be true or false, got '" + negate + "'");
+        STAI_ConditionExpr ParseConditionEntry(const std::string& key, const ptree& element, const std::string& where, int state);
+        STAI_ConditionsDef ParseConditions(const ptree& element, const std::string& where, int state);
+        void ParseConsiderations(const ptree& element, const std::string& where, int state);
+        STAI_TaskDef ParseTask(const ptree& task, const std::string& where, bool global, int state);
+        STAI_TransitionDef ParseTransition(const ptree& transition, const std::string& where, int state);
+        int ParseState(const ptree& element, int parent, const std::string& where);
 
-        def.compareText = Attribute(condition, "compare");
-        if (!def.compareText.empty())
+        int ResolveStatePath(const std::vector<std::string>& segments, const std::string& path, const std::string& where) const;
+        const STAI_TaskBase& ResolveMember(STAI_MemberRef& ref, const std::string& where) const;
+        void ResolveLinks();
+
+        STAI_TreeAsset& asset;
+        std::map<std::string, int> stateIndexByName;
+        // nodes reading properties by path, resolved once the whole tree is read
+        std::vector<std::pair<STAI_NodeBase*, std::string>> refNodes;
+    };
+
+    STAI_ConditionExpr Loader::ParseConditionEntry(const std::string& key, const ptree& element, const std::string& where, int state)
+    {
+        STAI_ConditionExpr expr;
+        if (key == "Any" || key == "All")
         {
-            using Compare = STAI_ConditionDef::Compare;
-            static const std::pair<const char*, Compare> compares[] =
+            expr.op = key == "Any" ? STAI_ConditionExpr::Op::Any : STAI_ConditionExpr::Op::All;
+            for (const auto& [childKey, child] : element)
             {
-                { "equal", Compare::Equal }, { "lesser", Compare::Lesser }, { "lesser or equal", Compare::LesserOrEqual },
-                { "greater", Compare::Greater }, { "greater or equal", Compare::GreaterOrEqual },
-            };
-            for (const auto& [name, compare] : compares)
-                if (def.compareText == name)
-                    def.compare = compare;
-            if (def.compare == Compare::None)
-                throw std::runtime_error(where + ": compare must be equal, lesser, lesser or equal, greater or greater or equal, got '" + def.compareText + "'");
-
-            const std::string value = Attribute(condition, "value");
-            char* end = nullptr;
-            def.value = std::strtod(value.c_str(), &end);
-            if (value.empty() || *end)
-            {
-                // a text: only compared for equality
-                if (value.empty() || def.compare != Compare::Equal)
-                    throw std::runtime_error(where + ": compare needs a number in value=\"...\" (a text only with compare=\"equal\"), got '" + value + "'");
-                def.isText = true;
-                def.text = value;
+                if (IsMeta(childKey))
+                    continue;
+                expr.children.push_back(ParseConditionEntry(childKey, child, where, state));
             }
+            if (expr.children.empty())
+                throw std::runtime_error(where + ": <" + key + "> without a <Condition>");
+            return expr;
         }
 
-        return def;
-    }
+        if (key != "Condition")
+            throw std::runtime_error(where + ": unexpected <" + key + "> in a condition list (expected <Condition class=\"...\"/>, <Any> or <All>)");
 
-    // <Any> <Condition .../> ... </Any>: one condition, passes when one of them passes
-    STAI_ConditionDef ParseAny(const ptree& any, const std::string& where)
-    {
-        STAI_ConditionDef def;
-        for (const auto& [conditionKey, condition] : any)
+        // binding="..." without a class: a Condition_Compare
+        std::string conditionClass = Attribute(element, "class");
+        if (conditionClass.empty())
+            conditionClass = "Condition_Compare";
+        const STAI_NodeFactory::ConditionClass* factoryClass = sSTAITaskFactory.FindCondition(conditionClass);
+        if (!factoryClass)
+            throw std::runtime_error(where + ": unknown condition class '" + conditionClass + "'");
+
+        ptree config = element;
+        config.erase("Comment");
+        try
         {
-            if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
-                continue;
-            if (conditionKey != "Condition")
-                throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Any> (expected <Condition binding=\"...\"/>)");
-            def.anyOf.push_back(ParseCondition(condition, where));
+            factoryClass->validate(config);
         }
-        if (def.anyOf.empty())
-            throw std::runtime_error(where + ": <Any> without a <Condition>");
-        return def;
+        catch (const std::exception& error)
+        {
+            throw std::runtime_error(where + " (" + conditionClass + "): " + error.what());
+        }
+
+        expr.condition = factoryClass->create(config);
+        if (!expr.condition)
+            throw std::runtime_error(where + " (" + conditionClass + "): the condition could not be created");
+        expr.condition->SetInverted(ParseBool(element, "inverted", false, where));
+        expr.condition->SetComment(CommentOf(element));
+        expr.node = AddNode(expr.condition.get(), state);
+        if (!expr.condition->GetPropertyRefs().empty())
+            refNodes.emplace_back(expr.condition.get(), where);
+        return expr;
     }
 
-    // <Conditions match="all|any"> <Condition .../> <Any>...</Any> ... </Conditions>
-    STAI_ConditionsDef ParseConditions(const ptree& conditions, const std::string& where)
+    STAI_ConditionsDef Loader::ParseConditions(const ptree& element, const std::string& where, int state)
     {
         STAI_ConditionsDef def;
 
-        const std::string match = Attribute(conditions, "match");
+        const std::string match = Attribute(element, "match");
         if (match == "any")
             def.any = true;
         else if (!match.empty() && match != "all")
-            throw std::runtime_error(where + ": <Conditions> match must be all or any, got '" + match + "'");
+            throw std::runtime_error(where + ": match must be all or any, got '" + match + "'");
 
-        for (const auto& [conditionKey, condition] : conditions)
+        for (const auto& [key, child] : element)
         {
-            if (conditionKey == "<xmlattr>" || conditionKey == "<xmlcomment>")
+            if (IsMeta(key))
                 continue;
-            if (conditionKey == "Any")
-                def.list.push_back(ParseAny(condition, where));
-            else if (conditionKey == "Condition")
-                def.list.push_back(ParseCondition(condition, where));
-            else
-                throw std::runtime_error(where + ": unexpected <" + conditionKey + "> in <Conditions> (expected <Condition binding=\"...\"/> or <Any>)");
+            def.list.push_back(ParseConditionEntry(key, child, where, state));
         }
         return def;
     }
 
-    const char* const rootPathPrefix = "Root|";
-
-    // <Transition type="..." node="Root|..."/>, the target node and the source delegate are resolved once the whole tree is read
-    STAI_TransitionDef ParseTransition(const ptree& transition, const std::string& where)
+    void Loader::ParseConsiderations(const ptree& element, const std::string& where, int state)
     {
-        STAI_TransitionDef def;
-
-        const std::string type = Attribute(transition, "type");
-        if (type == "OnSuccess")
-            def.type = STAI_TransitionDef::Type::OnSuccess;
-        else if (type == "OnFailure")
-            def.type = STAI_TransitionDef::Type::OnFailure;
-        else if (type == "OnFinish")
-            def.type = STAI_TransitionDef::Type::OnFinish;
-        else if (type == "OnDelegate")
-            def.type = STAI_TransitionDef::Type::OnDelegate;
-        else
-            throw STAI_TreeFatalError(where + ": <Transition> type must be OnSuccess, OnFailure, OnFinish or OnDelegate, got '" + type + "'");
-
-        def.source.path = Attribute(transition, "source");
-        if ((def.type == STAI_TransitionDef::Type::OnDelegate) == def.source.path.empty())
-            throw STAI_TreeFatalError(where + ": <Transition> source=\"Root|<TaskClass>::<delegate>\" is needed for OnDelegate and only allowed there");
-
-        def.path = Attribute(transition, "node");
-        if (def.path != "Root" && (def.path.rfind(rootPathPrefix, 0) != 0 || def.path.size() == strlen(rootPathPrefix)))
-            throw STAI_TreeFatalError(where + ": <Transition> node must be Root or a path starting with Root, e.g. \"Root|UtilityAI\", got '" + def.path + "'");
-
-        for (const auto& [key, child] : transition)
+        for (const auto& [key, child] : element)
         {
-            if (key == "<xmlattr>" || key == "<xmlcomment>")
+            if (IsMeta(key))
                 continue;
-            if (key != "Conditions")
-                throw STAI_TreeFatalError(where + ": unexpected <" + key + "> in <Transition> (expected <Conditions>)");
-            def.conditions = ParseConditions(child, where);
-        }
+            if (key != "Consideration")
+                throw std::runtime_error(where + ": unexpected <" + key + "> in <Considerations> (expected <Consideration class=\"...\"/>)");
 
-        return def;
+            const std::string considerationClass = Attribute(child, "class");
+            const STAI_NodeFactory::ConsiderationClass* factoryClass = sSTAITaskFactory.FindConsideration(considerationClass);
+            if (!factoryClass)
+                throw std::runtime_error(where + ": unknown consideration class '" + considerationClass + "'");
+
+            ptree config = child;
+            config.erase("Comment");
+            try
+            {
+                factoryClass->validate(config);
+            }
+            catch (const std::exception& error)
+            {
+                throw std::runtime_error(where + " (" + considerationClass + "): " + error.what());
+            }
+
+            STAI_ConsiderationDef def;
+            def.consideration = factoryClass->create(config);
+            if (!def.consideration)
+                throw std::runtime_error(where + " (" + considerationClass + "): the consideration could not be created");
+            def.consideration->SetComment(CommentOf(child));
+            def.node = AddNode(def.consideration.get(), state);
+            if (!def.consideration->GetPropertyRefs().empty())
+                refNodes.emplace_back(def.consideration.get(), where);
+            asset.states[state].considerations.push_back(std::move(def));
+        }
     }
 
     // <Task class="..."> settings </Task>: validated and created (shared by every bot); <Conditions> only for global
     // tasks
-    void ParseTask(const ptree& task, const std::string& where, STAI_TaskDef& def, bool global)
+    STAI_TaskDef Loader::ParseTask(const ptree& task, const std::string& where, bool global, int state)
     {
+        STAI_TaskDef def;
         def.taskClass = Attribute(task, "class");
         def.name = Attribute(task, "name");
-        const STAI_TaskFactory::TaskClass* taskClass = sSTAITaskFactory.FindTask(def.taskClass);
+        const STAI_NodeFactory::TaskClass* taskClass = sSTAITaskFactory.FindTask(def.taskClass);
         if (!taskClass)
             throw std::runtime_error(where + ": unknown task class '" + def.taskClass + "'");
 
-        // <Binding>s are handled by the tree, the task only sees its own settings
+        // <Binding>s, <Conditions> and <Comment> are handled by the tree, the task only sees its own settings
         def.taskConfig = task;
         def.taskConfig.erase("Binding");
         def.taskConfig.erase("Conditions");
+        def.taskConfig.erase("Comment");
         if (const auto conditions = task.get_child_optional("Conditions"))
         {
             if (!global)
-                throw std::runtime_error(where + " (" + def.taskClass + "): <Conditions> in a <Task> only in <Global> (a node has its own)");
-            def.conditions = ParseConditions(*conditions, where);
+                throw std::runtime_error(where + " (" + def.taskClass + "): <Conditions> in a <Task> only in <GlobalTasks> (a state has <EnterConditions>)");
+            def.conditions = ParseConditions(*conditions, where + " (" + def.taskClass + ")", state);
         }
         for (const auto& [key, binding] : task)
         {
@@ -226,155 +305,247 @@ namespace
         def.task = taskClass->create(def.taskConfig);
         if (!def.task)
             throw std::runtime_error(where + " (" + def.taskClass + "): the task could not be created");
+        def.task->SetComment(CommentOf(task));
+        def.node = AddNode(def.task.get(), state);
+        if (!def.task->GetPropertyRefs().empty())
+            refNodes.emplace_back(def.task.get(), where + " (" + def.taskClass + ")");
 
         // show_log="false": no History entries for the task's runs; "true" for a task that has none by default
         const std::string showLog = Attribute(task, "show_log");
-        if (showLog == "false" || showLog == "0")
-            def.task->SetShowLog(false);
-        else if (showLog == "true" || showLog == "1")
-            def.task->SetShowLog(true);
-        else if (!showLog.empty())
-            throw std::runtime_error(where + " (" + def.taskClass + "): show_log must be true or false, got '" + showLog + "'");
-    }
-}
+        if (!showLog.empty())
+            def.task->SetShowLog(ParseBool(task, "show_log", true, where + " (" + def.taskClass + ")"));
 
-std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& file)
-{
-    const std::filesystem::path path = STAI_TaskFactory::ResolvePath(file);
+        const std::string completion = Attribute(task, "completion");
+        if (!completion.empty())
+            def.task->SetCompletion(ParseEnum(task, "completion", ESTAI_TaskCompletion::AlwaysFinish, where + " (" + def.taskClass + ")"));
 
-    ptree document;
-    try
-    {
-        boost::property_tree::read_xml(path.string(), document, boost::property_tree::xml_parser::trim_whitespace | boost::property_tree::xml_parser::no_comments);
-    }
-    catch (const boost::property_tree::xml_parser_error& error)
-    {
-        throw std::runtime_error(file + ":" + std::to_string(error.line()) + ": " + error.message());
+        return def;
     }
 
-    auto root = document.get_child_optional("Root");
-    if (!root)
-        throw std::runtime_error(file + ": missing <Root> element");
-
-    auto asset = std::make_shared<STAI_TreeAsset>();
-    asset->file = file;
-    asset->name = path.stem().string();
-
-    int index = 0;
-    bool hasGlobal = false;
-    std::map<std::string, int> nodeIndexByName; // node names are unique in a tree
-    for (const auto& [key, node] : *root)
+    // <Transition trigger="..." target="..."/>, the target state and the source delegate are resolved once the
+    // whole tree is read
+    STAI_TransitionDef Loader::ParseTransition(const ptree& transition, const std::string& where, int state)
     {
-        if (key == "<xmlattr>" || key == "<xmlcomment>")
-            continue;
+        STAI_TransitionDef def;
 
-        if (key == "Global")
+        const std::string trigger = Attribute(transition, "trigger");
+        if (!ai::Parse(trigger, def.trigger))
+            throw STAI_TreeFatalError(where + ": <Transition> trigger must be OnStateCompleted, OnStateSucceeded, OnStateFailed, OnTick, OnEvent or OnDelegate, got '" + trigger + "'");
+
+        def.source.path = Attribute(transition, "source");
+        if ((def.trigger == ESTAI_TransitionTrigger::OnDelegate) == def.source.path.empty())
+            throw STAI_TreeFatalError(where + ": <Transition> source=\"Root|<TaskClass>::<delegate>\" is needed for OnDelegate and only allowed there");
+
+        def.event = Attribute(transition, "event");
+        if ((def.trigger == ESTAI_TransitionTrigger::OnEvent) == def.event.empty())
+            throw STAI_TreeFatalError(where + ": <Transition> event=\"...\" is needed for OnEvent and only allowed there");
+
+        def.path = Attribute(transition, "target");
+        if (def.path.empty())
+            throw STAI_TreeFatalError(where + ": <Transition> needs a target (Root, Root|<state>, NextState, Succeeded or Failed)");
+
+        try
         {
-            if (hasGlobal)
-                throw std::runtime_error(file + ": more than one <Global> in <Root>");
-            hasGlobal = true;
-
-            int globalIndex = 0;
-            for (const auto& [taskKey, task] : node)
-            {
-                if (taskKey == "<xmlattr>" || taskKey == "<xmlcomment>")
-                    continue;
-                if (taskKey != "Task")
-                    throw std::runtime_error(file + ": unexpected <" + taskKey + "> in <Global> (expected <Task class=\"...\">)");
-
-                ++globalIndex;
-                STAI_TaskDef def;
-                ParseTask(task, file + " global task #" + std::to_string(globalIndex), def, true);
-                asset->globalTasks.push_back(std::move(def));
-            }
-            continue;
+            def.priority = ParseEnum(transition, "priority", ESTAI_TransitionPriority::Normal, where);
+            def.delayMs = uint32(ParseNumber(transition, "delay", 0.0, 0.0, where));
+        }
+        catch (const std::runtime_error& error)
+        {
+            throw STAI_TreeFatalError(error.what());
         }
 
-        if (key != "Node")
-            throw std::runtime_error(file + ": unexpected <" + key + "> in <Root> (expected <Node> or <Global>)");
-
-        ++index;
-        const std::string where = file + " node #" + std::to_string(index);
-
-        STAI_NodeDef def;
-
-        for (const auto& [childKey, child] : node)
+        for (const auto& [key, child] : transition)
         {
-            if (childKey == "<xmlattr>" || childKey == "<xmlcomment>")
+            if (IsMeta(key))
+                continue;
+            if (key != "Conditions")
+                throw STAI_TreeFatalError(where + ": unexpected <" + key + "> in <Transition> (expected <Conditions>)");
+            def.conditions = ParseConditions(child, where, state);
+        }
+
+        return def;
+    }
+
+    int Loader::ParseState(const ptree& element, int parent, const std::string& where)
+    {
+        const int index = int(asset.states.size());
+        asset.states.emplace_back();
+
+        {
+            STAI_StateDef& def = asset.states[index];
+            def.name = Attribute(element, "name");
+            if (def.name.empty())
+                throw STAI_TreeFatalError(where + ": <State> needs a name");
+            if (def.name.find('|') != std::string::npos || def.name.find("::") != std::string::npos)
+                throw STAI_TreeFatalError(where + ": state name '" + def.name + "' must not contain | or ::");
+
+            auto [used, inserted] = stateIndexByName.emplace(def.name, index);
+            if (!inserted)
+                throw STAI_TreeFatalError(where + ": state name '" + def.name + "' is already used by state '" + asset.states[used->second].path + "', state names must be unique in a tree");
+
+            def.parent = parent;
+            def.depth = parent < 0 ? 0 : asset.states[parent].depth + 1;
+            def.path = (parent < 0 ? std::string("Root") : asset.states[parent].path) + "|" + def.name;
+            def.comment = CommentOf(element);
+            def.type = ParseEnum(element, "type", ESTAI_StateType::State, where);
+            def.linkedSubtree = Attribute(element, "linkedSubtree");
+            if ((def.type == ESTAI_StateType::Linked) == def.linkedSubtree.empty())
+                throw STAI_TreeFatalError(where + ": linkedSubtree=\"<state>\" is needed for type=\"Linked\" and only allowed there");
+            def.selection = ParseEnum(element, "selection", ESTAI_StateSelection::TrySelectChildrenInOrder, where);
+            def.weight = float(ParseNumber(element, "weight", 1.0, 0.0, where));
+            def.enabled = ParseBool(element, "enabled", true, where);
+        }
+
+        const std::string stateWhere = where + " '" + asset.states[index].name + "'";
+        for (const auto& [key, child] : element)
+        {
+            if (IsMeta(key))
                 continue;
 
-            if (childKey == "Conditions")
-                def.conditions = ParseConditions(child, where);
-            else if (childKey == "Task")
+            if (key == "EnterConditions")
+                asset.states[index].enterConditions = ParseConditions(child, stateWhere, index);
+            else if (key == "Considerations")
+                ParseConsiderations(child, stateWhere, index);
+            else if (key == "Tasks")
             {
-                // tasks of a node run one after another, in file order
-                STAI_TaskDef task;
-                ParseTask(child, where + " task #" + std::to_string(def.tasks.size() + 1), task, false);
-                def.tasks.push_back(std::move(task));
+                for (const auto& [taskKey, task] : child)
+                {
+                    if (IsMeta(taskKey))
+                        continue;
+                    if (taskKey != "Task")
+                        throw std::runtime_error(stateWhere + ": unexpected <" + taskKey + "> in <Tasks> (expected <Task class=\"...\">)");
+                    if (!ParseBool(task, "enabled", true, stateWhere))
+                        continue;
+                    const std::string taskWhere = stateWhere + " task #" + std::to_string(asset.states[index].tasks.size() + 1);
+                    STAI_TaskDef def = ParseTask(task, taskWhere, false, index);
+                    asset.states[index].tasks.push_back(std::move(def));
+                }
             }
-            else if (childKey == "Transitions")
+            else if (key == "Transitions")
             {
                 for (const auto& [transitionKey, transition] : child)
                 {
-                    if (transitionKey == "<xmlattr>" || transitionKey == "<xmlcomment>")
+                    if (IsMeta(transitionKey))
                         continue;
                     if (transitionKey != "Transition")
-                        throw STAI_TreeFatalError(where + ": unexpected <" + transitionKey + "> in <Transitions> (expected <Transition type=\"...\" node=\"Root|...\"/>)");
-                    def.transitions.push_back(ParseTransition(transition, where));
+                        throw STAI_TreeFatalError(stateWhere + ": unexpected <" + transitionKey + "> in <Transitions> (expected <Transition trigger=\"...\" target=\"...\"/>)");
+                    if (!ParseBool(transition, "enabled", true, stateWhere))
+                        continue;
+                    STAI_TransitionDef def = ParseTransition(transition, stateWhere, index);
+                    asset.states[index].transitions.push_back(std::move(def));
                 }
             }
-            else if (childKey == "Global")
-                throw std::runtime_error(where + ": <Global> is only allowed directly under <Root>");
+            else if (key == "State")
+            {
+                const int childIndex = ParseState(child, index, where);
+                asset.states[index].children.push_back(childIndex);
+            }
             else
-                throw std::runtime_error(where + ": unexpected <" + childKey + "> in <Node> (expected <Conditions>, <Task> or <Transitions>)");
+                throw std::runtime_error(stateWhere + ": unexpected <" + key + "> in <State> (expected <EnterConditions>, <Considerations>, <Tasks>, <Transitions> or <State>)");
         }
 
-        if (def.tasks.empty())
-            throw std::runtime_error(where + ": missing <Task class=\"...\">");
+        STAI_StateDef& def = asset.states[index];
+        def.subtreeEnd = int(asset.states.size());
+        def.retryDelayMs = uint32(ParseNumber(element, "retryDelay", def.children.empty() ? 3000.0 : 0.0, 0.0, stateWhere));
 
-        def.name = Attribute(node, "name");
-        const bool named = !def.name.empty();
-        if (!named)
-            def.name = def.tasks.front().taskClass;
+        if (def.type == ESTAI_StateType::Linked && !def.children.empty())
+            throw STAI_TreeFatalError(stateWhere + ": a Linked state runs its subtree's children, it cannot have child states of its own");
+        if (def.type != ESTAI_StateType::Linked && def.children.empty() && def.tasks.empty())
+            throw std::runtime_error(stateWhere + ": a state without child states needs a <Task class=\"...\">");
 
-        auto [used, inserted] = nodeIndexByName.emplace(def.name, index);
-        if (!inserted)
-            throw STAI_TreeFatalError(where + ": node name '" + def.name + "' is already used by node #" + std::to_string(used->second)
-                + (named ? "" : " (a node without name=\"...\" is named after its first task class)") + ", node names must be unique in a tree");
-
-        asset->nodes.push_back(std::move(def));
+        return index;
     }
 
-    if (asset->nodes.empty())
-        throw std::runtime_error(file + ": no <Node> in <Root>");
+    void Loader::ParseTree(const ptree& root)
+    {
+        asset.comment = CommentOf(root);
 
-    // properties and delegates: Root|<TaskClass>::<name> (global task) or Root|<node name>|<TaskClass>::<name>
-    auto resolve = [&](STAI_MemberRef& ref, const std::string& where) -> const STAI_Task&
+        const std::string version = Attribute(root, "version");
+        if (version != "2")
+            throw std::runtime_error(asset.file + ": <StateTree version=\"2\"> expected, got version '" + version + "' (convert v1 files with tools/StateTreeEditor/convert_v1_to_v2.py)");
+
+        bool hasGlobal = false;
+        int index = 0;
+        for (const auto& [key, child] : root)
+        {
+            if (IsMeta(key))
+                continue;
+
+            if (key == "GlobalTasks")
+            {
+                if (hasGlobal)
+                    throw std::runtime_error(asset.file + ": more than one <GlobalTasks> in <StateTree>");
+                hasGlobal = true;
+
+                for (const auto& [taskKey, task] : child)
+                {
+                    if (IsMeta(taskKey))
+                        continue;
+                    if (taskKey != "Task")
+                        throw std::runtime_error(asset.file + ": unexpected <" + taskKey + "> in <GlobalTasks> (expected <Task class=\"...\">)");
+                    if (!ParseBool(task, "enabled", true, asset.file))
+                        continue;
+                    STAI_TaskDef def = ParseTask(task, asset.file + " global task #" + std::to_string(asset.globalTasks.size() + 1), true, -1);
+                    asset.globalTasks.push_back(std::move(def));
+                }
+                continue;
+            }
+
+            if (key != "State")
+                throw std::runtime_error(asset.file + ": unexpected <" + key + "> in <StateTree> (expected <GlobalTasks> or <State>)");
+
+            ++index;
+            asset.topStates.push_back(ParseState(child, -1, asset.file + " state"));
+        }
+
+        if (asset.topStates.empty())
+            throw std::runtime_error(asset.file + ": no <State> in <StateTree>");
+    }
+
+    // Root|<state> or Root|<top state>|...|<state>: the state, a path through its parents must be its real one
+    int Loader::ResolveStatePath(const std::vector<std::string>& segments, const std::string& path, const std::string& where) const
+    {
+        auto found = stateIndexByName.find(segments.back());
+        if (found == stateIndexByName.end())
+            throw STAI_TreeFatalError(where + ": '" + path + "': unknown state '" + segments.back() + "'");
+
+        const int state = found->second;
+        if (segments.size() == 1)
+            return state;
+
+        std::string full = "Root";
+        for (const std::string& segment : segments)
+            full += "|" + segment;
+        if (asset.states[state].path != full)
+            throw STAI_TreeFatalError(where + ": '" + path + "' is not the path of state '" + segments.back() + "' (" + asset.states[state].path + ")");
+        return state;
+    }
+
+    // properties and delegates: Root|<TaskClass>::<name> (global task) or Root|<state>|<TaskClass>::<name>
+    const STAI_TaskBase& Loader::ResolveMember(STAI_MemberRef& ref, const std::string& where) const
     {
         auto fail = [&](const std::string& why) { return STAI_TreeFatalError(where + ": '" + ref.path + "': " + why); };
 
         if (ref.path.rfind(rootPathPrefix, 0) != 0)
-            throw fail("expected Root|<TaskClass>::<name> or Root|<node name>|<TaskClass>::<name>");
-        std::string rest = ref.path.substr(strlen(rootPathPrefix));
-
-        const std::vector<STAI_TaskDef>* tasks = &asset->globalTasks;
-        ref.node = -1;
-        const size_t separator = rest.find('|');
-        if (separator != std::string::npos)
-        {
-            auto node = nodeIndexByName.find(rest.substr(0, separator));
-            if (node == nodeIndexByName.end())
-                throw fail("unknown node '" + rest.substr(0, separator) + "'");
-            ref.node = node->second - 1;
-            tasks = &asset->nodes[ref.node].tasks;
-            rest = rest.substr(separator + 1);
-        }
+            throw fail("expected Root|<TaskClass>::<name> or Root|<state>|<TaskClass>::<name>");
+        const std::string rest = ref.path.substr(strlen(rootPathPrefix));
 
         const size_t member = rest.find("::");
         if (member == std::string::npos || member == 0 || member + 2 == rest.size())
             throw fail("expected <TaskClass>::<name>");
-        std::string taskClass = rest.substr(0, member);
         ref.member = rest.substr(member + 2);
+
+        std::vector<std::string> segments = Split(rest.substr(0, member), '|');
+        std::string taskClass = segments.back();
+        segments.pop_back();
+
+        const std::vector<STAI_TaskDef>* tasks = &asset.globalTasks;
+        ref.state = -1;
+        if (!segments.empty())
+        {
+            ref.state = ResolveStatePath(segments, ref.path, where);
+            tasks = &asset.states[ref.state].tasks;
+        }
 
         // <TaskClass>[<task name>]
         std::string taskName;
@@ -392,187 +563,236 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& fi
             if ((*tasks)[i].taskClass != taskClass || (open != std::string::npos && (*tasks)[i].name != taskName))
                 continue;
             ref.task = int(i);
+            ref.node = (*tasks)[i].node;
             return *(*tasks)[i].task;
         }
         throw fail("no task of class '" + taskClass + "'" + (open != std::string::npos ? " named '" + taskName + "'" : "") + " in " +
-            (ref.node < 0 ? "<Global>" : "the node"));
-    };
-
-    auto resolveBindings = [&](STAI_TaskDef& task, const std::string& where)
-    {
-        for (STAI_BindingDef& binding : task.bindings)
-        {
-            binding.localProperty = task.task->FindProperty(binding.local);
-            if (!binding.localProperty)
-                throw STAI_TreeFatalError(where + " (" + task.taskClass + "): <Binding> local '" + binding.local + "' is not a property of the task");
-
-            binding.externalProperty = resolve(binding.external, where).FindProperty(binding.external.member);
-            if (!binding.externalProperty)
-                throw STAI_TreeFatalError(where + ": <Binding> external '" + binding.external.path + "' is not a property of that task");
-            if (binding.externalProperty->type != binding.localProperty->type)
-                throw STAI_TreeFatalError(where + ": <Binding> '" + binding.local + "' and '" + binding.external.path + "' have different types");
-        }
-    };
-
-    auto resolveCondition = [&](STAI_ConditionDef& condition, const std::string& where)
-    {
-        condition.property = resolve(condition.binding, where).FindProperty(condition.binding.member);
-        if (!condition.property)
-            throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a property of that task");
-        if (condition.hasKey)
-        {
-            if (!condition.property->lookup)
-                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' with a key is not a map of numbers");
-            return;
-        }
-        if (condition.isText)
-        {
-            if (!condition.property->toText)
-                throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a text, it cannot be compared with '" + condition.text + "'");
-            return;
-        }
-        if (condition.compare == STAI_ConditionDef::Compare::None && !condition.property->isSet)
-            throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' has a type that cannot be tested (not a container, not bool)");
-        if (condition.compare != STAI_ConditionDef::Compare::None && !condition.property->toNumber)
-            throw STAI_TreeFatalError(where + ": <Condition> binding '" + condition.binding.path + "' is not a number, it cannot be compared");
-    };
-
-    auto resolveConditions = [&](STAI_ConditionsDef& conditions, const std::string& where)
-    {
-        for (STAI_ConditionDef& condition : conditions.list)
-        {
-            if (condition.anyOf.empty())
-                resolveCondition(condition, where);
-            for (STAI_ConditionDef& member : condition.anyOf)
-                resolveCondition(member, where);
-        }
-    };
-
-    for (size_t i = 0; i < asset->globalTasks.size(); ++i)
-    {
-        const std::string where = file + " global task #" + std::to_string(i + 1);
-        resolveBindings(asset->globalTasks[i], where);
-        resolveConditions(asset->globalTasks[i].conditions, where);
+            (ref.state < 0 ? "<GlobalTasks>" : "the state"));
     }
 
-    for (size_t i = 0; i < asset->nodes.size(); ++i)
+    // Linked states run a Subtree state of the tree; a subtree running itself through its linked states is an error
+    void Loader::ResolveLinks()
     {
-        const std::string where = file + " node #" + std::to_string(i + 1);
-        for (STAI_TaskDef& task : asset->nodes[i].tasks)
-            resolveBindings(task, where);
-
-        resolveConditions(asset->nodes[i].conditions, where);
-
-        for (STAI_TransitionDef& transition : asset->nodes[i].transitions)
+        for (STAI_StateDef& state : asset.states)
         {
-            resolveConditions(transition.conditions, where);
-            if (transition.type != STAI_TransitionDef::Type::OnDelegate)
+            if (state.type != ESTAI_StateType::Linked)
                 continue;
-            transition.delegate = resolve(transition.source, where).FindDelegate(transition.source.member);
-            if (!transition.delegate)
-                throw STAI_TreeFatalError(where + ": <Transition> source '" + transition.source.path + "' is not a delegate of that task");
+            auto found = stateIndexByName.find(state.linkedSubtree);
+            if (found == stateIndexByName.end() || asset.states[found->second].type != ESTAI_StateType::Subtree)
+                throw STAI_TreeFatalError(asset.file + " state '" + state.name + "': linkedSubtree '" + state.linkedSubtree + "' is not a state of type Subtree");
+            state.linked = found->second;
         }
+
+        // depth first from every subtree through the Linked states inside it
+        std::map<int, int> visit; // 1 = on the path, 2 = done
+        std::function<void(int)> walk = [&](int subtree)
+        {
+            int& mark = visit[subtree];
+            if (mark == 1)
+                throw STAI_TreeFatalError(asset.file + ": subtree '" + asset.states[subtree].name + "' runs itself through its linked states");
+            if (mark == 2)
+                return;
+            mark = 1;
+            for (int i = subtree; i < asset.states[subtree].subtreeEnd; ++i)
+                if (asset.states[i].linked >= 0)
+                    walk(asset.states[i].linked);
+            visit[subtree] = 2;
+        };
+        for (const STAI_StateDef& state : asset.states)
+            if (state.linked >= 0)
+                walk(state.linked);
     }
 
-    // transition targets: Root|<node name>, nodes are direct children of Root
-    for (size_t i = 0; i < asset->nodes.size(); ++i)
+    void Loader::Resolve()
     {
-        for (STAI_TransitionDef& transition : asset->nodes[i].transitions)
+        ResolveLinks();
+
+        auto resolveBindings = [&](STAI_TaskDef& task, const std::string& where)
         {
-            if (transition.path == "Root")
+            for (STAI_BindingDef& binding : task.bindings)
             {
-                transition.target = -1;
-                continue;
+                binding.localProperty = task.task->FindProperty(binding.local);
+                if (!binding.localProperty)
+                    throw STAI_TreeFatalError(where + " (" + task.taskClass + "): <Binding> local '" + binding.local + "' is not a property of the task");
+
+                binding.externalProperty = ResolveMember(binding.external, where).FindProperty(binding.external.member);
+                if (!binding.externalProperty)
+                    throw STAI_TreeFatalError(where + ": <Binding> external '" + binding.external.path + "' is not a property of that task");
+                if (binding.externalProperty->type != binding.localProperty->type)
+                    throw STAI_TreeFatalError(where + ": <Binding> '" + binding.local + "' and '" + binding.external.path + "' have different types");
             }
+        };
 
-            const std::string name = transition.path.substr(strlen(rootPathPrefix));
-            auto target = nodeIndexByName.find(name);
-            if (target == nodeIndexByName.end())
-                throw STAI_TreeFatalError(file + " node #" + std::to_string(i + 1) + ": <Transition> to unknown node '" + transition.path + "'");
-            transition.target = target->second - 1;
-        }
-    }
+        for (size_t i = 0; i < asset.globalTasks.size(); ++i)
+            resolveBindings(asset.globalTasks[i], asset.file + " global task #" + std::to_string(i + 1));
 
-    return asset;
-}
-
-bool STAI_ConditionDef::Passes(const std::vector<const void*>& boundValues) const
-{
-    if (anyOf.empty())
-        return PassesValue(boundValues[0]);
-
-    for (size_t i = 0; i < anyOf.size(); ++i)
-        if (anyOf[i].PassesValue(boundValues[i]))
-            return true;
-    return false;
-}
-
-bool STAI_ConditionDef::PassesValue(const void* boundValue) const
-{
-    if (isText)
-        return (property->toText(boundValue) == text) != negate;
-
-    bool passed;
-    double entry = 0.0;
-    const bool hasEntry = hasKey && property->lookup(boundValue, key, entry);
-    if (compare == Compare::None)
-        passed = hasKey ? hasEntry && entry != 0.0 : property->isSet(boundValue);
-    else
-    {
-        const double number = hasKey ? entry : property->toNumber(boundValue);
-        switch (compare)
+        for (size_t s = 0; s < asset.states.size(); ++s)
         {
-            case Compare::Equal: passed = number == value; break;
-            case Compare::Lesser: passed = number < value; break;
-            case Compare::LesserOrEqual: passed = number <= value; break;
-            case Compare::Greater: passed = number > value; break;
-            default: passed = number >= value; break;
+            STAI_StateDef& state = asset.states[s];
+            const std::string where = asset.file + " state '" + state.name + "'";
+            for (STAI_TaskDef& task : state.tasks)
+                resolveBindings(task, where);
+
+            // siblings for NextState: the parent's children, or the top level states
+            const std::vector<int>& siblings = state.parent < 0 ? asset.topStates : asset.states[state.parent].children;
+
+            for (STAI_TransitionDef& transition : state.transitions)
+            {
+                if (transition.trigger == ESTAI_TransitionTrigger::OnDelegate)
+                {
+                    transition.delegate = ResolveMember(transition.source, where).FindDelegate(transition.source.member);
+                    if (!transition.delegate)
+                        throw STAI_TreeFatalError(where + ": <Transition> source '" + transition.source.path + "' is not a delegate of that task");
+                }
+
+                if (transition.path == "Root")
+                    transition.target = STAI_TransitionDef::Target::Root;
+                else if (transition.path == "Succeeded")
+                    transition.target = STAI_TransitionDef::Target::Succeeded;
+                else if (transition.path == "Failed")
+                    transition.target = STAI_TransitionDef::Target::Failed;
+                else if (transition.path == "NextState")
+                {
+                    auto self = std::find(siblings.begin(), siblings.end(), int(s));
+                    if (self == siblings.end() || self + 1 == siblings.end())
+                        throw STAI_TreeFatalError(where + ": <Transition> target NextState, but the state is the last of its siblings");
+                    transition.target = STAI_TransitionDef::Target::State;
+                    transition.state = *(self + 1);
+                }
+                else if (transition.path.rfind(rootPathPrefix, 0) == 0 && transition.path.size() > strlen(rootPathPrefix))
+                {
+                    transition.target = STAI_TransitionDef::Target::State;
+                    transition.state = ResolveStatePath(Split(transition.path.substr(strlen(rootPathPrefix)), '|'), transition.path, where);
+                }
+                else
+                    throw STAI_TreeFatalError(where + ": <Transition> target must be Root, Root|<state>, NextState, Succeeded or Failed, got '" + transition.path + "'");
+            }
+        }
+
+        // properties read by path (Condition_Compare's binding, Consideration_Number's): their type checked by the node
+        for (auto& [node, where] : refNodes)
+        {
+            for (size_t i = 0; i < node->GetPropertyRefs().size(); ++i)
+            {
+                STAI_PropertyRef& ref = node->GetPropertyRefs()[i];
+                ref.property = ResolveMember(ref.ref, where).FindProperty(ref.ref.member);
+                if (!ref.property)
+                    throw STAI_TreeFatalError(where + ": '" + ref.ref.path + "' is not a property of that task");
+                try
+                {
+                    node->ValidatePropertyRef(i, *ref.property);
+                }
+                catch (const std::runtime_error& error)
+                {
+                    throw STAI_TreeFatalError(where + " (" + node->GetNodeClass() + "): " + error.what());
+                }
+            }
         }
     }
-    return passed != negate;
+
+    // the state's static description for the debug views (no bot's data: inactive, conditions not checked)
+    void DescribeState(const STAI_TreeAsset& asset, int index, StateNodeDebugChild& child)
+    {
+        const STAI_StateDef& state = asset.states[index];
+        child.name = state.name;
+        child.depth = state.depth;
+        child.parent = state.parent;
+        if (!state.tasks.empty())
+        {
+            child.taskClass = state.tasks.front().task->GetName();
+            child.info = state.tasks.front().task->GetDebugInfo();
+        }
+        else if (state.type == ESTAI_StateType::Linked)
+            child.info = "Linked " + state.linkedSubtree;
+        else
+            child.info = ToString(state.selection);
+        for (const STAI_TransitionDef& transition : state.transitions)
+            child.transitions.push_back(transition.GetText());
+        for (const STAI_ConditionExpr& condition : state.enterConditions.list)
+            child.conditions.emplace_back(condition.GetText(), StateNodeConditionResult::NotChecked);
+        child.conditionsAny = state.enterConditions.any;
+        child.conditionOverrides.assign(state.enterConditions.size(), 0);
+        child.disabled = !state.enabled;
+    }
 }
 
-std::string STAI_ConditionDef::GetText() const
+bool STAI_TransitionDef::Matches(EActionRunStatus status) const
 {
-    // <Any>: "(a OR b)"
-    if (!anyOf.empty())
+    switch (trigger)
     {
-        std::string text = "(";
-        for (size_t i = 0; i < anyOf.size(); ++i)
-            text += (i ? " OR " : "") + anyOf[i].GetText();
-        return text + ")";
+        case ESTAI_TransitionTrigger::OnStateCompleted: return status != EActionRunStatus::Running;
+        case ESTAI_TransitionTrigger::OnStateSucceeded: return status == EActionRunStatus::Succeeded;
+        case ESTAI_TransitionTrigger::OnStateFailed: return status == EActionRunStatus::Failed;
+        default: return false;
     }
-
-    std::string text = binding.path;
-    if (hasKey)
-    {
-        std::ostringstream out;
-        out << "[" << key << "]";
-        text += out.str();
-    }
-    if (isText)
-        text += " " + compareText + " '" + this->text + "'";
-    else if (compare != Compare::None)
-    {
-        std::ostringstream out;
-        out << " " << compareText << " " << value;
-        text += out.str();
-    }
-    return negate ? "NOT " + text : text;
 }
 
 std::string STAI_TransitionDef::GetText() const
 {
-    std::string text;
-    if (type == Type::OnDelegate)
-        text = "OnDelegate " + source.path + " " + path;
-    else
-        text = std::string(type == Type::OnSuccess ? "OnSuccess" : type == Type::OnFailure ? "OnFailure" : "OnFinish") + " " + path;
+    std::string text = ToString(trigger);
+    if (trigger == ESTAI_TransitionTrigger::OnDelegate)
+        text += " " + source.path;
+    else if (trigger == ESTAI_TransitionTrigger::OnEvent)
+        text += " '" + event + "'";
+    text += " " + path;
+    if (priority != ESTAI_TransitionPriority::Normal)
+        text += std::string(" (") + ToString(priority) + ")";
+    if (delayMs)
+        text += " after " + std::to_string(delayMs) + " ms";
 
     // the transition's own conditions: "... IF a AND b" / "... IF a OR b"
     for (size_t i = 0; i < conditions.list.size(); ++i)
         text += (i ? (conditions.any ? " OR " : " AND ") : " IF ") + conditions.list[i].GetText();
     return text;
+}
+
+std::string STAI_ConditionExpr::GetText() const
+{
+    if (op == Op::Leaf)
+        return condition->GetText();
+
+    // "(a OR b)" / "(a AND b)"
+    std::string text = "(";
+    for (size_t i = 0; i < children.size(); ++i)
+        text += (i ? (op == Op::Any ? " OR " : " AND ") : "") + children[i].GetText();
+    return text + ")";
+}
+
+std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::Load(const std::string& file)
+{
+    const std::filesystem::path path = STAI_NodeFactory::ResolvePath(file);
+
+    ptree document;
+    try
+    {
+        boost::property_tree::read_xml(path.string(), document, boost::property_tree::xml_parser::trim_whitespace | boost::property_tree::xml_parser::no_comments);
+    }
+    catch (const boost::property_tree::xml_parser_error& error)
+    {
+        throw std::runtime_error(file + ":" + std::to_string(error.line()) + ": " + error.message());
+    }
+
+    auto root = document.get_child_optional("StateTree");
+    if (!root)
+        throw std::runtime_error(file + ": missing <StateTree version=\"2\"> element" + (document.get_child_optional("Root") ?
+            " (a v1 file: convert it with tools/StateTreeEditor/convert_v1_to_v2.py)" : ""));
+
+    auto asset = std::make_shared<STAI_TreeAsset>();
+    asset->file = file;
+    asset->name = path.stem().string();
+
+    Loader loader(*asset);
+    loader.ParseTree(*root);
+    loader.Resolve();
+    return asset;
+}
+
+int STAI_TreeAsset::FindState(const std::string& stateName) const
+{
+    for (size_t i = 0; i < states.size(); ++i)
+        if (states[i].name == stateName)
+            return int(i);
+    return -1;
 }
 
 std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeIdle(const std::string& name)
@@ -585,15 +805,22 @@ std::shared_ptr<const STAI_TreeAsset> STAI_TreeAsset::MakeIdle(const std::string
     task.taskClass = taskClass;
     task.taskConfig.put("<xmlattr>.class", taskClass);
     task.taskConfig.put("Delay.<xmlattr>.value", "0");
-    if (const STAI_TaskFactory::TaskClass* factoryClass = sSTAITaskFactory.FindTask(taskClass))
+    if (const STAI_NodeFactory::TaskClass* factoryClass = sSTAITaskFactory.FindTask(taskClass))
         task.task = factoryClass->create(task.taskConfig);
     if (!task.task)
         throw std::runtime_error("unknown task class '" + taskClass + "'");
 
-    STAI_NodeDef def;
-    def.name = "Idle";
-    def.tasks.push_back(std::move(task));
-    asset->nodes.push_back(std::move(def));
+    STAI_StateDef state;
+    state.name = "Idle";
+    state.path = "Root|Idle";
+    state.subtreeEnd = 1;
+    state.retryDelayMs = 3000;
+    asset->states.push_back(std::move(state));
+    asset->topStates.push_back(0);
+
+    asset->nodes.push_back({ task.task.get(), 0 });
+    task.node = 0;
+    asset->states[0].tasks.push_back(std::move(task));
 
     return asset;
 }
@@ -608,17 +835,13 @@ StateNodeDebugTree STAI_TreeAsset::GetDebugTree() const
         tree.globalSpells.emplace_back();
     }
 
-    for (const STAI_NodeDef& node : nodes)
+    for (size_t i = 0; i < states.size(); ++i)
     {
         StateNodeDebugChild child;
-        child.name = node.name;
-        child.taskClass = node.tasks.front().task->GetName();
-        child.info = node.tasks.front().task->GetDebugInfo();
-        for (const STAI_TransitionDef& transition : node.transitions)
-            child.transitions.push_back(transition.GetText());
-        for (size_t t = 0; t < node.tasks.size(); ++t)
+        DescribeState(*this, int(i), child);
+        for (size_t t = 0; t < states[i].tasks.size(); ++t)
         {
-            const STAI_Task& task = *node.tasks[t].task;
+            const STAI_TaskBase& task = *states[i].tasks[t].task;
             child.tasks.push_back(task.GetName());
             child.tasksDisabled.push_back(false);
             child.taskInfos.push_back(task.GetDebugInfo());
@@ -628,18 +851,23 @@ StateNodeDebugTree STAI_TreeAsset::GetDebugTree() const
                 child.subtrees.back().task = int(t);
             }
         }
-        for (const STAI_ConditionDef& condition : node.conditions.list)
-            child.conditions.emplace_back(condition.GetText(), StateNodeConditionResult::NotChecked);
-        child.conditionsAny = node.conditions.any;
-        child.conditionOverrides.assign(node.conditions.size(), 0);
         tree.nodes.push_back(std::move(child));
     }
     return tree;
 }
 
+namespace ai
+{
+    // the static part of a state of the bot's tree for the debug views (STAI_TreeInstance)
+    void STAI_DescribeState(const STAI_TreeAsset& asset, int index, StateNodeDebugChild& child)
+    {
+        DescribeState(asset, index, child);
+    }
+}
+
 std::string STAI_TreeLibrary::GetFileKey(const std::string& file)
 {
-    std::string key = STAI_TaskFactory::ResolvePath(file).generic_string();
+    std::string key = STAI_NodeFactory::ResolvePath(file).generic_string();
 #ifdef _WIN32
     std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return char(std::tolower(c)); });
 #endif
@@ -659,8 +887,8 @@ void STAI_TreeLibrary::RemoveBrokenSubtrees(FileMap& files, uint32& errors)
         };
         for (const STAI_TaskDef& task : asset.globalTasks)
             add(task);
-        for (const STAI_NodeDef& node : asset.nodes)
-            for (const STAI_TaskDef& task : node.tasks)
+        for (const STAI_StateDef& state : asset.states)
+            for (const STAI_TaskDef& task : state.tasks)
                 add(task);
         return references;
     };
@@ -764,7 +992,7 @@ void STAI_TreeLibrary::LoadFromConfig()
     };
 
     // every tree of the statetree directory and its class folders, so subtrees need no config entry
-    const std::filesystem::path directory = STAI_TaskFactory::ResolvePath("statetree");
+    const std::filesystem::path directory = STAI_NodeFactory::ResolvePath("statetree");
     std::error_code error;
     for (const auto& entry : std::filesystem::recursive_directory_iterator(directory, error))
     {
@@ -811,8 +1039,8 @@ void STAI_TreeLibrary::LoadFromConfig()
     {
         for (const STAI_TaskDef& task : asset->globalTasks)
             task.task->LinkReferencedTrees(find);
-        for (const STAI_NodeDef& node : asset->nodes)
-            for (const STAI_TaskDef& task : node.tasks)
+        for (const STAI_StateDef& state : asset->states)
+            for (const STAI_TaskDef& task : state.tasks)
                 task.task->LinkReferencedTrees(find);
     }
 

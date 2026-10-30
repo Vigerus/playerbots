@@ -32,9 +32,9 @@ void CorpseProvider_GlobalTask::Update(CorpseProvider_GlobalTaskContext& context
         context.onCorpseFar.Broadcast();
 }
 
-EActionRunStatus CorpseProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus CorpseProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(CorpseProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(CorpseProvider_GlobalTask::OnEnterState);
     CorpseProvider_GlobalTaskContext& context = ContextAs<CorpseProvider_GlobalTaskContext>(baseContext);
     context.corpseFar = false;
     context.sinceCheckMs = 0;

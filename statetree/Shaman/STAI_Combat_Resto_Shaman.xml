@@ -1,62 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat subtree for Resto Shaman bots (run by STAI_Combat_Shaman.xml) -->
-<Root>
-  <Global>
-    <!-- mana of the bot: manaPct, onManaChanged -->
-    <Task class="ManaProvider_GlobalTask"/>
-    <!-- the totems selected for the bot (outdoor, or the master's dungeon stage) that are not up: needs,
-         onTotemMissing; onTotemsChanged when the selection changed -->
+<StateTree version="2">
+  <Comment>Combat subtree for Resto Shaman bots (run by STAI_Combat_Shaman.xml)</Comment>
+  <GlobalTasks>
+    <Task class="ManaProvider_GlobalTask">
+      <Comment>mana of the bot: manaPct, onManaChanged</Comment>
+    </Task>
     <Task class="TotemProvider_GlobalTask">
+      <Comment>the totems selected for the bot (outdoor, or the master's dungeon stage) that are not up: needs,
+        onTotemMissing; onTotemsChanged when the selection changed</Comment>
       <Range value="30"/>
     </Task>
-    <!-- the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
-         by rtsc), stagePositionFrom, pathBlocked -->
-    <Task class="InstanceProvider_GlobalTask"/>
-    <!-- movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range) -->
+    <Task class="InstanceProvider_GlobalTask">
+      <Comment>the rooms of the dungeon (InstanceSubsystem stages): stagePosition (the bot's point in the master's room, saved
+        by rtsc), stagePositionFrom, pathBlocked</Comment>
+    </Task>
     <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="45" kind="position">
+      <Comment>movement goal: the bot's point in the master's room (rtsc / the stage file) during the fight too, above Attack Range (the bot casts from there while the target is in range)</Comment>
       <Radius value="2"/>
       <Binding local="position" external="Root|InstanceProvider_GlobalTask::stagePosition"/>
       <Binding local="reason" external="Root|InstanceProvider_GlobalTask::stagePositionFrom"/>
       <Conditions>
-        <Condition binding="Root|InstanceProvider_GlobalTask::pathBlocked" negate="true"/>
+        <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
       </Conditions>
     </Task>
-  </Global>
-  <!-- low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s) -->
-  <Node name="Mana Potion">
-    <Conditions>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
-    </Conditions>
-    <Task class="Task_UseItem">
-      <Item id="13444"/>  <!-- Major Mana Potion -->
-      <Item id="13443"/>  <!-- Superior Mana Potion -->
-      <Item id="6149"/>   <!-- Greater Mana Potion -->
-      <Item id="3827"/>   <!-- Mana Potion -->
-      <Item id="3385"/>   <!-- Lesser Mana Potion -->
-      <Item id="2455"/>   <!-- Minor Mana Potion -->
-    </Task>
-  </Node>
-  <!-- a selected totem is not up: drops the missing totems one per GCD; fails while none can be cast (mana), not
-       selected again for 3s -->
-  <Node name="Totems">
-    <Conditions>
-      <Condition binding="Root|TotemProvider_GlobalTask::needs"/>
-    </Conditions>
-    <Task class="Task_CastTotem">
-      <Binding local="needs" external="Root|TotemProvider_GlobalTask::needs"/>
-    </Task>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the rest of the combat exists: waits briefly (a totem that failed is tried again) or until
-         a delegate sends the tree elsewhere -->
-    <Task class="Task_Wait">
-      <Delay value="1000"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Mana Potion">
+    <Comment>low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_UseItem">
+        <Item id="13444"/>
+        <!-- Major Mana Potion -->
+        <Item id="13443"/>
+        <!-- Superior Mana Potion -->
+        <Item id="6149"/>
+        <!-- Greater Mana Potion -->
+        <Item id="3827"/>
+        <!-- Mana Potion -->
+        <Item id="3385"/>
+        <!-- Lesser Mana Potion -->
+        <Item id="2455"/>
+        <!-- Minor Mana Potion -->
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Totems">
+    <Comment>a selected totem is not up: drops the missing totems one per GCD; fails while none can be cast (mana), not
+      selected again for 3s</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TotemProvider_GlobalTask::needs"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastTotem">
+        <Binding local="needs" external="Root|TotemProvider_GlobalTask::needs"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>placeholder until the rest of the combat exists: waits briefly (a totem that failed is tried again) or until
+          a delegate sends the tree elsewhere</Comment>
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Mana Potion"/>
-      <Transition type="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemMissing" node="Root|Totems"/>
-      <Transition type="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemsChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root|Mana Potion"/>
+      <Transition trigger="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemMissing" target="Root|Totems"/>
+      <Transition trigger="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemsChanged" target="Root"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

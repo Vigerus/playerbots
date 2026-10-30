@@ -37,23 +37,23 @@ namespace ai
     // Ticked: checks every 250ms. inHazard while the bot is inside one (or affected by it); safePosition is the closest
     // of the spots around the bot (16 directions, up to 20 yards) outside every hazard by the margin, in sight and
     // on ground the bot can stand on, kept while it stays safe.
-    class HazardProvider_GlobalTask : public STAI_GlobalTask
+    class HazardProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         explicit HazardProvider_GlobalTask(float margin) : margin(margin) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "HazardProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "HazardProvider_GlobalTask"; }
         inline static std::string task_name = "HazardProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<HazardProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

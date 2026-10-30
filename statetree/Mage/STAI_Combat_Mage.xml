@@ -1,74 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat state tree for Mage bots: AiPlayerbot.StateTree.Combat.Mage -->
-<!-- picks the subtree of a boss tactic while one applies, else the subtree for the bot's spec; a tactic or spec change
-     (talents learned or reset) selects again -->
-<Root>
-  <Global>
-    <!-- hostile area effects on the ground around the bot: inHazard, safePosition, onHazard -->
+<StateTree version="2">
+  <Comment>Combat state tree for Mage bots: AiPlayerbot.StateTree.Combat.Mage
+    picks the subtree of a boss tactic while one applies, else the subtree for the bot's spec; a tactic or spec change
+    (talents learned or reset) selects again</Comment>
+  <GlobalTasks>
     <Task class="HazardProvider_GlobalTask">
+      <Comment>hostile area effects on the ground around the bot: inHazard, safePosition, onHazard</Comment>
       <Margin value="2"/>
     </Task>
-    <!-- the bot's spec: specName, onSpecChanged -->
-    <Task class="SpecProvider_GlobalTask"/>
-    <!-- the boss tactic that replaces the spec subtree while it applies: tactic, onTacticChanged -->
-    <Task class="EncounterProvider_GlobalTask">
-      <Tactic name="jandice illusions" map="289" entry="11439"/>  <!-- Scholomance: Illusion of Jandice Barov -->
+    <Task class="SpecProvider_GlobalTask">
+      <Comment>the bot's spec: specName, onSpecChanged</Comment>
     </Task>
-    <!-- movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
-         goals want -->
+    <Task class="EncounterProvider_GlobalTask">
+      <Comment>the boss tactic that replaces the spec subtree while it applies: tactic, onTacticChanged</Comment>
+      <Tactic name="jandice illusions" map="289" entry="11439"/>
+      <!-- Scholomance: Illusion of Jandice Barov -->
+    </Task>
     <Task class="MovementGoal_GlobalTask" name="Escape Hazard" priority="100" kind="position" interruptCast="true">
+      <Comment>movement goal (MovementGoal_GlobalTask): out of a hostile area effect, also while casting, whatever the subtree's
+        goals want</Comment>
       <Radius value="1"/>
       <Binding local="position" external="Root|HazardProvider_GlobalTask::safePosition"/>
       <Conditions>
-        <Condition binding="Root|HazardProvider_GlobalTask::inHazard"/>
+        <Condition class="Condition_Compare" binding="Root|HazardProvider_GlobalTask::inHazard"/>
       </Conditions>
     </Task>
-  </Global>
-  <!-- boss tactics, one subtree each; left when the tactic ends -->
-  <Node name="Jandice Illusions">
-    <Conditions>
-      <Condition binding="Root|EncounterProvider_GlobalTask::tactic" compare="equal" value="jandice illusions"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Mage/STAI_Combat_Scholomance_Jandice_Mage.xml"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Jandice Illusions">
+    <Comment>boss tactics, one subtree each; left when the tactic ends</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|EncounterProvider_GlobalTask::tactic" compare="equal" value="jandice illusions"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Mage/STAI_Combat_Scholomance_Jandice_Mage.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Frost Mage">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Mage/STAI_Combat_Frost_Mage.xml"/>
-    </Task>
+  </State>
+  <State name="Frost Mage">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Mage/STAI_Combat_Frost_Mage.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Fire Mage">
-    <Conditions>
-      <Condition binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="fire mage"/>
-    </Conditions>
-    <Task class="Task_RunSubtree">
-      <Subtree filename="statetree/Mage/STAI_Combat_Fire_Mage.xml"/>
-    </Task>
+  </State>
+  <State name="Fire Mage">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="fire mage"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Mage/STAI_Combat_Fire_Mage.xml"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" target="Root"/>
     </Transitions>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- no spec subtree: waits for a spec change -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>no spec subtree: waits for a spec change</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" node="Root"/>
-      <Transition type="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" node="Root"/>
+      <Transition trigger="OnDelegate" source="Root|SpecProvider_GlobalTask::onSpecChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|EncounterProvider_GlobalTask::onTacticChanged" target="Root"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>

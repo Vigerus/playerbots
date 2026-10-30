@@ -51,22 +51,22 @@ namespace ai
     //   </Global>
     // Task_CastSpell casts on them (a type's list bound into whoNeeds), e.g. Dispel Magic on magic; property causes
     // (the aura found per member and type) bound into its causes shows what the dispel removes.
-    class DispelProvider_GlobalTask : public STAI_GlobalTask, public ISTAI_DebugSpells
+    class DispelProvider_GlobalTask : public STAI_DataProviderBase, public ISTAI_DebugSpells
     {
     public:
         DispelProvider_GlobalTask(uint32 dispelMask, STAI_SpellFilter filter) : dispelMask(dispelMask), filter(std::move(filter)) {}
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "DispelProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "DispelProvider_GlobalTask"; }
         inline static std::string task_name = "DispelProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<DispelProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
-        virtual void OnExit(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
+        virtual void OnExitState(STAI_TaskContext& context) const override;
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;
@@ -103,9 +103,9 @@ namespace ai
         using DispelProvider_GlobalTask::DispelProvider_GlobalTask;
 
         static void Validate(const STAI_TaskConfig& config);
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config);
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
 
-        virtual const char* GetTaskClass() const override { return "CurseProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "CurseProvider_GlobalTask"; }
         inline static std::string task_name = "CurseProvider";
         virtual std::string GetName() const override { return task_name; }
     };

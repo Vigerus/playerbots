@@ -32,21 +32,21 @@ namespace ai
     //   </Node>
     // A body inside a dungeon is reached through its portal, where the core resurrects the ghost; outdoors the
     // Reaction tree reclaims it (UIInteractionProvider_GlobalTask::canReclaimCorpse). Ticked: checks every 500ms.
-    class CorpseProvider_GlobalTask : public STAI_GlobalTask
+    class CorpseProvider_GlobalTask : public STAI_DataProviderBase
     {
     public:
         static void Validate(const STAI_TaskConfig& config) {}
-        static std::unique_ptr<STAI_Task> Create(const STAI_TaskConfig& config) { return std::make_unique<CorpseProvider_GlobalTask>(); }
+        static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config) { return std::make_unique<CorpseProvider_GlobalTask>(); }
 
-        virtual const char* GetTaskClass() const override { return "CorpseProvider_GlobalTask"; }
+        virtual const char* GetNodeClass() const override { return "CorpseProvider_GlobalTask"; }
         inline static std::string task_name = "CorpseProvider";
         virtual std::string GetName() const override { return task_name; }
 
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<CorpseProvider_GlobalTaskContext>(); }
 
-        virtual EActionRunStatus OnEnter(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
         virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
-        virtual bool IsTickable() const override { return true; }
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

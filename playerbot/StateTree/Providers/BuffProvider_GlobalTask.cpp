@@ -122,14 +122,14 @@ void BuffProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseBuffs(config);
 }
 
-std::unique_ptr<STAI_Task> BuffProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> BuffProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<BuffProvider_GlobalTask>(ParseBuffs(config));
 }
 
-EActionRunStatus BuffProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus BuffProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnEnterState);
     BuffProvider_GlobalTaskContext& context = ContextAs<BuffProvider_GlobalTaskContext>(baseContext);
     context.task = this;
     context.Subscribe();
@@ -137,9 +137,9 @@ EActionRunStatus BuffProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext)
     return EActionRunStatus::Running;
 }
 
-void BuffProvider_GlobalTask::OnExit(STAI_TaskContext& baseContext) const
+void BuffProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnExit);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnExitState);
     BuffProvider_GlobalTaskContext& context = ContextAs<BuffProvider_GlobalTaskContext>(baseContext);
     context.Unsubscribe();
     context.needs.clear();

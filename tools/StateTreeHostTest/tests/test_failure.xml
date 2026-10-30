@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StateTree version="2">
+  <GlobalTasks>
+    <Task class="Host_Counter"/>
+  </GlobalTasks>
+  <State name="First">
+    <Tasks>
+      <Task class="Host_Result" result="Failed"/>
+    </Tasks>
+  </State>
+  <State name="Fallback">
+    <Tasks>
+      <Task class="Task_Wait"/>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnTick" target="Root|Delayed" delay="300" priority="Low">
+        <Conditions>
+          <Condition class="Condition_Compare" binding="Root|Host_Counter::flag"/>
+        </Conditions>
+      </Transition>
+    </Transitions>
+  </State>
+  <State name="Delayed">
+    <Tasks>
+      <Task class="Task_Wait"/>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|Host_Counter::onThird" target="Root|Third"/>
+    </Transitions>
+  </State>
+  <State name="Third">
+    <EnterConditions>
+      <Condition class="Condition_ActiveStateLocation" location="above,below"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Host_Result" result="Running" ticks="2"/>
+    </Tasks>
+  </State>
+</StateTree>

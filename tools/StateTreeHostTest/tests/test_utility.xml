@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StateTree version="2">
+  <GlobalTasks>
+    <Task class="Host_Counter"/>
+  </GlobalTasks>
+  <State name="Pick" selection="TrySelectChildrenWithHighestUtility">
+    <Transitions>
+      <Transition trigger="OnTick" target="Root|Pick">
+        <Conditions>
+          <Condition class="Condition_TimeInState" ms="300"/>
+        </Conditions>
+      </Transition>
+    </Transitions>
+    <State name="Low" weight="0.3">
+      <Tasks>
+        <Task class="Task_Wait"/>
+      </Tasks>
+    </State>
+    <State name="High">
+      <Considerations>
+        <Consideration class="Consideration_Number" binding="Root|Host_Counter::count" min="0" max="10"/>
+      </Considerations>
+      <Tasks>
+        <Task class="Task_Wait"/>
+        <Task class="STAI_SendEventTask" event="go" completion="IgnoreResult"/>
+      </Tasks>
+      <Transitions>
+        <Transition trigger="OnEvent" event="go" target="Root|Runner" priority="High"/>
+      </Transitions>
+    </State>
+  </State>
+  <State name="Runner" type="Linked" linkedSubtree="Sub">
+    <Transitions>
+      <Transition trigger="OnStateSucceeded" target="Root|Done"/>
+    </Transitions>
+  </State>
+  <State name="Sub" type="Subtree">
+    <State name="SubWait">
+      <Tasks>
+        <Task class="Task_Wait">
+          <Delay value="200"/>
+        </Task>
+      </Tasks>
+      <Transitions>
+        <Transition trigger="OnStateSucceeded" target="Succeeded"/>
+      </Transitions>
+    </State>
+  </State>
+  <State name="Done">
+    <Tasks>
+      <Task class="STAI_FinishTreeTask"/>
+    </Tasks>
+  </State>
+</StateTree>

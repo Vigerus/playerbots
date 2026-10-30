@@ -1,8 +1,16 @@
 # State trees
 
 Each bot state (NonCombat, Combat, Reaction, Dead) runs a state tree built when the bot is loaded:
-`STAI_<State>.xml` (default trees) and `<Class>/STAI_<State>_<Class>.xml` (class trees and their subtrees), nodes with
-conditions and tasks. Every class but Shaman (`Shaman/STAI_Dead_Shaman.xml`, Reincarnation) uses the default Dead tree.
+`STAI_<State>.xml` (default trees) and `<Class>/STAI_<State>_<Class>.xml` (class trees and their subtrees): states with
+enter conditions, tasks and transitions, plus global tasks (data providers). Every class but Shaman
+(`Shaman/STAI_Dead_Shaman.xml`, Reincarnation) uses the default Dead tree.
+
+The trees follow the structure and capabilities of RedStateTree (UE StateTree): hierarchical states with selection
+behaviours (in order, random, utility), tasks with a completion policy, conditions and considerations as node classes
+with their own per bot data, prioritized / delayed transitions on completion, tick, events and delegates, linked
+subtrees. The file format is described in [STATETREE_FORMAT.md](STATETREE_FORMAT.md), the trees are edited with the
+standalone editor in `tools/StateTreeEditor` (`python tools/StateTreeEditor/serve.py --open`), checked without a server
+by `tools/StateTreeHostTest/run.bat`; what is left to do is in [STATETREE_TODO.md](STATETREE_TODO.md).
 
 The state machine (`playerbot/StateTree/StateMachine`) starts in NonCombat and switches between the main states
 NonCombat, Combat and Dead (`TransitionTo`, from `PlayerbotAI`: combat start / end, death, resurrection); leaving a
@@ -11,7 +19,7 @@ active main state, for what the bot does independent of its movement and actions
 accepting a resurrection, ...).
 
 The legacy strategy engine and its `Legacy_*.json` strategy lists are gone (see `deprecated/README.md`); until the
-new AI covers a behaviour its trees end in an Idle node (`Task_Wait`, delay 0) that waits for a transition.
+new AI covers a behaviour its trees end in an Idle state (`Task_Wait`, delay 0) that waits for a transition.
 
 Configured in `aiplayerbot.conf` (paths relative to its directory):
 
@@ -22,19 +30,20 @@ AiPlayerbot.StateTree.<State>.<Class> = statetree/<Class>/STAI_<State>_<Class>.x
 
 `<Class>` is Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock, Druid (DeathKnight on WotLK).
 The class entry wins over Default. An empty value, or a file that fails to load (the error is in the server log
-at startup), gives the state a single Idle node (`Task_Wait`, delay 0). Files are read at
+at startup), gives the state a single Idle state (`Task_Wait`, delay 0). Files are read at
 server start. Every `STAI_*.xml` of `statetree` and its subfolders is loaded, so subtrees need no config entry.
-Each file is loaded once and shared by every bot (per bot only the task contexts differ); every `Task_RunSubtree`
+Each file is loaded once and shared by every bot (per bot only the node contexts differ); every `Task_RunSubtree`
 gets its subtree linked at load, so a bot entering one only creates its contexts and loads nothing.
 
-The StateTree debug addon (and the server's debug window) shows each state's tree nodes, the active one highlighted;
-a `Task_RunSubtree` whose subtree does not run shows that subtree's nodes below the task, down to the leaves.
+The StateTree debug addon (and the server's debug window) shows each state's tree states, the active ones
+highlighted, nested states below their parent; a `Task_RunSubtree` whose subtree does not run shows that subtree's
+states below the task, down to the leaves.
 
 ## STAI tree (`STAI_*.xml`)
 
 ```xml
-<Root>
-  <Global>
+<StateTree version="2">
+  <GlobalTasks>
     <Task class="MasterDistance_GlobalTask">
       <Range value="follow"/>
     </Task>
@@ -45,61 +54,75 @@ a `Task_RunSubtree` whose subtree does not run shows that subtree's nodes below 
       <Radius value="follow"/>
       <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
       <Conditions>
-        <Condition binding="Root|MasterDistance_GlobalTask::masterFar"/>
+        <Condition class="Condition_Compare" binding="Root|MasterDistance_GlobalTask::masterFar"/>
       </Conditions>
     </Task>
-  </Global>
-  <Node name="Check Buffs">
-    <Conditions>
-      <Condition binding="Root|BuffProvider_GlobalTask::needs"/>
-    </Conditions>
-    <Task class="Task_CastBuff">
-      <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
-    </Task>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Check Buffs">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|BuffProvider_GlobalTask::needs"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastBuff">
+        <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Buffs"/>
+      <Transition trigger="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" target="Root|Check Buffs"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>
 ```
 
-There is always a single active path from the tree to the running node. A node is selected only while none runs
-(the tree started, the node finished, a transition went to `Root`): the first node from the top whose conditions all
-pass is entered (`OnEnter`); conditions are only checked then. A task can finish in `OnEnter` already (it returns
-Succeeded / Failed, e.g. `Task_RollForItem`, the trades); else a tickable task (`IsTickable`) is updated every bot
-update until it returns Succeeded or Failed (`OnExit`, the next update selects again), or until an `OnDelegate`
-transition of the node fires; a task that is not tickable keeps running until a transition leaves the node. A task that finishes in its update hands over in the same update: the next task of the node is entered and
-updated, a finished node is followed by the selection right away (up to 8 hand-overs per update). Nothing else leaves
-a running node: a node that never finishes (Idle, `Task_Wait` with delay 0) needs `OnDelegate` transitions, for
-example to Check Buffs. The nodes decide what the bot does; where it goes is the movement goals' (see Movement below). A node whose task failed is not selected for 3 seconds. Empty `<Conditions/>` always pass, so a
-last unconditional node is the fallback.
+There is always a single active path from a top level state down to a leaf state. The path is selected only while
+none is active (the tree started, the states completed, a transition went to `Root`): the first top level state that
+can be entered (enabled, its enter conditions pass, not failed within its retry delay) is entered, then one of its
+children by its `selection` (in order by default; at random; by utility: the state's `weight` times its
+considerations' scores), down to a leaf; enter conditions are only checked then. All tasks of the active states run
+at the same time, a parent's tasks keep running while its children run. A task can finish in `OnEnterState` already
+(it returns Succeeded / Failed, e.g. `Task_RollForItem`, the trades); else a ticking task (`ShouldCallTick`) is
+updated every bot update until it returns Succeeded or Failed. A finished task completes the active states according
+to its `completion` (RedStateTree's task type: `AlwaysFinish` by default, `FinishWhenSucceeded`, `FinishWhenFailed`,
+`IgnoreResult`); a task that does not tick keeps running until a transition leaves its state. Completion transitions
+(`OnStateCompleted`, `OnStateSucceeded`, `OnStateFailed`) of the active states, checked from the leaf up, pick what
+comes next (`NextState`: the next sibling, a sequence of child states); none: the selection starts from Root. States
+that complete at once hand over in the same update (up to 8 hand-overs per update). A state that never completes
+(Idle, `Task_Wait` with delay 0) needs other transitions: `OnDelegate` (a provider's delegate fired, e.g. to Check
+Buffs), `OnEvent` (an event sent with `STAI_SendEventTask`) or `OnTick` (its conditions pass); they are checked at the
+start of every update, the highest `priority` first, and only taken when their target can be entered. The states
+decide what the bot does; where it goes is the movement goals' (see Movement below). A state that failed is not
+selected for its `retryDelay` (3 seconds for leaves). Empty or missing `<EnterConditions>` always pass, so a last
+unconditional state is the fallback.
 
-Tasks can be switched off at runtime in the debug addon (the v / x button right of a node's task,
-`STAI_TaskContext::bDisabled`, reset when the bot despawns): the tree skips a switched-off task (the next one of the
-node runs, a running one is left on the next update) and does not select a node whose tasks are all switched off.
-Global tasks (providers) cannot be switched off.
+Tasks can be switched off at runtime in the debug addon (the v / x button right of a state's task,
+`STAI_TaskContext::bDisabled`, reset when the bot despawns): the tree skips a switched-off task (a running one is left
+on the next update, a leaf without running tasks completes) and does not select a leaf whose tasks are all switched
+off. Global tasks (providers) cannot be switched off. States can be switched off and their enter conditions forced
+to pass or fail the same way.
 
-Conditions test task properties: `<Condition binding="Root|..."/>` (see below) passes while the property is set (a
-container not empty, else its bool value), or while it is not set with `negate="true"`; with
-`compare="equal|lesser|lesser or equal|greater|greater or equal" value="<number>"` it compares a number property.
-`compare="equal"` with a value that is not a number compares a text property (`<Condition
-binding="Root|SpecProvider_GlobalTask::specName" compare="equal" value="frost mage"/>`), other compares need numbers.
-`key="<number>"` reads the entry of a map property instead (`CooldownProvider_GlobalTask::ready`): it passes while the
-entry is set (non-zero), `compare` / `negate` work on the entry, a missing key is not set (compared as 0).
-`<Conditions match="any">` passes when one condition passes (default `all`). `<Any> <Condition .../> ... </Any>` in `<Conditions>` is
-one condition that passes when one of its conditions passes (`IF (a OR b) AND c`: Eat and Drink). The debug addon shows each condition
-green (passed), red (failed) or gray (not checked in the last update). (The legacy trigger conditions,
-`<Condition trigger="..."/>`, went with the strategy engine.)
+Conditions are node classes (`playerbot/StateTree/Conditions`, RedStateTree's conditions); `inverted="true"`
+negates one. `<Condition class="Condition_Compare" binding="Root|..."/>` (see below) passes while the property is set
+(a container not empty, else its bool value); with `compare="equal|lesser|lesser or equal|greater|greater or equal"
+value="<number>"` it compares a number property. `compare="equal"` with a value that is not a number compares a text
+property (`<Condition class="Condition_Compare" binding="Root|SpecProvider_GlobalTask::specName" compare="equal"
+value="frost mage"/>`), other compares need numbers. `key="<number>"` reads the entry of a map property instead
+(`CooldownProvider_GlobalTask::ready`): it passes while the entry is set (non-zero), `compare` works on the entry, a
+missing key is not set (compared as 0). `Condition_RandomChance`, `Condition_ActiveStateLocation` (RedStateTree's
+States Order / Don't Reenter) and `Condition_TimeInState` are the other built-in conditions.
+`<EnterConditions match="any">` passes when one condition passes (default `all`). `<Any> ... </Any>` and
+`<All> ... </All>` group conditions, nested as needed (`IF (a OR b) AND c`: Eat and Drink). The debug addon shows
+each top level condition green (passed), red (failed) or gray (not checked in the last update).
 
 `<Task class="..." show_log="false">` keeps a task's runs out of the History (the idle `Task_Wait` of the Reaction
 trees, which only waits for transitions); default `true`. Tasks whose runs repeat right after each other share one
-History entry counting the runs, unless the task gives each run its own (`STAI_Task::AreConsecutiveLogsStacked`:
+History entry counting the runs, unless the task gives each run its own (`STAI_TaskBase::AreConsecutiveLogsStacked`:
 `Task_CastSpell`, `Task_CastBuff`).
 
 Tasks:
@@ -110,21 +133,21 @@ Tasks:
 | `BuffProvider_GlobalTask` | `<Buff spellid="..." scope="self\|single\|group"/>` per spell (any rank; scope optional, read from the spell's targets) | global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any; spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance) |
 | `DispelProvider_GlobalTask` | `<Dispel type="magic\|curse\|disease\|poison"/>` per watched type (one or more); optional, one of them (both: the tree is not loaded, the error is logged): `<Observe spellid="8399,12345"/>` (comma separated, any rank: only these; `spellid=""`: none) or `<Ignore spellid="8399,12345"/>` (all but these; empty: all) | global task, not ticked: watches the bot and its group for harmful auras of the watched dispel types (only the observed ones, or all but the ignored ones: the others fire no delegate and put nobody in the lists); property `whoNeeds` (every member with one, the bot first), properties `magic`, `curse`, `disease`, `poison` (the same by type, for one dispel spell each), property `causes` (per member and type its first watched aura, bound into `Task_CastSpell`'s `causes`), delegate `onNeedsHelp` fired when an evaluation finds any |
 | `CurseProvider_GlobalTask` | `<Observe spellid="..."/>` or `<Ignore spellid="..."/>` as for `DispelProvider_GlobalTask` | `DispelProvider_GlobalTask` for curses only (every dispellable curse without `<Observe>` / `<Ignore>`), for the trees that only decurse; same properties and delegate |
-| `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="target" .../>` and / or `<Binding local="whoNeeds" .../>`, or `<Target value="self"/>` (the bot first); `<Target value="dead"/>`: only dead targets (resurrections; a corpse guid of `HealProvider_GlobalTask::dead` is cast at as the corpse, `PlayerbotAI::CastSpellOnCorpse`); `<Fallback spellid="..."/>` per spell, cast instead while the bot knows none of the spells before it (Flash Heal, then Heal, then Lesser Heal); `<SkipAura spellid="..."/>` (targets with that aura, any rank and caster, are skipped: Weakened Soul) / `<SkipAura own="true"/>` (targets with the bot's own aura of the cast spell: Renew); `<Binding local="causes" .../>` (optional, `DispelProvider_GlobalTask` / `CurseProvider_GlobalTask` / `InterruptProvider_GlobalTask::causes`: its History entry and, while it runs, its task info in the debug views read `Cast <spell> (cause <spell>)`, the aura the dispel removes or the spell the interrupt stops on the cast target, both shown with their icons) | casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target, or every target is skipped by `<SkipAura>` (so the node waits its retry delay instead of being selected again at once) |
+| `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="target" .../>` and / or `<Binding local="whoNeeds" .../>`, or `<Target value="self"/>` (the bot first); `<Target value="dead"/>`: only dead targets (resurrections; a corpse guid of `HealProvider_GlobalTask::dead` is cast at as the corpse, `PlayerbotAI::CastSpellOnCorpse`); `<Fallback spellid="..."/>` per spell, cast instead while the bot knows none of the spells before it (Flash Heal, then Heal, then Lesser Heal); `<SkipAura spellid="..."/>` (targets with that aura, any rank and caster, are skipped: Weakened Soul) / `<SkipAura own="true"/>` (targets with the bot's own aura of the cast spell: Renew); `<Binding local="causes" .../>` (optional, `DispelProvider_GlobalTask` / `CurseProvider_GlobalTask` / `InterruptProvider_GlobalTask::causes`: its History entry and, while it runs, its task info in the debug views read `Cast <spell> (cause <spell>)`, the aura the dispel removes or the spell the interrupt stops on the cast target, both shown with their icons) | casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target, or every target is skipped by `<SkipAura>` (so the state waits its retry delay instead of being selected again at once) |
 | `HealthProvider_GlobalTask` / `ManaProvider_GlobalTask` | none | global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second |
 | `InstanceProvider_GlobalTask` | none | global task: properties `mapId`, `instanceId`, `inDungeon`, delegate `onInstanceChanged` fired when the bot is added to another map or instance (InstanceSubsystem); a change while the tree does not run fires when it starts again. On maps with stages (see below) ticked every 500ms: properties `stage` / `masterStage` (the stage the bot / master stands in, -1 none), `masterStageCleared` (the master is in a cleared stage; false while it is in no stage, true while it is not on the bot's map), `pathBlocked` (the way to `stagePosition`, else to the master out of follow range, crosses a stage that is not cleared other than the bot's and the master's), `stagePosition` (the bot's cleared point in the master's stage once it is cleared, else its uncleared point; unset without one; while the bot stands in a stage that is not cleared other than the master's, where it last stood outside such a stage: it leaves the way it came instead of crossing the stage), `stagePositionFar`, `stagePositionFrom` (where the point comes from: `<stage> cleared|uncleared, rtsc|entrance / rtsc|stage file`, `pull <n> <name> [cleared], rtsc|waiting|planned|path <i>/<n>`, or `<bot's stage> uncleared, way back`; the Position Yourself goal's reason), `preset` / `presetName` (the master's Bot Dungeon Planner preset, 0 none), `activePull` / `activePullName` (its active pull, 0 none; see Plans below), `blockedBy` (the creature that would aggro on the way); delegates `onStageBlocked` (the bot can neither follow nor go to a point: `pathBlocked` turned true, or the master went into a stage that is not cleared without an uncleared point, or out of every stage), `onStageCleared` (the master's stage got cleared), `onStagePositionFar` (every check while away from `stagePosition` and not blocked), `onPlanChanged` (the master's preset, its content or its active pull changed) |
 | `CCProvider_GlobalTask` | `<Aura spellid="..."/>` per aura, optional | global task, ticked (every 250ms): the first unit marked with one of the bot's `rti cc` icons (default moon) that is alive, hostile, in sight, not crowd-controlled yet (polymorph, frost, sap, ... or a listed aura) and not the group's kill target (the first living `rti` mark, default skull); property `whoNeeds` (that unit), delegate `onCCNeeded` (a new target, and every second while it still needs crowd control) |
 | `TargetProvider_GlobalTask` | `<WithThreat value="false"/>`, `<ThreatAmount value="90"/>` (percent, default 90), `<AssistTank value="false"/>` (without a mark: the unit a living tank of the group attacks, melee), `<TankRange value="0"/>` (yards, 0: off), `<Aura spellid="..."/>` per aura watched on the target (any rank, any caster), optional | global task, ticked: the unit to attack, the first living, hostile, in-sight mark of the bot's `rti` icons, else the least-health non-player unit on the threat lists of the bot and its group (kept while it stays valid); crowd-controlled units and the bot's `rti cc` marks are skipped; property `target` (a guid), delegate `onTargetChanged`. With `WithThreat` true and a living tank in the group, `target` is empty (property `threatHigh`, `onTargetChanged` fires) while the bot's threat on the creature is at `ThreatAmount` or more of the highest other threat on it (also before anybody else has threat), and is set again once it drops below. With `TankRange`, property `tankNear` is true once a living tank of the group (not the bot) has come within `TankRange` of the chosen unit and stays true while it is chosen (also true without a group or another tank; always true without `TankRange`), delegate `onTankNear` (it turned true): melee dps waits with its Melee goal while the tank pulls the unit to itself. Property `auraStacks` (per configured aura id, read by key: the highest stack on `target`, 0 without it), delegate `onAuraChanged`: an internal subscription (`STAI_TargetAuraWatch`) to the target's aura events of the core `SpellAuraWorldSubsystem`, moved along with the target |
-| `Task_Wait`          | `<Delay value="0"/>` (ms, default 0) | waits: Succeeded once its updates add up to the delay; with 0 it never finishes, the node is left through its transitions (an idle node) |
-| `Task_EatAndDrink`   | `<Health until="100"/>`, `<Mana until="100"/>` (percent, default 100) | one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or with the item cheat the spell of the conjured food / drink of the bot's level); a food / drink that ends before its target is followed by the next one; Succeeded when both targets are reached or nothing is left to eat or drink after the bot ate or drank, Failed when nothing could be started within 3s; `OnExit` stands the bot up |
+| `Task_Wait`          | `<Delay value="0" deviation="0"/>` (ms, default 0; deviation: each run waits up to that much shorter or longer, RedSTTask_Wait's random deviation) | waits: Succeeded once its updates add up to the delay; with 0 it never finishes, the state is left through its transitions (an idle state) |
+| `Task_EatAndDrink`   | `<Health until="100"/>`, `<Mana until="100"/>` (percent, default 100) | one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or with the item cheat the spell of the conjured food / drink of the bot's level); a food / drink that ends before its target is followed by the next one; Succeeded when both targets are reached or nothing is left to eat or drink after the bot ate or drank, Failed when nothing could be started within 3s; `OnExitState` stands the bot up |
 | `UIInteractionProvider_GlobalTask` | none | global task, ticked: what a player answers in its UI. Loot rolls the bot is asked to vote on (core `TeamSubsystem::OnLootRollStarted`, fired by `GroupLootRoll` for each voter): property `rolls` (the rolls not voted on yet, oldest first; dropped once voted or after the 60s roll timeout), delegate `onRollRequested` fired for every new roll. Trades (the bot's `SMSG_TRADE_STATUS`, `PlayerbotAI::onTradeStatus`): property `tradeOpenRequested` (a player opened a trade, the bot's window is not open yet) with delegate `onTradeRequested`, property `tradeAcceptRequested` (the window is open, the other player accepted, the bot did not) with delegate `onTradeAccepted`. Death popups: property `resurrectOffered` (the dead bot is offered a resurrection, `Task_AcceptResurrection`) with delegate `onResurrectOffered`, property `canReclaimCorpse` (the client's "Resurrect" button at the body: a ghost within 39 yards of its corpse, the reclaim delay over; `Task_ReclaimCorpse`) with delegate `onReclaimCorpse`. Group invite: property `groupInviteRequested` (the bot has a group invite not answered yet, `Task_AcceptInvite`) with delegate `onGroupInvited` |
 | `Task_OpenTrade`     | none | opens the bot's trade window (faces the trader); cancels the trade unless the trader is a bot, the master or a group member (with the security level for everything); Failed when it cancelled |
 | `Task_AcceptTrade`   | none | accepts the trade (the other player accepted first), with the same trader rule; Failed when it cancelled |
 | `Task_AcceptInvite`  | none | answers the bot's group invite: accepts it (`CMSG_GROUP_ACCEPT`, leaves AFK first) when the inviting leader has the security level to invite the bot, declines it otherwise (the leader gets the decline); the master then follows from the group; not tickable, Succeeded once in the group (or no invite), Failed when it declined or could not join |
-| `Task_RollForItem`   | `<Binding local="rolls" external="Root\|UIInteractionProvider_GlobalTask::rolls"/>` | votes on every bound roll: greed for now (pass when greed is not allowed); not tickable, Succeeded in `OnEnter` |
+| `Task_RollForItem`   | `<Binding local="rolls" external="Root\|UIInteractionProvider_GlobalTask::rolls"/>` | votes on every bound roll: greed for now (pass when greed is not allowed); not tickable, Succeeded in `OnEnterState` |
 | `Task_CastBuff`      | `<Binding local="needs" external="Root\|BuffProvider_GlobalTask::needs"/>` | casts one of its `needs`: self spell, single target spell for a member missing it alone, group spell when 2+ members of a subgroup miss it; waits for the cast and the GCD; Succeeded also when nothing is needed, Failed when nothing can be cast |
 | `Task_UseItem`       | `<Item id="..."/>` per item, in the order they are tried | uses the first listed item of the bags whose spell is off cooldown (and its level allows) on the bot; with the item cheat an item it does not have by casting its spell; Succeeded once the item's spell went off, Failed when nothing can be used or the spell did not go off within 3s |
-| `Task_Shoot`         | `<Binding local="target" .../>` | shoots the target with the equipped wand (Shoot, auto-repeat) while the node runs; Succeeded without a living target or when the bound target changed, Failed without a wand, when the target cannot be shot or the shooting stopped for 2s and cannot be started again; `OnExit` stops the shooting |
+| `Task_Shoot`         | `<Binding local="target" .../>` | shoots the target with the equipped wand (Shoot, auto-repeat) while the state runs; Succeeded without a living target or when the bound target changed, Failed without a wand, when the target cannot be shot or the shooting stopped for 2s and cannot be started again; `OnExitState` stops the shooting |
 | `InterruptProvider_GlobalTask` | `spellid="..."` on the `<Task>` (the bot's interrupt, id or name); `<Observe spellid="8399,12345"/>` (comma separated, any rank: only these casts; `spellid=""`: none) or `<Ignore spellid="8399,12345"/>` (all but these), optional, not both (the tree is not loaded, the error is logged) | global task, ticked (every 100ms): the enemies on the threat lists of the bot and its group that cast or channel an interruptible spell the filter allows and that the interrupt reaches now (known, off cooldown, range, sight, mana); property `whoNeeds` (healing casts first), property `causes` (the spell each of them casts), delegate `onInterruptNeeded` fired when the first caster or its spell changes |
 | `HazardProvider_GlobalTask` | `<Margin value="2"/>` (yards, default 2) | global task, ticked (every 250ms): the area effects on the ground (dynamic objects) of units hostile to the bot with a harmful effect; property `inHazard` (the bot stands in one), property `safePosition` (the closest spot around the bot, 16 directions up to 20 yards, outside every hazard by the margin, in sight and walkable; kept while it stays safe; unset outside hazards), delegate `onHazard` fired when the bot got into one and every second while it is still in one |
 | `CreatureProvider_GlobalTask` | `<Creature entry="..."/>` per creature entry (one or more; comma separated also), `<Range value="40"/>` (yards, default 40) | global task, ticked (every 250ms): the living creatures of the entries within range of the bot that are hostile to it (an encounter's adds, a boss's illusions); property `units` (closest first), `closest` (the first, for a `range` movement goal or `Task_CastSpell`), `count`; delegates `onAppeared` (a creature that was not there at the last check), `onGone` (the last one died or left the range) |
@@ -139,7 +162,7 @@ Tasks:
 | `Task_ReleaseSpirit` | none | releases the spirit as the client's "Release Spirit" button does (`CMSG_REPOP_REQUEST`), the ghost appears at the graveyard; not tickable, Succeeded once a ghost, Failed while it cannot (alive, just dying) |
 | `Task_ReclaimCorpse` | none | comes back at the body as the client's "Resurrect" button does (`CMSG_RECLAIM_CORPSE`); not tickable, Succeeded once alive, Failed while it cannot (distance, reclaim delay) |
 | `MeleeProvider_GlobalTask` | `<Binding local="target" .../>` (the unit fought: `TargetProvider_GlobalTask::target`, `TankTargetProvider_GlobalTask::target`), `<ChargeRange min="8" max="25"/>`, `<PullRadius value="15"/>` (yards), `<FightTime value="2000"/>` (ms) | global task, ticked (every 100ms), listed after the provider of its target: properties `inMelee` (in melee reach), `behind` (outside the target's front arc; a target turned to the bot for less than 1s still counts), `targetAttacksBot`, `targetHealthPct`, `targetDistance`, `enemiesInMelee` (units fighting the group within 8 yards), `inCombat` (the bot), `attacking` (the bot's auto attack is on the target), `swingQueued` (Heroic Strike / Cleave waits for the swing), `canCharge` (Charge / Intercept pull nothing else: the target has fought the group for `FightTime` and does not attack the bot, it is within `ChargeRange` and in sight, no hostile creature that is not fighting yet within `PullRadius` of the target or of the bot, never into a stage that is not cleared, also not its boxes that may be entered in combat); delegates `onMeleeChanged`, `onCanCharge` |
-| `WarriorProvider_GlobalTask` | none | global task, ticked (every 100ms): properties `rage`, `stance` ("battle", "defensive", "berserker"), `knowsDefensive` / `knowsBerserker` (the stance nodes switch only to a stance the bot has), `revenge` (the bot blocked, dodged or parried: the core's `AURA_STATE_DEFENSE`), `overpower` / `overpowerTarget` (a target dodged: the warrior's combo point on it); delegate `onReactive` (Revenge or Overpower became usable) |
+| `WarriorProvider_GlobalTask` | none | global task, ticked (every 100ms): properties `rage`, `stance` ("battle", "defensive", "berserker"), `knowsDefensive` / `knowsBerserker` (the stance states switch only to a stance the bot has), `revenge` (the bot blocked, dodged or parried: the core's `AURA_STATE_DEFENSE`), `overpower` / `overpowerTarget` (a target dodged: the warrior's combo point on it); delegate `onReactive` (Revenge or Overpower became usable) |
 | `TankTargetProvider_GlobalTask` | `<Aura spellid="..."/>` per aura watched on the target, optional | global task of tank trees, ticked (every 250ms): the unit the bot holds among the units fighting the group (players, crowd-controlled units and the bot's `rti cc` marks left out). Main tank (the first living tank of the group, `STAI_TeamRoles`): a unit attacking a member that is no tank (the healers' first, the closest), else the `rti` mark, else the current target, else the closest unit not attacking the bot yet; off tank: a loose unit that does not attack the main tank, else the current target unless it attacks the main tank, else a unit attacking the bot, else the main tank's unit. Properties `target`, `taunt` (target while it attacks a member that is no tank), `loose`, `mainTank`; delegates `onTargetChanged`, `onLoose` (a new loose unit); `auraStacks` / `onAuraChanged` as on `TargetProvider_GlobalTask` |
 | `MovementGoal_GlobalTask` | `name="..."`, `priority="..."`, `kind="location\|position\|range"`, `interruptCast="false"` on the `<Task>`; `<Radius value="2"/>` (location / position, yards or a range name), `<Range max="melee\|<yards>\|<range name>" min="0"/>`, `<Side value="any\|behind\|front"/>`, `<Sight value="true"/>`, `<Dead value="false"/>` (range); `<Binding local="location\|position\|target" .../>`; `<Conditions>` | a movement goal (see Movement): ticked, submits the goal to the bot's movement every update while its conditions pass and its spot is set; properties `wanted`, `active` (it drives the bot), `inRange` (the bot is where the goal wants it, also while another goal drives), `activeGoal` / `activeSource` (the goal driving the bot, `<goal> (<reason>)`)\| <goal>`), `movement` ("moving", "reached", "blocked", "yielding", "stopped", "none"); delegates `onGoalChanged` (it started / stopped driving), `onArrived` (`inRange` turned true) |
 | `Task_StartAttack` | `<Binding local="target" .../>` | puts the auto attack on the target without moving (the tree's Melee goal brings the bot into reach); not tickable, Succeeded once the attack is on it, Failed without a living hostile target |
@@ -170,52 +193,64 @@ for the stage the master stands in, cleared or uncleared by the stage's state, n
 (the Position Yourself goal keeps it there). Saved locations are in `ai_playerbot_db_store` as the legacy values
 (`RTSC saved location::<name>>map|x|y|z|o`). `rtsc jump` and `rtsc file` are not back yet.
 
-New tasks implement `STAI_Task` (`playerbot/StateTree/Tasks/`; global tasks that publish properties and delegates for
-the tree, the providers, in `playerbot/StateTree/Providers/`) and are registered in `STAI_BuiltinTasks.cpp`.
+New tasks derive from `STAI_TaskBase` (`playerbot/StateTree/Tasks/`; data providers, the global tasks that publish
+properties and delegates for the tree, derive from `STAI_DataProviderBase` in `playerbot/StateTree/Providers/`), new
+conditions from `STAI_ConditionBase` (`Conditions/`), new considerations from `STAI_ConsiderationBase`
+(`Considerations/`); all are registered in `STAI_BuiltinTasks.cpp`. Per bot data lives in the state's context
+(`STAI_TaskContext`, RedStateTree's instance data), the node object is shared by every bot. Built-in framework tasks:
+`STAI_FinishTreeTask` (finishes the tree), `STAI_SendEventTask` (`event="..."`: an event for `OnEvent` transitions),
+`STAI_GlobalTask` (does nothing), `Task_Wait` (`<Delay value="..." deviation="..."/>`), `Task_RunSubtree`.
 
-Global tasks (`<Global>` directly under `<Root>`) belong to no node: they are entered when the tree starts and exited
-when it stops. Tasks expose properties and delegates of their context (`STAI_Task::GetProperties` / `GetDelegates`),
-addressed by path: `Root|<TaskClass>::<name>` for a global task, `Root|<node name>|<TaskClass>::<name>` for a node's
-task (the first task of that class); `Root|<TaskClass>[<task name>]::<name>` picks the one with `name="<task name>"` on
-its `<Task>` (several movement goals of a tree: `Root|MovementGoal_GlobalTask[Heal Range]::inRange`). A global task
-may have its own `<Conditions>` (like a node's): the tree checks them before each update of the task and sets its
-context's `bActive` (`STAI_TaskContext`), which the task reads (MovementGoal_GlobalTask: the goal is wanted only while
-they pass). Every task context knows its tree (`STAI_TaskContext::tree`, the file stem).
+Global tasks (`<GlobalTasks>` directly under `<StateTree>`) belong to no state: they are entered when the tree starts
+and exited when it stops; their result is ignored unless their `completion` says otherwise (then they finish the
+tree). Tasks expose properties and delegates of their context (`STAI_NodeBase::GetProperties` / `GetDelegates`),
+addressed by path: `Root|<TaskClass>::<name>` for a global task, `Root|<state name>|<TaskClass>::<name>` for a state's
+task (the first task of that class; the full path of a nested state works too); `Root|<TaskClass>[<task name>]::<name>`
+picks the one with `name="<task name>"` on its `<Task>` (several movement goals of a tree:
+`Root|MovementGoal_GlobalTask[Heal Range]::inRange`). A global task may have its own `<Conditions>` (like a state's
+enter conditions): the tree checks them before each update of the task and sets its context's `bActive`
+(`STAI_TaskContext`), which the task reads (MovementGoal_GlobalTask: the goal is wanted only while they pass). Every
+node context knows its tree (`STAI_TaskContext::tree`, the file stem, and `instance`, the bot's running tree).
 
 ```xml
-<Node name="Check Buffs">
-  <Conditions> <Condition binding="Root|BuffProvider_GlobalTask::needs"/> </Conditions>
-  <Task class="Task_CastBuff">
-    <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
-  </Task>
-</Node>
-<Node name="Idle">
-  <Conditions/>
-  <Task class="Task_Wait"> <Delay value="0"/> </Task>
+<State name="Check Buffs">
+  <EnterConditions> <Condition class="Condition_Compare" binding="Root|BuffProvider_GlobalTask::needs"/> </EnterConditions>
+  <Tasks>
+    <Task class="Task_CastBuff">
+      <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
+    </Task>
+  </Tasks>
+</State>
+<State name="Idle">
+  <Tasks> <Task class="Task_Wait"> <Delay value="0"/> </Task> </Tasks>
   <Transitions>
-    <Transition type="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" node="Root|Check Buffs"/>
+    <Transition trigger="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" target="Root|Check Buffs"/>
   </Transitions>
-</Node>
+</State>
 ```
 
 - `<Binding local="..." external="...">` in a `<Task>`: the external property is copied into the task's own property
-  (same type) before its `OnEnter` and every `OnTick`.
-- `<Transition type="OnSuccess|OnFailure|OnFinish">` is taken when the node finished (none matching: the next update
-  selects from the first node).
-- `<Transition type="OnDelegate" source="...">` is taken when the source delegate fired: at the start of the next
-  update, if the node is running and the target can be entered (its conditions, a failed node's retry delay;
-  otherwise the node keeps running). A delegate fired while no node with a transition on it runs is remembered until
-  one does.
+  (same type) before its `OnEnterState` and every `OnTick`.
+- `<Transition trigger="OnStateCompleted|OnStateSucceeded|OnStateFailed">` is taken when the active states completed
+  (none matching: the next update selects from Root); its target is entered even when it failed recently.
+- `<Transition trigger="OnDelegate" source="...">` is taken when the source delegate fired: at the start of the next
+  update, if its state is active and the target can be entered (its enter conditions, a failed state's retry delay;
+  otherwise the state keeps running). A delegate fired while no active state has a transition on it is remembered
+  until one does. `trigger="OnEvent" event="..."` works the same with an event, `trigger="OnTick"` on every update.
 - A transition can have its own `<Conditions>`: it is only taken while they pass (an OnDelegate transition whose
-  conditions fail uses the delegate up, it waits for the next one).
-- `node="Root"` selects again from the first node, `Root|<name>` enters that node (its conditions still have to pass).
+  conditions fail uses the delegate up, it waits for the next one), `priority` picks among several triggered ones,
+  `delay="<ms>"` takes it that much later while its state stays active.
+- `target="Root"` selects again from the top, `Root|<name>` enters that state (its enter conditions still have to
+  pass; the active parents it shares with the current path keep running), `NextState` the next sibling,
+  `Succeeded` / `Failed` completes the tree (or the `Linked` state running the subtree).
 
-Unknown paths, properties of different types and delegates that do not exist stop the server when the trees load.
+Unknown paths, properties of different types, delegates that do not exist, unknown transition targets and linked
+subtrees that run themselves stop the server when the trees load.
 
 ## Movement
 
 Where a bot goes is decided apart from what it does: the trees declare movement goals (`MovementGoal_GlobalTask`, one
-per goal in `<Global>`, each with a `name`, a `priority`, a kind, its spot bound from a provider and its own
+per goal in `<GlobalTasks>`, each with a `name`, a `priority`, a kind, its spot bound from a provider and its own
 `<Conditions>`), and the bot's movement (`playerbot/PlayerbotMovement.*`, one per bot, updated after the state machine)
 drives the goal with the highest priority of the goals wanted in that update, across the trees that run (the main
 state's tree, its subtrees, the Reaction tree). There is always a goal: a goal stays wanted once reached (the movement
@@ -224,7 +259,7 @@ source until another drives, the bot standing where it is (Stay, `PlayerbotMovem
 A goal may bind a `reason` (text) shown after it in its source: Position Yourself binds
 `InstanceProvider_GlobalTask::stagePositionFrom` (`<stage> cleared|uncleared, rtsc|entrance / rtsc|stage file`). In a
 dungeon with stages an rtsc move only saves the bot's stage point (the goal walks it there, reason rtsc); elsewhere
-the rtsc move is direct and the movement yields to it. It is the only code that moves the bot; nodes only check whether the
+the rtsc move is direct and the movement yields to it. It is the only code that moves the bot; states only check whether the
 bot is where a goal wants it (`Root|MovementGoal_GlobalTask[<goal>]::inRange`) and react to it (`onArrived`,
 `onGoalChanged`, `onMovementChanged`: what the movement does changed, e.g. eat only while it is "reached").
 
@@ -253,7 +288,7 @@ The class NonCombat trees follow the master with the Follow Master goal (`locati
 reached within follow range), also when the master entered or left a dungeon. Each `<Class>/STAI_NonCombat_<Class>.xml`
 only picks a subtree by the bot's map (`InstanceProvider_GlobalTask`): `STAI_NonCombat_Dungeon_<Class>.xml` in dungeon
 and raid instances (`inDungeon`, Scholomance included), `STAI_NonCombat_Outdoors_<Class>.xml` everywhere else (for
-now the same nodes as the Dungeon trees). `STAI_NonCombat.xml` (Default) has the same goals.
+now the same states as the Dungeon trees). `STAI_NonCombat.xml` (Default) has the same goals.
 `onInstanceChanged` sends the class tree back to Root to pick again. Every tree ends with Idle (`Task_Wait`, delay
 0), which leaves through its transitions. Mage decurses and buffs: Idle goes to Check Decurse when someone is cursed
 (Remove Lesser Curse) and to Check Missing Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is
@@ -263,7 +298,7 @@ The class Combat trees of Mage, Priest, Shaman, Druid, Paladin and Warrior only 
 `Priest/STAI_Combat_Shadow_Priest.xml`; Holy and Disc Priest share `Priest/STAI_Combat_Healer_Priest.xml`), and select again on `onSpecChanged`; Warlock, Rogue and Hunter have one spec and
 keep a single tree. Every class Combat tree and `STAI_Combat.xml` have the Escape
 Hazard goal (priority 100, `position` on `HazardProvider_GlobalTask::safePosition` while `inHazard`, also while casting):
-the bot walks out whatever its spec subtree does, the rotation goes on. Leaving a spec node finishes its subtree,
+the bot walks out whatever its spec subtree does, the rotation goes on. Leaving a spec state finishes its subtree,
 entering it again starts the subtree again (the bot's instance is kept, its providers are entered again). `Mage/STAI_Combat_Frost_Mage.xml` (one tree for every map,
 PvE, no AoE yet) runs, in this order: Ice Block (self, below 20%
 health, while `CooldownProvider_GlobalTask::ready` has it), Interrupt (Counterspell on `InterruptProvider_GlobalTask::whoNeeds`), CC Target (`Task_CastSpell` Polymorph
@@ -275,11 +310,11 @@ cast per visit; `WithThreat` holds the
 target back at 90% of the tank's threat) and Idle. Attack Target, Wand, Evocation and Idle leave on
 `onHealthChanged` (Ice Block, entered only below 20%), `onInterruptNeeded`, `onCCNeeded` (and the others as listed in
 the file). `Mage/STAI_Combat_Fire_Mage.xml` is the same with Fireball instead of Frostbolt and without Ice Block. The
-Warlock Combat tree only has the Mage's Wand node (with its Attack Range goal; below 10% mana on `TargetProvider_GlobalTask::target`, until 20%)
+Warlock Combat tree only has the Mage's Wand state (with its Attack Range goal; below 10% mana on `TargetProvider_GlobalTask::target`, until 20%)
 above Idle, which goes there on `onTargetChanged` / `onManaChanged`.
 `Priest/STAI_Combat_Healer_Priest.xml` (Holy and Disc) heals from `HealProvider_GlobalTask`; its goals keep the bot in
 35 yards of `healTarget` (Heal Range), else in 25 of `mainTank` while `tankOutOfRange` (Follow Tank), else in spell
-range of the target (Attack Range), and each heal node waits for Heal Range's `inRange`, in this order: Shield Critical (Power Word: Shield on `critical`,
+range of the target (Attack Range), and each heal state waits for Heal Range's `inRange`, in this order: Shield Critical (Power Word: Shield on `critical`,
 skipping Weakened Soul), Critical Heal (Flash Heal, falling back to Heal / Lesser Heal), Fade (self, while
 `selfAttacked`, a `mainTank` lives and Fade is ready), Shield Aggroed (the shield on `aggroed`: members that are no tank
 and took aggro, the bot first), Shield Low and Low Heal (Greater Heal, then Heal / Lesser Heal) on `low`, Dispel Magic
@@ -289,8 +324,8 @@ Abolish Disease is on the target) on `disease`, Medium Heal (Heal / Lesser Heal)
 mark), then with more than 70% mana (and Attack Range in range) one
 cast per visit of Shadow Word: Pain / Holy Fire (not while the bot's own is on the target) / Smite on
 `TargetProvider_GlobalTask::target` (`WithThreat`, 90%), else Wand on it (left on the heal, aggro, tank, dispel, crowd
-control and target delegates, or above 70% mana), and Idle (`Task_Wait` 1s, so a Renew that ran out or a heal node's
-retry delay are noticed, sooner on those delegates). The Resto Druid subtree only has the Mage's Mana Potion node
+control and target delegates, or above 70% mana), and Idle (`Task_Wait` 1s, so a Renew that ran out or a heal state's
+retry delay are noticed, sooner on those delegates). The Resto Druid subtree only has the Mage's Mana Potion state
 (below 15% mana) above Idle, which goes there on `onManaChanged`. The three Shaman subtrees keep their totems
 (`TotemProvider_GlobalTask`): `Shaman/STAI_Combat_Elem_Shaman.xml` runs Interrupt (Earth Shock on
 `InterruptProvider_GlobalTask::whoNeeds`; Earth Shock is not cast otherwise), Mana Potion (below 15%), Totems
@@ -323,13 +358,13 @@ The other spec subtrees and the Rogue and Hunter Combat trees are only Idle for 
 waits (`Task_Wait` 1s); the Reaction tree accepts resurrections and reclaims the body.
 `Shaman/STAI_Dead_Shaman.xml` first comes back by Reincarnation (`Task_SelfResurrect`, before releasing) when the
 core offers it (off cooldown, an Ankh in the bags). The Shaman NonCombat subtrees
-(Dungeon and Outdoors) resurrect dead members with Ancestral Spirit like the Priest's Resurrect node
+(Dungeon and Outdoors) resurrect dead members with Ancestral Spirit like the Priest's Resurrect state
 (`HealProvider_GlobalTask::dead`, `onDead`).
 Every Reaction tree (`STAI_Reaction.xml` and each class's) trades and rolls for loot: Idle goes to Open Trade on
 `onTradeRequested` and to Accept Trade on `onTradeAccepted` (each also selected while `tradeOpenRequested` /
 `tradeAcceptRequested`, then back to Root), so the bot opens the window when its master starts a trade and accepts
 once the master put something in and accepted. Loot: `UIInteractionProvider_GlobalTask` collects the
-group's loot rolls, Idle (`Task_Wait` 0, `show_log="false"`) goes to Roll For Item on `onRollRequested`, the node is
+group's loot rolls, Idle (`Task_Wait` 0, `show_log="false"`) goes to Roll For Item on `onRollRequested`, the state is
 also selected while `rolls` is not empty, and `Task_RollForItem` votes greed on them, then back to Root. Death: Idle
 goes to Accept Resurrection on `onResurrectOffered` (`Task_AcceptResurrection`, also for a resurrection cast at the
 ghost's corpse) and to Reclaim Corpse on `onReclaimCorpse` (`Task_ReclaimCorpse`, the ghost at its body after the
@@ -389,8 +424,8 @@ within aggro range (+3 yards) of a living hostile creature of the packs that is 
 range of already, nor one in range of a chosen spot); the bot tells its master which creature, at most every 15s.
 
 Every NonCombat tree eats and drinks through Eat and Drink (below 80% health or below 90% mana, an `<Any>`), above
-Idle and below the buff / decurse nodes, only while the bot stands (the movement "reached";
-`onMovementChanged` leaves the node): Idle goes there when health / mana changed that low, and `Task_EatAndDrink` restores
+Idle and below the buff / decurse states, only while the bot stands (the movement "reached";
+`onMovementChanged` leaves the state): Idle goes there when health / mana changed that low, and `Task_EatAndDrink` restores
 both to 100%.
 The Priest NonCombat trees (Dungeon and Outdoors, every spec) also, above Eat and Drink: Resurrect (Resurrection on
 `dead` once the Resurrect Range goal, 25 yards of `HealProvider_GlobalTask::resurrectTarget`, has the bot in range), Heal
@@ -411,12 +446,12 @@ its path from the worker (the unit stands until it is there).
 
 Activity history (History tab of the debug addon): every bot keeps the last minute of activity in its
 `STAI_ActivityLog`, reachable by tasks through `STAI_TaskContext::activity`. Tasks log their own runs, the tree
-does not: `STAI_Task::StartLog` (in `OnEnter`), `LogStatus` (with a status of the run) and `EndLog` (left while running,
-in `OnExit`) make one entry per run, named by the task's `GetDebugInfo()` (static: what the task does, e.g.
+does not: `STAI_Task::StartLog` (in `OnEnterState`), `LogStatus` (with a status of the run) and `EndLog` (left while running,
+in `OnExitState`) make one entry per run, named by the task's `GetDebugInfo()` (static: what the task does, e.g.
 `Cast {spell:116}`, the addon shows the spell's icon and name) with the task's name as its source, once the task is
 still running after its first update or fails (a task that succeeds at once is not logged). The task decides how its
 run went: `Task_CastSpell` ends its entry with whether the spell went off (instant and channeled ones when they start,
-cast-time spells with their spell go, also when the node is left during the cast), `Task_CastBuff` left during the GCD
+cast-time spells with their spell go, also when the state is left during the cast), `Task_CastBuff` left during the GCD
 is successful once the buff is not being cast any more, the movement and eat tasks left while running count as failed.
 Global tasks and subtrees log nothing by default (`show_log="true"` switches it on); tasks may also add entries of
 their own (`STAI_ActivityLog::Add` / `Shorten`).
@@ -425,9 +460,9 @@ their own (`STAI_ActivityLog::Add` / `Shorten`).
 
 A fight that needs its own behaviour is a tactic: the class Combat tree names it in its `EncounterProvider_GlobalTask`
 (`<Tactic name="..." map="..." entry="..."/>`: it applies while a creature of the entries lives near the bot on that
-map) and runs a node above the spec nodes for it, whose subtree holds only that tactic,
-`<Class>/STAI_Combat_<Dungeon>_<Boss>_<Class>.xml`. Every node of the class tree goes back to Root on
-`onTacticChanged`, so the tactic's node is entered when it starts and the spec subtree again when it ends; the tactic's
+map) and runs a state above the spec states for it, whose subtree holds only that tactic,
+`<Class>/STAI_Combat_<Dungeon>_<Boss>_<Class>.xml`. Every state of the class tree goes back to Root on
+`onTacticChanged`, so the tactic's state is entered when it starts and the spec subtree again when it ends; the tactic's
 subtree never finishes itself. The subtree watches its own creatures (`CreatureProvider_GlobalTask`; a subtree cannot
 bind the class tree's properties).
 

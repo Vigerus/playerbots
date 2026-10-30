@@ -65,7 +65,7 @@ void HazardProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
     ParseMargin(config);
 }
 
-std::unique_ptr<STAI_Task> HazardProvider_GlobalTask::Create(const STAI_TaskConfig& config)
+std::unique_ptr<STAI_TaskBase> HazardProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
     return std::make_unique<HazardProvider_GlobalTask>(ParseMargin(config));
 }
@@ -154,9 +154,9 @@ void HazardProvider_GlobalTask::Update(HazardProvider_GlobalTaskContext& context
     }
 }
 
-EActionRunStatus HazardProvider_GlobalTask::OnEnter(STAI_TaskContext& baseContext) const
+EActionRunStatus HazardProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
-    TRACE_CPU_PROFILER_ENTRY_SCOPE(HazardProvider_GlobalTask::OnEnter);
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(HazardProvider_GlobalTask::OnEnterState);
     HazardProvider_GlobalTaskContext& context = ContextAs<HazardProvider_GlobalTaskContext>(baseContext);
     context.inHazard = false;
     context.safePosition = {};

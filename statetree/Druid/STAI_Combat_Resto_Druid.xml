@@ -1,32 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Combat subtree for Resto Druid bots (run by STAI_Combat_Druid.xml) -->
-<Root>
-  <Global>
-    <!-- mana of the bot: manaPct, onManaChanged -->
-    <Task class="ManaProvider_GlobalTask"/>
-  </Global>
-  <!-- low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s) -->
-  <Node name="Mana Potion">
-    <Conditions>
-      <Condition binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
-    </Conditions>
-    <Task class="Task_UseItem">
-      <Item id="13444"/>  <!-- Major Mana Potion -->
-      <Item id="13443"/>  <!-- Superior Mana Potion -->
-      <Item id="6149"/>   <!-- Greater Mana Potion -->
-      <Item id="3827"/>   <!-- Mana Potion -->
-      <Item id="3385"/>   <!-- Lesser Mana Potion -->
-      <Item id="2455"/>   <!-- Minor Mana Potion -->
+<StateTree version="2">
+  <Comment>Combat subtree for Resto Druid bots (run by STAI_Combat_Druid.xml)</Comment>
+  <GlobalTasks>
+    <Task class="ManaProvider_GlobalTask">
+      <Comment>mana of the bot: manaPct, onManaChanged</Comment>
     </Task>
-  </Node>
-  <Node name="Idle">
-    <Conditions/>
-    <!-- placeholder until the rest of the combat exists: waits, leaves through its transitions -->
-    <Task class="Task_Wait">
-      <Delay value="0"/>
-    </Task>
+  </GlobalTasks>
+  <State name="Mana Potion">
+    <Comment>low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_UseItem">
+        <Item id="13444"/>
+        <!-- Major Mana Potion -->
+        <Item id="13443"/>
+        <!-- Superior Mana Potion -->
+        <Item id="6149"/>
+        <!-- Greater Mana Potion -->
+        <Item id="3827"/>
+        <!-- Mana Potion -->
+        <Item id="3385"/>
+        <!-- Lesser Mana Potion -->
+        <Item id="2455"/>
+        <!-- Minor Mana Potion -->
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Idle">
+    <Tasks>
+      <Task class="Task_Wait">
+        <Comment>placeholder until the rest of the combat exists: waits, leaves through its transitions</Comment>
+        <Delay value="0"/>
+      </Task>
+    </Tasks>
     <Transitions>
-      <Transition type="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" node="Root|Mana Potion"/>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root|Mana Potion"/>
     </Transitions>
-  </Node>
-</Root>
+  </State>
+</StateTree>
