@@ -26,7 +26,7 @@ struct ItemProgressSet
     uint32 id;
     ItemAcquireMethod acquireMethod = ItemAcquireMethod::OnDemand;
     std::vector<uint8> eligible;
-    uint32 questId = 0;         // QuestItems: rewarding this quest unlocks every item that has it
+    std::vector<uint32> questIds;   // QuestItems: rewarding one of these quests (Horde / Alliance version) unlocks every item that has it
 };
 
 struct AuraProgressSet
