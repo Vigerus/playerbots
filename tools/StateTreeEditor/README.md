@@ -17,6 +17,7 @@ The server binds to `127.0.0.1` only and prints the URL (default `http://127.0.0
 | `--port` | `8765` | |
 | `--root` | `../../statetree` (relative to the script) | the directory of the tree files |
 | `--eol` | `auto` | line endings of saved files: `auto` keeps the file's own (CRLF for new files), `crlf`, `lf` |
+| `--dbc` | | the server's `dbc` directory (`Spell.dbc`, `SpellIcon.dbc`): spell lookup by id or name |
 | `--open` | | opens the editor in the browser |
 | `--verbose` | | logs every request |
 
@@ -50,6 +51,10 @@ The server binds to `127.0.0.1` only and prints the URL (default `http://127.0.0
   `key` on a map of numbers), required attributes, `Linked` needs a `Subtree` state, leaf states need a task,
   `NextState` needs a next sibling, `OnDelegate` needs a delegate `source`, `OnEvent` an `event`,
   `Task_RunSubtree` files exist (warning), `<Conditions>` only on global tasks, ... Click a problem to select it.
+- **Spells**: spell ids (`spellid`, `<Spell id>`, the `key` of a `CooldownProvider_GlobalTask::ready` condition, ids
+  or names) show their wowhead icon in the outline and the details; hovering one shows the wowhead (classic) tooltip,
+  clicking opens the wowhead page. A spell field suggests spells from `Spell.dbc` while typing an id or a name (class
+  spells first; ↑ / ↓, Enter or Tab picks the id). Icons and tooltips are fetched by `serve.py` and kept in `cache/`.
 - **XML** (toolbar): the source of the tree as it will be saved; edit it and Apply (Ctrl+Enter). A file that does not
   parse opens there.
 

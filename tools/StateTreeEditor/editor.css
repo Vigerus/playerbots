@@ -319,3 +319,29 @@ textarea.raw { font-family: var(--mono); font-size: 12px; min-height: 90px; whit
 }
 a.link { color: var(--accent-text); cursor: pointer; }
 a.link:hover { text-decoration: underline; }
+
+/* spells: wowhead icons, tooltip and lookup */
+.spell-icon { display: inline-flex; flex: none; width: 16px; height: 16px; border-radius: 2px; overflow: hidden; border: 1px solid #000; cursor: pointer; vertical-align: middle; }
+.spell-icon img { width: 100%; height: 100%; display: block; }
+.spell-icon.missing { display: none; }
+.title .spell-icon { margin-right: 5px; }
+.spell-field { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 120px; }
+.spell-field input { flex: 1; min-width: 0; }
+.spell-icons { display: inline-flex; gap: 2px; flex: none; }
+.spell-icons .spell-icon { width: 20px; height: 20px; }
+.spell-tip { position: fixed; z-index: 80; display: flex; gap: 4px; align-items: flex-start; max-width: 340px; pointer-events: none; font: 12px/1.45 Verdana, "Segoe UI", sans-serif; color: #fff; }
+.spell-tip .tip-icon { width: 36px; height: 36px; border: 1px solid #000; border-radius: 4px; box-shadow: 0 0 0 1px #444; }
+.spell-tip .tip-body { background: rgba(7, 12, 33, .96); border: 1px solid #5d5d5d; border-radius: 4px; padding: 6px 9px; box-shadow: 0 4px 18px rgba(0,0,0,.6); }
+.spell-tip table { border-collapse: collapse; width: 100%; }
+.spell-tip td, .spell-tip th { padding: 0; vertical-align: top; text-align: left; font-weight: normal; }
+.spell-tip th { text-align: right; padding-left: 12px; white-space: nowrap; }
+.spell-tip .whtt-name, .spell-tip .whtt-name b { font-size: 14px; color: #fff; font-weight: bold; }
+.spell-tip .q { color: #ffd100; }
+.spell-tip .q0 { color: #9d9d9d; } .spell-tip .q1 { color: #fff; } .spell-tip .q2 { color: #1eff00; } .spell-tip .q3 { color: #0070dd; } .spell-tip .q4 { color: #a335ee; }
+.spell-tip .tip-id { margin-top: 4px; color: #9d9d9d; font-size: 11px; }
+.spell-suggest { position: fixed; z-index: 75; max-height: 300px; overflow-y: auto; background: var(--panel2); border: 1px solid var(--border2); border-radius: 5px; padding: 3px 0; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+.spell-suggest .sg { display: flex; align-items: center; gap: 7px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+.spell-suggest .sg.active { background: var(--sel); }
+.spell-suggest .sg img { width: 18px; height: 18px; border: 1px solid #000; border-radius: 2px; }
+.spell-suggest .sg-rank { color: var(--muted); font-size: 11.5px; }
+.spell-suggest .sg-id { margin-left: auto; padding-left: 14px; color: var(--muted); font-family: var(--mono); font-size: 11.5px; }

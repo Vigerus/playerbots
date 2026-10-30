@@ -1185,6 +1185,159 @@ function whereLabel(el) {
   return parts.join(' › ');
 }
 
+// ---------- spells: wowhead icons and tooltips, lookup in the server's Spell.dbc (serve.py --dbc)
+
+const spellInfos = new Map();   // id or name -> Promise of the /api/spell answer (null when unknown)
+let spellTip = null;            // the [data-spell] element the tooltip belongs to
+
+function isSpellField(el, name) {
+  if (name === 'spellid') return true;
+  if (el.tagName === 'Spell' && name === 'id') return true;
+  return el.tagName === 'Condition' && name === 'key' && /^(Root\|)?CooldownProvider_GlobalTask(\[[^\]]*\])?::ready$/.test(attr(el, 'binding'));
+}
+function spellKeys(value) { return String(value || '').split(',').map((s) => s.trim()).filter(Boolean); }
+function wowheadUrl(key) {
+  return isUInt(key) ? 'https://www.wowhead.com/classic/spell=' + key : 'https://www.wowhead.com/classic/search?q=' + encodeURIComponent(key);
+}
+function spellIcon(key) {
+  // title '' hides the native tooltip of the chip around it
+  return h('a', { class: 'spell-icon', href: wowheadUrl(key), target: '_blank', rel: 'noopener', title: '', dataset: { spell: key },
+    onclick: (e) => e.stopPropagation(), draggable: false },
+  h('img', { src: '/api/icon?spell=' + encodeURIComponent(key), alt: '', loading: 'lazy', onerror: (e) => e.target.parentNode.classList.add('missing') }));
+}
+// the spell of a task chip: its spellid, else the first setting when that is a spell (CooldownProvider <Spell id>, <Buff spellid>)
+function taskSpell(t) {
+  if (has(t, 'spellid')) return spellKeys(attr(t, 'spellid'))[0] || null;
+  for (const n of settingsNodes(t)) {
+    if (n.nodeType === 1 && n.attributes.length) return isSpellField(n, n.attributes[0].name) ? spellKeys(n.attributes[0].value)[0] || null : null;
+  }
+  return null;
+}
+function spellInfo(key) {
+  if (!spellInfos.has(key)) {
+    spellInfos.set(key, api('/api/spell?id=' + encodeURIComponent(key)).then((r) => r.body).catch(() => null));
+  }
+  return spellInfos.get(key);
+}
+// wowhead's tooltip html without scripts, links and attributes but class / width
+function safeTooltip(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('script, style, iframe, object, embed, link, img').forEach((n) => n.remove());
+  for (const n of doc.body.querySelectorAll('*')) {
+    for (const a of Array.from(n.attributes)) if (a.name !== 'class' && a.name !== 'width') n.removeAttribute(a.name);
+  }
+  return Array.from(doc.body.childNodes);
+}
+function placeSpellTip(x, y) {
+  const tip = $('#spellTip');
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.max(4, Math.min(x + 16, innerWidth - r.width - 4)) + 'px';
+  tip.style.top = Math.max(4, y + 18 + r.height > innerHeight ? y - r.height - 8 : y + 18) + 'px';
+}
+async function showSpellTip(target, x, y) {
+  spellTip = target;
+  const key = target.dataset.spell;
+  const tip = $('#spellTip');
+  const s = await spellInfo(key);
+  if (spellTip !== target) return;
+  tip.replaceChildren();
+  if (!s) tip.append(h('div', { class: 'whtt-name' }, 'unknown spell ' + key));
+  else {
+    tip.append(s.icon ? h('img', { class: 'tip-icon', src: '/api/icon?spell=' + s.id, alt: '' }) : '');
+    tip.append(h('div', { class: 'tip-body' }, s.tooltip ? safeTooltip(s.tooltip) : h('b', { class: 'whtt-name' }, s.name),
+      h('div', { class: 'tip-id' }, 'spell ' + s.id + (s.rank ? ' · ' + s.rank : ''))));
+  }
+  tip.classList.remove('hidden');
+  placeSpellTip(x, y);
+}
+function hideSpellTip() {
+  spellTip = null;
+  $('#spellTip').classList.add('hidden');
+}
+function initSpellTips() {
+  document.addEventListener('mouseover', (e) => {
+    const t = e.target.closest && e.target.closest('[data-spell]');
+    if (t && t !== spellTip) showSpellTip(t, e.clientX, e.clientY);
+    else if (!t && spellTip) hideSpellTip();
+  });
+  document.addEventListener('mousemove', (e) => { if (spellTip) placeSpellTip(e.clientX, e.clientY); });
+  document.addEventListener('mousedown', hideSpellTip);
+}
+
+// a spell field: icons of its spells and a lookup by id or name (picks put the id in the last comma separated entry)
+function spellInput(el, name, opts) {
+  const icons = h('span', { class: 'spell-icons' });
+  const showIcons = () => icons.replaceChildren(...spellKeys(attr(el, name)).map(spellIcon));
+  const input = [].concat(textInput(el, name, Object.assign({}, opts, { spell: false, list: null, onInput: (v) => {
+    showIcons();
+    lookup();
+    if (opts.onInput) opts.onInput(v);
+  } })))[0];
+  showIcons();
+  const box = $('#spellSuggest');
+  let items = [];
+  let active = -1;
+  let timer = 0;
+  let asked = '';
+  const segment = () => input.value.slice(input.value.lastIndexOf(',') + 1).trim();
+  const close = () => { if (box.owner === input) { box.classList.add('hidden'); box.owner = null; } };
+  const mark = () => box.querySelectorAll('.sg').forEach((row, i) => row.classList.toggle('active', i === active));
+  const pick = (s) => {
+    input.value = spellKeys(input.value.slice(0, input.value.lastIndexOf(',') + 1) + s.id).join(',');
+    close();
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('change'));
+  };
+  const render = () => {
+    box.replaceChildren(...items.map((s, i) => h('div', { class: 'sg', dataset: { spell: String(s.id) },
+      onmousedown: (e) => { e.preventDefault(); pick(s); }, onmouseenter: () => { active = i; mark(); } },
+    h('img', { src: '/api/icon?spell=' + s.id, alt: '', loading: 'lazy' }), h('span', { class: 'sg-name' }, s.name),
+    s.rank ? h('span', { class: 'sg-rank' }, s.rank) : null, h('span', { class: 'sg-id' }, s.id))));
+    if (!items.length) { close(); return; }
+    const r = input.getBoundingClientRect();
+    box.style.top = r.bottom + 2 + 'px';
+    box.style.minWidth = Math.max(260, r.width) + 'px';
+    box.owner = input;
+    box.classList.remove('hidden');
+    box.style.left = Math.max(4, Math.min(r.left, innerWidth - box.offsetWidth - 4)) + 'px';
+    mark();
+  };
+  const lookup = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const q = segment();
+      if (q === asked && box.owner === input) return;
+      asked = q;
+      if (!q || (!isUInt(q) && q.length < 2)) { items = []; render(); return; }
+      try {
+        const { body } = await api('/api/spells?limit=25&q=' + encodeURIComponent(q));
+        if (q !== segment()) return;
+        items = body.spells || [];
+        active = items.length ? 0 : -1;
+        render();
+      } catch (e) { /* lookup is optional */ }
+    }, 120);
+  };
+  input.addEventListener('focus', () => { asked = ''; });
+  input.addEventListener('blur', () => setTimeout(close, 100));
+  input.addEventListener('keydown', (e) => {
+    if (box.owner !== input) {
+      if (e.key === 'ArrowDown') { asked = ''; lookup(); e.preventDefault(); }
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      mark();
+      box.querySelectorAll('.sg')[active].scrollIntoView({ block: 'nearest' });
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && active >= 0) pick(items[active]);
+    else if (e.key === 'Escape') close();
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  return h('span', { class: 'spell-field' }, icons, input);
+}
+
 // ---------- outline
 
 function renderOutline() {
@@ -1247,7 +1400,7 @@ function condChips(container, owner) {
     const chip = h('span', { class: 'chip cond' + (sel === c ? ' selected' : ''), title: condTitle(c),
       onclick: (e) => { e.stopPropagation(); select(c); },
       oncontextmenu: (e) => { e.preventDefault(); e.stopPropagation(); select(c, { scroll: false }); showMenu(e.clientX, e.clientY, conditionMenu(c)); } },
-    condLabel(c));
+    c.tagName === 'Condition' && has(c, 'key') && isSpellField(c, 'key') ? spellIcon(attr(c, 'key')) : null, condLabel(c));
     wrap.append(chip);
   });
   return wrap;
@@ -1266,7 +1419,7 @@ function taskChip(t) {
     title: attr(t, 'class') + (info ? ' — ' + info : '') + (comment ? '\n\n' + comment : ''), draggable: true,
     onclick: (e) => { e.stopPropagation(); select(t); },
     oncontextmenu: (e) => { e.preventDefault(); e.stopPropagation(); select(t, { scroll: false }); showMenu(e.clientX, e.clientY, taskMenu(t)); } },
-  shortClass(attr(t, 'class')), info ? h('span', { class: 'info' }, info) : null);
+  shortClass(attr(t, 'class')), taskSpell(t) ? spellIcon(taskSpell(t)) : null, info ? h('span', { class: 'info' }, info) : null);
   chip.addEventListener('dragstart', (e) => { e.stopPropagation(); drag = { el: t, kind: 'task' }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', attr(t, 'class')); });
   chip.addEventListener('dragend', clearDrop);
   addDropTarget(chip, { kind: 'taskChip', el: t });
@@ -1281,7 +1434,7 @@ function renderGlobalTask(t) {
     onclick: () => select(t),
     oncontextmenu: (e) => { e.preventDefault(); select(t, { scroll: false }); showMenu(e.clientX, e.clientY, taskMenu(t)); } },
   h('span', { class: 'st-name' }, shortClass(attr(t, 'class'))),
-  taskInfo(t) ? h('span', { class: 'chip task' }, taskInfo(t)) : null,
+  taskInfo(t) ? h('span', { class: 'chip task' }, taskSpell(t) ? spellIcon(taskSpell(t)) : null, taskInfo(t)) : null,
   comment ? h('span', { class: 'comment-mark', title: comment }, '✎') : null,
   conds ? h('span', { class: 'cond-op' }, 'while') : null,
   conds ? condChips(conds, t) : null);
@@ -1618,6 +1771,7 @@ function datalist(values) {
 }
 function textInput(el, name, opts) {
   opts = opts || {};
+  if (opts.spell !== false && isSpellField(el, name)) return spellInput(el, name, opts);
   const input = h('input', { type: 'text', value: attr(el, name), placeholder: opts.placeholder || '', spellcheck: false,
     class: opts.mono ? 'mono' : '' });
   if (opts.focusKey) input.dataset.focus = opts.focusKey;
@@ -1863,7 +2017,7 @@ function detailsState(s, ctx) {
   for (const t of tasks) {
     tBody.append(h('div', { class: 'item' + (attr(t, 'enabled') === 'false' ? ' disabled' : '') }, h('div', { class: 'item-head' },
       h('span', { class: 'title', onclick: () => select(t), title: (taskDef(attr(t, 'class')) || {}).description || '' },
-        attr(t, 'class') + (taskInfo(t) ? '  — ' + taskInfo(t) : '')), itemButtons(t))));
+        taskSpell(t) ? spellIcon(taskSpell(t)) : null, attr(t, 'class') + (taskInfo(t) ? '  — ' + taskInfo(t) : '')), itemButtons(t))));
   }
   tBody.append(h('div', { class: 'toolbar-row' }, h('button', { class: 'small', onclick: () => pickTask(s) }, '+ Task')));
   out.push(group('Tasks', tBody, { count: tasks.length, key: 'tasks' }));
@@ -2685,6 +2839,7 @@ async function init() {
   $('#showWarnings').addEventListener('change', renderProblems);
   $('#showInfos').addEventListener('change', renderProblems);
   document.addEventListener('keydown', onKey);
+  initSpellTips();
   document.addEventListener('mousedown', (e) => {
     if (!$('#menu').contains(e.target)) hideMenu();
     if (!$('#popup').classList.contains('hidden') && !$('#popup').contains(e.target)) closePopup();
