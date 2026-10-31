@@ -16,6 +16,9 @@ using namespace ai;
 
 namespace
 {
+    // missing buffs are evaluated and notified again this often (a failed Task_CastBuff waits its 3s retry delay)
+    constexpr uint32 remindIntervalMs = 5000;
+
     bool IsAuraEffect(const SpellEntry* spellInfo, int i)
     {
         return spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AURA || spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AREA_AURA_PARTY;
@@ -137,6 +140,20 @@ EActionRunStatus BuffProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseCon
     return EActionRunStatus::Running;
 }
 
+EActionRunStatus BuffProvider_GlobalTask::OnTick(STAI_TaskContext& baseContext, uint32 elapsed, bool minimal) const
+{
+    TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnTick);
+    BuffProvider_GlobalTaskContext& context = ContextAs<BuffProvider_GlobalTaskContext>(baseContext);
+    // nothing missing: only the aura / group events matter
+    if (context.needs.empty())
+        return EActionRunStatus::Running;
+
+    context.sinceEvaluateMs += elapsed;
+    if (context.sinceEvaluateMs >= remindIntervalMs)
+        context.Evaluate();
+    return EActionRunStatus::Running;
+}
+
 void BuffProvider_GlobalTask::OnExitState(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(BuffProvider_GlobalTask::OnExitState);
@@ -250,6 +267,7 @@ void BuffProvider_GlobalTaskContext::Evaluate(Group* leftGroup)
 {
     Group* group = bot->GetGroup();
     needs = task->FindNeeds(bot, group == leftGroup ? nullptr : group, GetReachableMembers(leftGroup));
+    sinceEvaluateMs = 0;
     if (!needs.empty())
         onMissingBuff.Broadcast();
 }

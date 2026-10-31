@@ -197,15 +197,16 @@ void PlayerbotMovement::Drive(PlayerbotAI* ai, const MovementGoalRequest& goal, 
         state = MovementState::Moving;
         return;
     }
-    if (bot->IsSitState())
-        bot->SetStandState(UNIT_STAND_STATE_STAND);
-
     switch (goal.kind)
     {
         case MovementGoalKind::Location: DriveLocation(ai, goal); break;
         case MovementGoalKind::Position: DrivePosition(ai, goal); break;
         case MovementGoalKind::Range:    DriveRange(ai, goal); break;
     }
+
+    // only a bot that has to move stands up: a reached goal leaves an eating / drinking bot seated
+    if (state == MovementState::Moving && bot->IsSitState())
+        bot->SetStandState(UNIT_STAND_STATE_STAND);
 }
 
 void PlayerbotMovement::DriveLocation(PlayerbotAI* ai, const MovementGoalRequest& goal)

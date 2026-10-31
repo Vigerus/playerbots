@@ -21,6 +21,8 @@ namespace ai
         // casts needed, in config order; refreshed on every aura / group event:
         //   <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
         std::vector<BuffNeed> needs;
+        // since the last evaluation: missing buffs are evaluated (and notified) again after a while
+        uint32 sinceEvaluateMs = 0;
 
         const BuffProvider_GlobalTask* task = nullptr;
 
@@ -29,9 +31,10 @@ namespace ai
     };
 
     // Global task that watches the buffs of the bot and its group: property needs (the casts to do), delegate
-    // onMissingBuff (fired when an evaluation finds any). Not tickable: it reacts to the TeamSubsystem (group
-    // changes) and SpellAuraWorldSubsystem (auras of every member, self included) events. Task_CastBuff casts
-    // what it found (needs bound into it).
+    // onMissingBuff (fired when an evaluation finds any). It reacts to the TeamSubsystem (group changes) and
+    // SpellAuraWorldSubsystem (auras of every member, self included) events; while buffs are missing it evaluates
+    // again every few seconds, so a notification the tree could not take (busy, a failed cast) comes again.
+    // Task_CastBuff casts what it found (needs bound into it).
     //   <Global>
     //     <Task class="BuffProvider_GlobalTask">
     //       <Buff spellid="1459"/>                 Arcane Intellect, any rank of the spell (the bot casts its highest)
@@ -72,7 +75,9 @@ namespace ai
         virtual const STAI_TaskContextType& GetContextType() const override { return STAI_TaskContextType::Of<BuffProvider_GlobalTaskContext>(); }
 
         virtual EActionRunStatus OnEnterState(STAI_TaskContext& context) const override;
+        virtual EActionRunStatus OnTick(STAI_TaskContext& context, uint32 elapsed, bool minimal) const override;
         virtual void OnExitState(STAI_TaskContext& context) const override;
+        virtual bool ShouldCallTick() const override { return true; }
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;

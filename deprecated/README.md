@@ -28,6 +28,7 @@ the live versions are in `playerbot/`).
 | `playerbot/PlayerbotDbStore.*` | saved the bots' legacy values to `ai_playerbot_db_store` |
 | `playerbot/BotState.h` | the legacy engine states (NonCombat, Combat, Dead, Reaction), replaced by `HLSStateType` |
 | `instancebot/InstanceBot.*` | per-map helper the core `Map` created for raid / dungeon maps: gave its players the guild progress auras and Continuous items on entering and every 10 s; replaced by `GuildProgressSubsystem::UpdateMap` (every map, every guild member) |
+| `snapshots/playerbot/StateTree/Tasks/Task_EatAndDrink_ItemCheat.*` | the eat / drink task with the item cheat: cast the use spell of the best conjured food / drink of the bot's level (or the eat / drink spells 24005 / 24355) instead of using an item; the live task always eats / drinks the best bag item |
 
 Rescued out of `strategy/` (now live code): `playerbot/ItemQualifier.*` (`ItemQualifier`, `ItemUsage`),
 `playerbot/ItemVisitors.h` (without the two "item usage" visitors), `playerbot/IterateItemsMask.h`,

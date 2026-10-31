@@ -7,13 +7,10 @@
 #include "Globals/ObjectMgr.h"
 #include "Spells/SpellAuras.h"
 
-#include <array>
 #include <cstdlib>
-#include <initializer_list>
 #include <sstream>
 #include <stdexcept>
 #include <tuple>
-#include <vector>
 
 using namespace ai;
 
@@ -33,66 +30,21 @@ namespace
         return percent;
     }
 
-    // a seated aura restoring the resource: food / drink items use MOD_REGEN / MOD_POWER_REGEN, the bots' eat / drink
-    // cheat spells (24005 / 24355) OBS_MOD_HEALTH / OBS_MOD_MANA; all of them end when the bot stands up
-    bool HasSeatedAura(const Player* bot, std::initializer_list<AuraType> types)
+    // a seated aura restoring the resource (food / drink items: MOD_REGEN / MOD_POWER_REGEN), ends when the bot stands up
+    bool HasSeatedAura(const Player* bot, AuraType type)
     {
-        for (AuraType type : types)
-            for (const Aura* aura : bot->GetAurasByType(type))
-                if (aura->GetSpellProto()->AuraInterruptFlags & AURA_INTERRUPT_FLAG_STANDING_CANCELS)
-                    return true;
-        return false;
-    }
-
-    bool IsEating(const Player* bot) { return HasSeatedAura(bot, { SPELL_AURA_MOD_REGEN, SPELL_AURA_OBS_MOD_HEALTH }); }
-    bool IsDrinking(const Player* bot) { return HasSeatedAura(bot, { SPELL_AURA_MOD_POWER_REGEN, SPELL_AURA_OBS_MOD_MANA }); }
-
-    bool SpellAppliesAura(const SpellEntry* spellInfo, AuraType type)
-    {
-        for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
-            if (spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AURA && spellInfo->EffectApplyAuraName[i] == type)
+        for (const Aura* aura : bot->GetAurasByType(type))
+            if (aura->GetSpellProto()->AuraInterruptFlags & AURA_INTERRUPT_FLAG_STANDING_CANCELS)
                 return true;
         return false;
     }
 
-    // the use spell of the best conjured food (MOD_REGEN) / drink (MOD_POWER_REGEN) the bot's level may use, 0 when
-    // there is none; built once from the item templates
-    uint32 GetConjuredSpell(uint32 level, bool food)
-    {
-        struct Conjured { uint32 requiredLevel; uint32 itemLevel; uint32 spellId; };
-        static const auto conjured = []
-        {
-            std::array<std::vector<Conjured>, 2> lists; // [0] drink, [1] food
-            for (uint32 itemId = 0; itemId < sItemStorage.GetMaxEntry(); ++itemId)
-            {
-                const ItemPrototype* proto = sObjectMgr.GetItemPrototype(itemId);
-                if (!proto || !proto->IsConjuredConsumable())
-                    continue;
+    bool IsEating(const Player* bot) { return HasSeatedAura(bot, SPELL_AURA_MOD_REGEN); }
+    bool IsDrinking(const Player* bot) { return HasSeatedAura(bot, SPELL_AURA_MOD_POWER_REGEN); }
 
-                const uint32 spellId = proto->Spells[0].SpellId;
-                const SpellEntry* spellInfo = spellId ? sServerFacade.LookupSpellInfo(spellId) : nullptr;
-                if (!spellInfo || !(spellInfo->AuraInterruptFlags & AURA_INTERRUPT_FLAG_STANDING_CANCELS))
-                    continue;
-
-                if (SpellAppliesAura(spellInfo, SPELL_AURA_MOD_REGEN))
-                    lists[1].push_back({ proto->RequiredLevel, proto->ItemLevel, spellId });
-                if (SpellAppliesAura(spellInfo, SPELL_AURA_MOD_POWER_REGEN))
-                    lists[0].push_back({ proto->RequiredLevel, proto->ItemLevel, spellId });
-            }
-            return lists;
-        }();
-
-        const Conjured* best = nullptr;
-        for (const Conjured& entry : conjured[food ? 1 : 0])
-            if (entry.requiredLevel <= level && (!best || std::tie(entry.requiredLevel, entry.itemLevel) > std::tie(best->requiredLevel, best->itemLevel)))
-                best = &entry;
-        return best ? best->spellId : 0;
-    }
-
-    // starts eating (food) or drinking: the bots' item cheat casts the use spell of the conjured food / drink of the
-    // bot's level (the plain eat / drink cheat spell when there is none), otherwise a food / drink item of the bags
-    // is used (was the legacy "food" / "drink" action); false when it could not start (moving, casting, nothing to
-    // eat or drink)
+    // starts eating (food) or drinking with the best food / drink item of the bags the bot can use (highest required
+    // level, then item level), the item cheat does not apply; false when it could not start (moving, casting, nothing
+    // to eat or drink)
     bool StartConsuming(PlayerbotAI* ai, Player* bot, bool food)
     {
         if (sServerFacade.IsInCombat(bot) || bot->IsNonMeleeSpellCasted(true))
@@ -104,28 +56,19 @@ namespace
             return false;
         }
 
-        if (ai->HasCheat(BotCheatMask::item))
+        Item* best = nullptr;
+        for (Item* item : ai->InventoryParseItems(food ? "food" : "drink", IterateItemsMask::ITERATE_ITEMS_IN_BAGS))
         {
-            uint32 spellId = GetConjuredSpell(bot->GetLevel(), food);
-            if (!spellId)
-                spellId = food ? 24005 : 24355;
-            const SpellEntry* pSpellInfo = sServerFacade.LookupSpellInfo(spellId);
-            if (!pSpellInfo)
-                return false;
-
-            // cast by the core, not PlayerbotAI::CastSpell: that one stands a sitting bot up and fails, which would end
-            // the food when the drink starts; the aura sits the bot down
-            ai->Unmount();
-            ai->InterruptSpell();
-            return bot->CastSpell(bot, pSpellInfo, TRIGGERED_OLD_TRIGGERED) == SPELL_CAST_OK;
+            const ItemPrototype* proto = item->GetProto();
+            if (!best || std::tie(proto->RequiredLevel, proto->ItemLevel) > std::tie(best->GetProto()->RequiredLevel, best->GetProto()->ItemLevel))
+                best = item;
         }
 
-        const std::list<Item*> items = ai->InventoryParseItems(food ? "food" : "drink", IterateItemsMask::ITERATE_ITEMS_IN_BAGS);
-        if (items.empty())
+        if (!best)
             return false;
 
         ai->Unmount();
-        ai->ImbueItem(items.front());
+        ai->ImbueItem(best);
         return true;
     }
 }

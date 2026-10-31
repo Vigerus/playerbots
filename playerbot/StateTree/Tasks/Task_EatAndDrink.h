@@ -21,9 +21,8 @@ namespace ai
     //     <Health until="100"/>     percent, default 100
     //     <Mana until="100"/>       percent, default 100; ignored for bots without mana
     //   </Task>
-    // Eating is for everyone, drinking for mana users. Uses a food / drink item from the bags, or with the item cheat
-    // the use spell of the conjured food / drink of the bot's level; both sit the bot down and apply the food / drink
-    // aura.
+    // Eating is for everyone, drinking for mana users. Uses the best food / drink item from the bags (never the item
+    // cheat), which sits the bot down and applies the food / drink aura.
     // A food / drink that ends before its target is followed by the next one. Succeeded when both targets are reached
     // or nothing is left to eat or drink after the bot ate or drank; Failed when nothing could be eaten or drunk
     // within 3s (nothing in the bags, the bot kept moving). OnExitState stands the bot up, which ends the food and drink.
