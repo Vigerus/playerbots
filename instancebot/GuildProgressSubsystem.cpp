@@ -40,307 +40,250 @@
 #define CHECK_INTERVAL 10       // seconds between two checks of a guild member's auras / items
 #define CHUNK_SIZE 220
 
+// who can use an item / aura, empty = everyone
+static const std::vector<uint8> ALL = {};
+static const std::vector<uint8> PHYSICAL = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN };
+static const std::vector<uint8> STRENGTH = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN };
+static const std::vector<uint8> WEAPON_USERS = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_SHAMAN };
+static const std::vector<uint8> TANKS = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID };
+static const std::vector<uint8> CASTERS = { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID };
+static const std::vector<uint8> HEALERS = { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN };
+static const std::vector<uint8> CASTERS_HEALERS = { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN };
+static const std::vector<uint8> MANA_USERS = { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN, CLASS_HUNTER };
+static const std::vector<uint8> CLOTH = { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST };
+static const std::vector<uint8> LEATHER = { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN };
+static const std::vector<uint8> MAIL = { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_SHAMAN };
+static const std::vector<uint8> PLATE = { CLASS_WARRIOR, CLASS_PALADIN };
+
 static std::vector<ItemProgressSet> ConsumedItems = {
-    {ITEM_SWIFTNESS_POTION, ItemAcquireMethod::Continuous, // # 2459 - Swiftness Potion
-    {}},
-    {ITEM_LIMITED_INVULNERABILITY_POTION, ItemAcquireMethod::Continuous, // # 3387 - Limited Invulnerability Potion
-    {}},
-    {ITEM_ELIXIR_OF_FORTITUDE, ItemAcquireMethod::Continuous, // # 3825 - Elixir of Fortitude
-    {}},
-    {ITEM_GREAT_RAGE_POTION, ItemAcquireMethod::Continuous, // # 5633 - Great Rage Potion
-    { CLASS_WARRIOR }},
-    {ITEM_FREE_ACTION_POTION, ItemAcquireMethod::Continuous, // # 5634 - Free Action Potion
-    {}},
-    {ITEM_SHADOW_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 6048 - Shadow Protection Potion
-    {}},
-    {ITEM_FIRE_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 6049 - Fire Protection Potion
-    {}},
-    {ITEM_FROST_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 6050 - Frost Protection Potion
-    {}},
-    {ITEM_NATURE_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 6052 - Nature Protection Potion
-    {}},
-    {ITEM_ROIDS, ItemAcquireMethod::Continuous, // # 8410 - R.O.I.D.S.
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID, CLASS_SHAMAN, CLASS_ROGUE }},
-    {ITEM_LUNG_JUICE_COCKTAIL, ItemAcquireMethod::Continuous, // # 8411 - Lung Juice Cocktail
-    {}},
-    {ITEM_GROUND_SCORPOK_ASSAY, ItemAcquireMethod::Continuous, // # 8412 - Ground Scorpok Assay
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_CEREBRAL_CORTEX_COMPOUND, ItemAcquireMethod::Continuous, // # 8423 - Cerebral Cortex Compound
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {ITEM_GIZZARD_GUM, ItemAcquireMethod::Continuous, // # 8424 - Gizzard Gum
-    { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
-    {ITEM_RESTORATIVE_POTION, ItemAcquireMethod::Continuous, // # 9030 - Restorative Potion
-    {}},
-    {ITEM_MAGIC_RESISTANCE_POTION, ItemAcquireMethod::Continuous, // # 9036 - Magic Resistance Potion
-    {}},
-    {ITEM_GIFT_OF_ARTHAS, ItemAcquireMethod::Continuous, // # 9088 - Gift of Arthas
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID }},
-    {ITEM_ELIXIR_OF_GREATER_AGILITY, ItemAcquireMethod::Continuous, // # 9187 - Elixir of Greater Agility
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_ELIXIR_OF_GIANTS, ItemAcquireMethod::Continuous, // # 9206 - Elixir of Giants
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID }},
-    {ITEM_ELIXIR_OF_SHADOW_POWER, ItemAcquireMethod::Continuous, // # 9264 - Elixir of Shadow Power
-    { CLASS_WARLOCK, CLASS_PRIEST }},
-    {ITEM_WHIPPER_ROOT_TUBER, ItemAcquireMethod::Continuous, // # 11951 - Whipper Root Tuber
-    {}},
-    {ITEM_NIGHT_DRAGONS_BREATH, ItemAcquireMethod::Continuous, // # 11952 - Night Dragon's Breath
-    {}},
-    {ITEM_JUJU_FLURRY, ItemAcquireMethod::Continuous, // # 12450 - Juju Flurry
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_JUJU_POWER, ItemAcquireMethod::Continuous, // # 12451 - Juju Power
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID, CLASS_SHAMAN, CLASS_ROGUE }},
-    {ITEM_JUJU_EMBER, ItemAcquireMethod::Continuous, // # 12455 - Juju Ember
-    {}},
-    {ITEM_JUJU_CHILL, ItemAcquireMethod::Continuous, // # 12457 - Juju Chill
-    {}},
-    {ITEM_JUJU_GUILE, ItemAcquireMethod::Continuous, // # 12458 - Juju Guile
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {ITEM_JUJU_MIGHT, ItemAcquireMethod::Continuous, // # 12460 - Juju Might
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_DENSE_WEIGHTSTONE, ItemAcquireMethod::Continuous, // # 12643 - Dense Weightstone
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_SHAMAN }},
-    {ITEM_DEMONIC_RUNE, ItemAcquireMethod::Continuous, // # 12662 - Demonic Rune
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN, CLASS_HUNTER }},
-    {ITEM_WINTERFALL_FIREWATER, ItemAcquireMethod::Continuous, // # 12820 - Winterfall Firewater
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_MIGHTY_RAGE_POTION, ItemAcquireMethod::Continuous, // # 13442 - Mighty Rage Potion
-    { CLASS_WARRIOR }},
-    {ITEM_SUPERIOR_MANA_POTION, ItemAcquireMethod::Continuous, // # 13443 - Superior Mana Potion
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
-    {ITEM_MAJOR_MANA_POTION, ItemAcquireMethod::Continuous, // # 13444 - Major Mana Potion
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
-    {ITEM_ELIXIR_OF_SUPERIOR_DEFENSE, ItemAcquireMethod::Continuous, // # 13445 - Elixir of Superior Defense
-    { CLASS_WARRIOR, CLASS_DRUID }},
-    {ITEM_MAJOR_HEALING_POTION, ItemAcquireMethod::Continuous, // # 13446 - Major Healing Potion
-    {}},
-    {ITEM_ELIXIR_OF_THE_SAGES, ItemAcquireMethod::Continuous, // # 13447 - Elixir of the Sages
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN, CLASS_HUNTER }},
-    {ITEM_ELIXIR_OF_THE_MONGOOSE, ItemAcquireMethod::Continuous, // # 13452 - Elixir of the Mongoose
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_ELIXIR_OF_BRUTE_FORCE, ItemAcquireMethod::Continuous, // # 13453 - Elixir of Brute Force
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_GREATER_ARCANE_ELIXIR, ItemAcquireMethod::Continuous, // # 13454 - Greater Arcane Elixir
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {ITEM_GREATER_STONESHIELD_POTION, ItemAcquireMethod::Continuous, // # 13455 - Greater Stoneshield Potion
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID }},
-    {ITEM_GREATER_FROST_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 13456 - Greater Frost Protection Potion
-    {}},
-    {ITEM_GREATER_FIRE_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 13457 - Greater Fire Protection Potion
-    {}},
-    {ITEM_GREATER_NATURE_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 13458 - Greater Nature Protection Potion
-    {}},
-    {ITEM_GREATER_SHADOW_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 13459 - Greater Shadow Protection Potion
-    {}},
-    {ITEM_GREATER_HOLY_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 13460 - Greater Holy Protection Potion
-    {}},
-    {ITEM_GREATER_ARCANE_PROTECTION_POTION, ItemAcquireMethod::Continuous, // # 13461 - Greater Arcane Protection Potion
-    {}},
-    {ITEM_PURIFICATION_POTION, ItemAcquireMethod::Continuous, // # 13462 - Purification Potion
-    {}},
-    {ITEM_FLASK_OF_PETRIFICATION, ItemAcquireMethod::Continuous, // # 13506 - Flask of Petrification
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID }},
-    {ITEM_FLASK_OF_THE_TITANS, ItemAcquireMethod::Continuous, // # 13510 - Flask of the Titans
-    {}},
-    {ITEM_FLASK_OF_DISTILLED_WISDOM, ItemAcquireMethod::Continuous, // # 13511 - Flask of Distilled Wisdom
-    { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_HUNTER }},
-    {ITEM_FLASK_OF_SUPREME_POWER, ItemAcquireMethod::Continuous, // # 13512 - Flask of Supreme Power
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_SHAMAN, CLASS_DRUID }},
-    {ITEM_FLASK_OF_CHROMATIC_RESISTANCE, ItemAcquireMethod::Continuous, // # 13513 - Flask of Chromatic Resistance
-    {}},
-    {ITEM_GRILLED_SQUID, ItemAcquireMethod::Continuous, // # 13928 - Grilled Squid
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_NIGHTFIN_SOUP, ItemAcquireMethod::Continuous, // # 13931 - Nightfin Soup
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN, CLASS_HUNTER }},
-    {ITEM_HEAVY_RUNECLOTH_BANDAGE, ItemAcquireMethod::Continuous, // # 14530 - Heavy Runecloth Bandage
-    {}},
-    {ITEM_AQUAL_QUINTESSENCE, ItemAcquireMethod::Continuous, // # 17333 - Aqual Quintessence
-    {}},
-    {ITEM_ELIXIR_OF_FROST_POWER, ItemAcquireMethod::Continuous, // # 17708 - Elixir of Frost Power
-    { CLASS_MAGE }},
-    {ITEM_TENDER_WOLF_STEAK, ItemAcquireMethod::Continuous, // # 18045 - Tender Wolf Steak
-    {}},
-    {ITEM_MAJOR_REJUVENATION_POTION, ItemAcquireMethod::Continuous, // # 18253 - Major Rejuvenation Potion
-    {}},
-    {ITEM_RUNN_TUM_TUBER_SURPRISE, ItemAcquireMethod::Continuous, // # 18254 - Runn Tum Tuber Surprise
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {ITEM_ELEMENTAL_SHARPENING_STONE, ItemAcquireMethod::Continuous, // # 18262 - Elemental Sharpening Stone
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_SHAMAN }},
-    {ITEM_GREATER_DREAMLESS_SLEEP_POTION, ItemAcquireMethod::Continuous, // # 20002 - Greater Dreamless Sleep Potion
-    { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
-    {ITEM_MAJOR_TROLLS_BLOOD_POTION, ItemAcquireMethod::Continuous, // # 20004 - Major Troll's Blood Potion
-    {}},
-    {ITEM_MAGEBLOOD_POTION, ItemAcquireMethod::Continuous, // # 20007 - Mageblood Potion
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
-    {ITEM_LIVING_ACTION_POTION, ItemAcquireMethod::Continuous, // # 20008 - Living Action Potion
-    {}},
-    {ITEM_SPIRIT_OF_ZANZA, ItemAcquireMethod::Continuous, // # 20079 - Spirit of Zanza
-    {}},
-    {ITEM_SHEEN_OF_ZANZA, ItemAcquireMethod::Continuous, // # 20080 - Sheen of Zanza
-    {}},
-    {ITEM_SWIFTNESS_OF_ZANZA, ItemAcquireMethod::Continuous, // # 20081 - Swiftness of Zanza
-    {}},
-    {ITEM_SMOKED_DESERT_DUMPLINGS, ItemAcquireMethod::Continuous, // # 20452 - Smoked Desert Dumplings
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID, CLASS_SHAMAN, CLASS_ROGUE }},
-    {ITEM_DARK_RUNE, ItemAcquireMethod::Continuous, // # 20520 - Dark Rune
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN, CLASS_HUNTER }},
-    {ITEM_BRILLIANT_MANA_OIL, ItemAcquireMethod::Continuous, // # 20748 - Brilliant Mana Oil
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PALADIN, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {ITEM_BRILLIANT_WIZARD_OIL, ItemAcquireMethod::Continuous, // # 20749 - Brilliant Wizard Oil
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }},
-    {ITEM_DIRGES_KICKIN_CHIMAEROK_CHOPS, ItemAcquireMethod::Continuous, // # 21023 - Dirge's Kickin' Chimaerok Chops
-    {}},
-    {ITEM_RUMSEY_RUM_BLACK_LABEL, ItemAcquireMethod::Continuous, // # 21151 - Rumsey Rum Black Label
-    {}},
-    {ITEM_SAGEFISH_DELIGHT, ItemAcquireMethod::Continuous, // # 21217 - Sagefish Delight
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN, CLASS_HUNTER }},
-    {ITEM_ELIXIR_OF_GREATER_FIREPOWER, ItemAcquireMethod::Continuous, // # 21546 - Elixir of Greater Firepower
-    { CLASS_MAGE, CLASS_WARLOCK }}
+    // potions
+    { ITEM_SWIFTNESS_POTION,                  Continuous, ALL },
+    { ITEM_LIMITED_INVULNERABILITY_POTION,    Continuous, ALL },
+    { ITEM_FREE_ACTION_POTION,                Continuous, ALL },
+    { ITEM_LIVING_ACTION_POTION,              Continuous, ALL },
+    { ITEM_RESTORATIVE_POTION,                Continuous, ALL },
+    { ITEM_PURIFICATION_POTION,               Continuous, ALL },
+    { ITEM_MAGIC_RESISTANCE_POTION,           Continuous, ALL },
+    { ITEM_MAJOR_HEALING_POTION,              Continuous, ALL },
+    { ITEM_MAJOR_REJUVENATION_POTION,         Continuous, ALL },
+    { ITEM_MAJOR_TROLLS_BLOOD_POTION,         Continuous, ALL },
+    { ITEM_SUPERIOR_MANA_POTION,              Continuous, CASTERS_HEALERS },
+    { ITEM_MAJOR_MANA_POTION,                 Continuous, CASTERS_HEALERS },
+    { ITEM_MAGEBLOOD_POTION,                  Continuous, CASTERS_HEALERS },
+    { ITEM_GREAT_RAGE_POTION,                 Continuous, { CLASS_WARRIOR } },
+    { ITEM_MIGHTY_RAGE_POTION,                Continuous, { CLASS_WARRIOR } },
+    { ITEM_GREATER_STONESHIELD_POTION,        Continuous, TANKS },
+    { ITEM_GREATER_DREAMLESS_SLEEP_POTION,    Continuous, HEALERS },
+    { ITEM_DEMONIC_RUNE,                      Continuous, MANA_USERS },
+    { ITEM_DARK_RUNE,                         Continuous, MANA_USERS },
+
+    // protection potions
+    { ITEM_SHADOW_PROTECTION_POTION,          Continuous, ALL },
+    { ITEM_FIRE_PROTECTION_POTION,            Continuous, ALL },
+    { ITEM_FROST_PROTECTION_POTION,           Continuous, ALL },
+    { ITEM_NATURE_PROTECTION_POTION,          Continuous, ALL },
+    { ITEM_GREATER_SHADOW_PROTECTION_POTION,  Continuous, ALL },
+    { ITEM_GREATER_FIRE_PROTECTION_POTION,    Continuous, ALL },
+    { ITEM_GREATER_FROST_PROTECTION_POTION,   Continuous, ALL },
+    { ITEM_GREATER_NATURE_PROTECTION_POTION,  Continuous, ALL },
+    { ITEM_GREATER_HOLY_PROTECTION_POTION,    Continuous, ALL },
+    { ITEM_GREATER_ARCANE_PROTECTION_POTION,  Continuous, ALL },
+
+    // elixirs
+    { ITEM_ELIXIR_OF_FORTITUDE,               Continuous, ALL },
+    { ITEM_GIFT_OF_ARTHAS,                    Continuous, TANKS },
+    { ITEM_ELIXIR_OF_GIANTS,                  Continuous, TANKS },
+    { ITEM_ELIXIR_OF_SUPERIOR_DEFENSE,        Continuous, { CLASS_WARRIOR, CLASS_DRUID } },
+    { ITEM_ELIXIR_OF_GREATER_AGILITY,         Continuous, PHYSICAL },
+    { ITEM_ELIXIR_OF_THE_MONGOOSE,            Continuous, PHYSICAL },
+    { ITEM_ELIXIR_OF_BRUTE_FORCE,             Continuous, { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID, CLASS_SHAMAN } },
+    { ITEM_ELIXIR_OF_THE_SAGES,               Continuous, MANA_USERS },
+    { ITEM_GREATER_ARCANE_ELIXIR,             Continuous, CASTERS },
+    { ITEM_ELIXIR_OF_SHADOW_POWER,            Continuous, { CLASS_WARLOCK, CLASS_PRIEST } },
+    { ITEM_ELIXIR_OF_GREATER_FIREPOWER,       Continuous, { CLASS_MAGE, CLASS_WARLOCK } },
+    { ITEM_ELIXIR_OF_FROST_POWER,             Continuous, { CLASS_MAGE } },
+
+    // flasks
+    { ITEM_FLASK_OF_THE_TITANS,               Continuous, ALL },
+    { ITEM_FLASK_OF_CHROMATIC_RESISTANCE,     Continuous, ALL },
+    { ITEM_FLASK_OF_PETRIFICATION,            Continuous, TANKS },
+    { ITEM_FLASK_OF_DISTILLED_WISDOM,         Continuous, { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_HUNTER } },
+    { ITEM_FLASK_OF_SUPREME_POWER,            Continuous, { CLASS_MAGE, CLASS_WARLOCK, CLASS_SHAMAN, CLASS_DRUID } },
+
+    // Blasted Lands, Zul'Gurub
+    { ITEM_ROIDS,                             Continuous, STRENGTH },
+    { ITEM_GROUND_SCORPOK_ASSAY,              Continuous, PHYSICAL },
+    { ITEM_LUNG_JUICE_COCKTAIL,               Continuous, ALL },
+    { ITEM_CEREBRAL_CORTEX_COMPOUND,          Continuous, CASTERS },
+    { ITEM_GIZZARD_GUM,                       Continuous, HEALERS },
+    { ITEM_SPIRIT_OF_ZANZA,                   Continuous, ALL },
+    { ITEM_SHEEN_OF_ZANZA,                    Continuous, ALL },
+    { ITEM_SWIFTNESS_OF_ZANZA,                Continuous, ALL },
+
+    // Winterspring, Felwood
+    { ITEM_JUJU_POWER,                        Continuous, STRENGTH },
+    { ITEM_JUJU_MIGHT,                        Continuous, PHYSICAL },
+    { ITEM_JUJU_FLURRY,                       Continuous, PHYSICAL },
+    { ITEM_JUJU_GUILE,                        Continuous, CASTERS },
+    { ITEM_JUJU_EMBER,                        Continuous, ALL },
+    { ITEM_JUJU_CHILL,                        Continuous, ALL },
+    { ITEM_WINTERFALL_FIREWATER,              Continuous, PHYSICAL },
+    { ITEM_WHIPPER_ROOT_TUBER,                Continuous, ALL },
+    { ITEM_NIGHT_DRAGONS_BREATH,              Continuous, ALL },
+
+    // food, drinks
+    { ITEM_SMOKED_DESERT_DUMPLINGS,           Continuous, STRENGTH },
+    { ITEM_GRILLED_SQUID,                     Continuous, PHYSICAL },
+    { ITEM_RUNN_TUM_TUBER_SURPRISE,           Continuous, CASTERS },
+    { ITEM_NIGHTFIN_SOUP,                     Continuous, MANA_USERS },
+    { ITEM_SAGEFISH_DELIGHT,                  Continuous, MANA_USERS },
+    { ITEM_TENDER_WOLF_STEAK,                 Continuous, ALL },
+    { ITEM_DIRGES_KICKIN_CHIMAEROK_CHOPS,     Continuous, ALL },
+    { ITEM_RUMSEY_RUM_BLACK_LABEL,            Continuous, ALL },
+
+    // mage conjured: a member gets only the best rank of each (ConjuredRanks)
+    { ITEM_CONJURED_WATER,                    Continuous, MANA_USERS },
+    { ITEM_CONJURED_FRESH_WATER,              Continuous, MANA_USERS },
+    { ITEM_CONJURED_PURIFIED_WATER,           Continuous, MANA_USERS },
+    { ITEM_CONJURED_SPRING_WATER,             Continuous, MANA_USERS },
+    { ITEM_CONJURED_MINERAL_WATER,            Continuous, MANA_USERS },
+    { ITEM_CONJURED_SPARKLING_WATER,          Continuous, MANA_USERS },
+    { ITEM_CONJURED_CRYSTAL_WATER,            Continuous, MANA_USERS },
+    { ITEM_CONJURED_MUFFIN,                   Continuous, ALL },
+    { ITEM_CONJURED_BREAD,                    Continuous, ALL },
+    { ITEM_CONJURED_RYE,                      Continuous, ALL },
+    { ITEM_CONJURED_PUMPERNICKEL,             Continuous, ALL },
+    { ITEM_CONJURED_SOURDOUGH,                Continuous, ALL },
+    { ITEM_CONJURED_SWEET_ROLL,               Continuous, ALL },
+    { ITEM_CONJURED_CINNAMON_ROLL,            Continuous, ALL },
+
+    // weapon stones, oils
+    { ITEM_DENSE_WEIGHTSTONE,                 Continuous, WEAPON_USERS },
+    { ITEM_ELEMENTAL_SHARPENING_STONE,        Continuous, WEAPON_USERS },
+    { ITEM_BRILLIANT_MANA_OIL,                Continuous, CASTERS_HEALERS },
+    { ITEM_BRILLIANT_WIZARD_OIL,              Continuous, CASTERS },
+
+    // other
+    { ITEM_HEAVY_RUNECLOTH_BANDAGE,           Continuous, ALL },
+    { ITEM_AQUAL_QUINTESSENCE,                Continuous, ALL }
 };
 
 static std::vector<ItemProgressSet> CraftedItems = {
-    {ITEM_STRONGHOLD_GAUNTLETS, ItemAcquireMethod::OnDemand, // # 12639 - Stronghold Gauntlets
-    { CLASS_WARRIOR, CLASS_PALADIN }},
-    {ITEM_LIONHEART_HELM, ItemAcquireMethod::OnDemand, // # 12640 - Lionheart Helm
-    { CLASS_WARRIOR, CLASS_PALADIN }},
-    {ITEM_ARCANITE_REAPER, ItemAcquireMethod::OnDemand, // # 12784 - Arcanite Reaper
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_SHAMAN }},
-    {ITEM_GLOVES_OF_SPELL_MASTERY, ItemAcquireMethod::OnDemand, // # 14146 - Gloves of Spell Mastery
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_DRUID }},
-    {ITEM_ROBE_OF_THE_ARCHMAGE, ItemAcquireMethod::OnDemand, // # 14152 - Robe of the Archmage
-    { CLASS_MAGE }},
-    {ITEM_ROBE_OF_THE_VOID, ItemAcquireMethod::OnDemand, // # 14153 - Robe of the Void
-    { CLASS_WARLOCK }},
-    {ITEM_TRUEFAITH_VESTMENTS, ItemAcquireMethod::OnDemand, // # 14154 - Truefaith Vestments
-    { CLASS_PRIEST }},
-    {ITEM_BLACK_DRAGONSCALE_BREASTPLATE, ItemAcquireMethod::OnDemand, // # 15050 - Black Dragonscale Breastplate
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_SHAMAN }},
-    {ITEM_BLACK_DRAGONSCALE_SHOULDERS, ItemAcquireMethod::OnDemand, // # 15051 - Black Dragonscale Shoulders
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_SHAMAN }},
-    {ITEM_BLACK_DRAGONSCALE_LEGGINGS, ItemAcquireMethod::OnDemand, // # 15052 - Black Dragonscale Leggings
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_SHAMAN }},
-    {ITEM_DEVILSAUR_LEGGINGS, ItemAcquireMethod::OnDemand, // # 15062 - Devilsaur Leggings
-    { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_DEVILSAUR_GAUNTLETS, ItemAcquireMethod::OnDemand, // # 15063 - Devilsaur Gauntlets
-    { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_FLARECORE_MANTLE, ItemAcquireMethod::OnDemand, // # 16980 - Flarecore Mantle
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_BLACK_DRAGONSCALE_BOOTS, ItemAcquireMethod::OnDemand, // # 16984 - Black Dragonscale Boots
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_SHAMAN }},
-    {ITEM_DARK_IRON_LEGGINGS, ItemAcquireMethod::OnDemand, // # 17013 - Dark Iron Leggings
-    { CLASS_WARRIOR, CLASS_PALADIN }},
-    {ITEM_DARK_IRON_BRACERS, ItemAcquireMethod::OnDemand, // # 17014 - Dark Iron Bracers
-    { CLASS_WARRIOR, CLASS_PALADIN }},
-    {ITEM_FLARECORE_WRAPS, ItemAcquireMethod::OnDemand, // # 18263 - Flarecore Wraps
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_INFERNO_GLOVES, ItemAcquireMethod::OnDemand, // # 18408 - Inferno Gloves
-    { CLASS_MAGE, CLASS_WARLOCK }},
-    {ITEM_MOONCLOTH_ROBE, ItemAcquireMethod::OnDemand, // # 18486 - Mooncloth Robe
-    { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
-    {ITEM_CHROMATIC_CLOAK, ItemAcquireMethod::OnDemand, // # 18509 - Chromatic Cloak
-    { CLASS_MAGE, CLASS_WARLOCK }},
-    {ITEM_HIDE_OF_THE_WILD, ItemAcquireMethod::OnDemand, // # 18510 - Hide of the Wild
-    { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
-    {ITEM_SHIFTING_CLOAK, ItemAcquireMethod::OnDemand, // # 18511 - Shifting Cloak
-    { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID }},
-    {ITEM_GIRDLE_OF_THE_DAWN, ItemAcquireMethod::OnDemand, // # 19051 - Girdle of the Dawn
-    {}},
-    {ITEM_FLARECORE_ROBE, ItemAcquireMethod::OnDemand, // # 19156 - Flarecore Robe
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_FLARECORE_LEGGINGS, ItemAcquireMethod::OnDemand, // # 19165 - Flarecore Leggings
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_BLOODVINE_VEST, ItemAcquireMethod::OnDemand, // # 19682 - Bloodvine Vest
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST }},
-    {ITEM_BLOODVINE_LEGGINGS, ItemAcquireMethod::OnDemand, // # 19683 - Bloodvine Leggings
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST }},
-    {ITEM_BLOODVINE_BOOTS, ItemAcquireMethod::OnDemand, // # 19684 - Bloodvine Boots
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST }},
-    {ITEM_PRIMAL_BATSKIN_JERKIN, ItemAcquireMethod::OnDemand, // # 19685 - Primal Batskin Jerkin
-    { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_PRIMAL_BATSKIN_GLOVES, ItemAcquireMethod::OnDemand, // # 19686 - Primal Batskin Gloves
-    { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_PRIMAL_BATSKIN_BRACERS, ItemAcquireMethod::OnDemand, // # 19687 - Primal Batskin Bracers
-    { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_BLOOD_TIGER_BREASTPLATE, ItemAcquireMethod::OnDemand, // # 19688 - Blood Tiger Breastplate
-    { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }},
-    {ITEM_BLOOD_TIGER_SHOULDERS, ItemAcquireMethod::OnDemand, // # 19689 - Blood Tiger Shoulders
-    { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }}
+    // blacksmithing
+    { ITEM_STRONGHOLD_GAUNTLETS,              OnDemand,   PLATE },
+    { ITEM_LIONHEART_HELM,                    OnDemand,   PLATE },
+    { ITEM_DARK_IRON_LEGGINGS,                OnDemand,   PLATE },
+    { ITEM_DARK_IRON_BRACERS,                 OnDemand,   PLATE },
+    { ITEM_ARCANITE_REAPER,                   OnDemand,   MAIL },
+    { ITEM_GIRDLE_OF_THE_DAWN,                OnDemand,   ALL },
+
+    // leatherworking
+    { ITEM_BLACK_DRAGONSCALE_BREASTPLATE,     OnDemand,   MAIL },
+    { ITEM_BLACK_DRAGONSCALE_SHOULDERS,       OnDemand,   MAIL },
+    { ITEM_BLACK_DRAGONSCALE_LEGGINGS,        OnDemand,   MAIL },
+    { ITEM_BLACK_DRAGONSCALE_BOOTS,           OnDemand,   MAIL },
+    { ITEM_DEVILSAUR_LEGGINGS,                OnDemand,   LEATHER },
+    { ITEM_DEVILSAUR_GAUNTLETS,               OnDemand,   LEATHER },
+    { ITEM_PRIMAL_BATSKIN_JERKIN,             OnDemand,   LEATHER },
+    { ITEM_PRIMAL_BATSKIN_GLOVES,             OnDemand,   LEATHER },
+    { ITEM_PRIMAL_BATSKIN_BRACERS,            OnDemand,   LEATHER },
+    { ITEM_BLOOD_TIGER_BREASTPLATE,           OnDemand,   LEATHER },
+    { ITEM_BLOOD_TIGER_SHOULDERS,             OnDemand,   LEATHER },
+    { ITEM_SHIFTING_CLOAK,                    OnDemand,   { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID } },
+    { ITEM_HIDE_OF_THE_WILD,                  OnDemand,   HEALERS },
+    { ITEM_CHROMATIC_CLOAK,                   OnDemand,   { CLASS_MAGE, CLASS_WARLOCK } },
+
+    // tailoring
+    { ITEM_ROBE_OF_THE_ARCHMAGE,              OnDemand,   { CLASS_MAGE } },
+    { ITEM_ROBE_OF_THE_VOID,                  OnDemand,   { CLASS_WARLOCK } },
+    { ITEM_TRUEFAITH_VESTMENTS,               OnDemand,   { CLASS_PRIEST } },
+    { ITEM_GLOVES_OF_SPELL_MASTERY,           OnDemand,   { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_DRUID } },
+    { ITEM_INFERNO_GLOVES,                    OnDemand,   { CLASS_MAGE, CLASS_WARLOCK } },
+    { ITEM_FLARECORE_MANTLE,                  OnDemand,   CASTERS },
+    { ITEM_FLARECORE_WRAPS,                   OnDemand,   CASTERS },
+    { ITEM_FLARECORE_ROBE,                    OnDemand,   CASTERS },
+    { ITEM_FLARECORE_LEGGINGS,                OnDemand,   CASTERS },
+    { ITEM_MOONCLOTH_ROBE,                    OnDemand,   HEALERS },
+    { ITEM_BLOODVINE_VEST,                    OnDemand,   CLOTH },
+    { ITEM_BLOODVINE_LEGGINGS,                OnDemand,   CLOTH },
+    { ITEM_BLOODVINE_BOOTS,                   OnDemand,   CLOTH }
 };
 
 // every reward choice of a quest unlocks for the guild when one member rewards it, whichever one was picked
 static std::vector<ItemProgressSet> QuestItems = {
-// Signets of the Zandalar (Zul'Gurub)
-    {ITEM_ZANDALAR_SIGNET_OF_MOJO, ItemAcquireMethod::OnDemand, // # 20076 - Zandalar Signet of Mojo
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }, { QUEST_SIGNETS_OF_THE_ZANDALAR }},
-    {ITEM_ZANDALAR_SIGNET_OF_MIGHT, ItemAcquireMethod::OnDemand, // # 20077 - Zandalar Signet of Might
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }, { QUEST_SIGNETS_OF_THE_ZANDALAR }},
-    {ITEM_ZANDALAR_SIGNET_OF_SERENITY, ItemAcquireMethod::OnDemand, // # 20078 - Zandalar Signet of Serenity
-    { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }, { QUEST_SIGNETS_OF_THE_ZANDALAR }},
+    // Signets of the Zandalar (Zul'Gurub)
+    { ITEM_ZANDALAR_SIGNET_OF_MOJO,           OnDemand,   CASTERS, { QUEST_SIGNETS_OF_THE_ZANDALAR } },
+    { ITEM_ZANDALAR_SIGNET_OF_MIGHT,          OnDemand,   PHYSICAL, { QUEST_SIGNETS_OF_THE_ZANDALAR } },
+    { ITEM_ZANDALAR_SIGNET_OF_SERENITY,       OnDemand,   HEALERS, { QUEST_SIGNETS_OF_THE_ZANDALAR } },
 
-// In Dreams (Western Plaguelands)
-    {ITEM_MARK_OF_FORDRING, ItemAcquireMethod::OnDemand, // # 15411 - Mark of Fordring
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }, { QUEST_IN_DREAMS }},
-    {ITEM_ORNATE_ADAMANTIUM_BREASTPLATE, ItemAcquireMethod::OnDemand, // # 15413 - Ornate Adamantium Breastplate
-    { CLASS_WARRIOR, CLASS_PALADIN }, { QUEST_IN_DREAMS }},
-    {ITEM_SHIMMERING_PLATINUM_WARHAMMER, ItemAcquireMethod::OnDemand, // # 15418 - Shimmering Platinum Warhammer
-    {}, { QUEST_IN_DREAMS }},
-    {ITEM_SHROUD_OF_THE_EXILE, ItemAcquireMethod::OnDemand, // # 15421 - Shroud of the Exile
-    {}, { QUEST_IN_DREAMS }},
-    {ITEM_FORDRINGS_SEAL, ItemAcquireMethod::OnDemand, // # 16058 - Fordring's Seal
-    {}, { QUEST_IN_DREAMS }},
+    // In Dreams (Western Plaguelands)
+    { ITEM_MARK_OF_FORDRING,                  OnDemand,   PHYSICAL, { QUEST_IN_DREAMS } },
+    { ITEM_ORNATE_ADAMANTIUM_BREASTPLATE,     OnDemand,   PLATE, { QUEST_IN_DREAMS } },
+    { ITEM_SHIMMERING_PLATINUM_WARHAMMER,     OnDemand,   ALL, { QUEST_IN_DREAMS } },
+    { ITEM_SHROUD_OF_THE_EXILE,               OnDemand,   ALL, { QUEST_IN_DREAMS } },
+    { ITEM_FORDRINGS_SEAL,                    OnDemand,   ALL, { QUEST_IN_DREAMS } },
 
-// General Drakkisath's Demise / For The Horde! (Upper Blackrock Spire)
-    {ITEM_BLACKHANDS_BREADTH, ItemAcquireMethod::OnDemand, // # 13965 - Blackhand's Breadth
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }, { QUEST_GENERAL_DRAKKISATHS_DEMISE, QUEST_FOR_THE_HORDE }},
-    {ITEM_MARK_OF_TYRANNY, ItemAcquireMethod::OnDemand, // # 13966 - Mark of Tyranny
-    {}, { QUEST_GENERAL_DRAKKISATHS_DEMISE, QUEST_FOR_THE_HORDE }},
-    {ITEM_EYE_OF_THE_BEAST, ItemAcquireMethod::OnDemand, // # 13968 - Eye of the Beast
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }, { QUEST_GENERAL_DRAKKISATHS_DEMISE, QUEST_FOR_THE_HORDE }},
+    // General Drakkisath's Demise / For The Horde! (Upper Blackrock Spire)
+    { ITEM_BLACKHANDS_BREADTH,                OnDemand,   PHYSICAL, { QUEST_GENERAL_DRAKKISATHS_DEMISE, QUEST_FOR_THE_HORDE } },
+    { ITEM_MARK_OF_TYRANNY,                   OnDemand,   ALL, { QUEST_GENERAL_DRAKKISATHS_DEMISE, QUEST_FOR_THE_HORDE } },
+    { ITEM_EYE_OF_THE_BEAST,                  OnDemand,   CASTERS, { QUEST_GENERAL_DRAKKISATHS_DEMISE, QUEST_FOR_THE_HORDE } },
 
-// Onyxia attunement
-    {ITEM_DRAKEFIRE_AMULET, ItemAcquireMethod::OnDemand, // # 16309 - Drakefire Amulet
-    {}, { QUEST_DRAKEFIRE_AMULET, QUEST_BLOOD_OF_THE_BLACK_DRAGON_CHAMPION }},
+    // Onyxia attunement
+    { ITEM_DRAKEFIRE_AMULET,                  OnDemand,   ALL, { QUEST_DRAKEFIRE_AMULET, QUEST_BLOOD_OF_THE_BLACK_DRAGON_CHAMPION } },
 
-// Corruption of Earth and Seed (Maraudon)
-    {ITEM_THRASH_BLADE, ItemAcquireMethod::OnDemand, // # 17705 - Thrash Blade
-    { CLASS_WARRIOR, CLASS_ROGUE, CLASS_PALADIN, CLASS_HUNTER }, { QUEST_CORRUPTION_OF_EARTH_AND_SEED_H, QUEST_CORRUPTION_OF_EARTH_AND_SEED_A }},
-    {ITEM_RESURGENCE_ROD, ItemAcquireMethod::OnDemand, // # 17743 - Resurgence Rod
-    { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN, CLASS_MAGE, CLASS_WARLOCK }, { QUEST_CORRUPTION_OF_EARTH_AND_SEED_H, QUEST_CORRUPTION_OF_EARTH_AND_SEED_A }},
-    {ITEM_VERDANT_KEEPERS_AIM, ItemAcquireMethod::OnDemand, // # 17753 - Verdant Keeper's Aim
-    { CLASS_WARRIOR, CLASS_ROGUE, CLASS_HUNTER }, { QUEST_CORRUPTION_OF_EARTH_AND_SEED_H, QUEST_CORRUPTION_OF_EARTH_AND_SEED_A }},
+    // Corruption of Earth and Seed (Maraudon)
+    { ITEM_THRASH_BLADE,                      OnDemand,   { CLASS_WARRIOR, CLASS_ROGUE, CLASS_PALADIN, CLASS_HUNTER }, { QUEST_CORRUPTION_OF_EARTH_AND_SEED_H, QUEST_CORRUPTION_OF_EARTH_AND_SEED_A } },
+    { ITEM_RESURGENCE_ROD,                    OnDemand,   CASTERS_HEALERS, { QUEST_CORRUPTION_OF_EARTH_AND_SEED_H, QUEST_CORRUPTION_OF_EARTH_AND_SEED_A } },
+    { ITEM_VERDANT_KEEPERS_AIM,               OnDemand,   { CLASS_WARRIOR, CLASS_ROGUE, CLASS_HUNTER }, { QUEST_CORRUPTION_OF_EARTH_AND_SEED_H, QUEST_CORRUPTION_OF_EARTH_AND_SEED_A } },
 
-// Onyxia's head
-    {ITEM_DRAGONSLAYERS_SIGNET, ItemAcquireMethod::OnDemand, // # 18403 - Dragonslayer's Signet
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }, { QUEST_FOR_ALL_TO_SEE, QUEST_CELEBRATING_GOOD_TIMES }},
-    {ITEM_ONYXIA_TOOTH_PENDANT, ItemAcquireMethod::OnDemand, // # 18404 - Onyxia Tooth Pendant
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }, { QUEST_FOR_ALL_TO_SEE, QUEST_CELEBRATING_GOOD_TIMES }},
-    {ITEM_ONYXIA_BLOOD_TALISMAN, ItemAcquireMethod::OnDemand, // # 18406 - Onyxia Blood Talisman
-    { CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }, { QUEST_FOR_ALL_TO_SEE, QUEST_CELEBRATING_GOOD_TIMES }},
+    // Onyxia's head
+    { ITEM_DRAGONSLAYERS_SIGNET,              OnDemand,   CASTERS, { QUEST_FOR_ALL_TO_SEE, QUEST_CELEBRATING_GOOD_TIMES } },
+    { ITEM_ONYXIA_TOOTH_PENDANT,              OnDemand,   PHYSICAL, { QUEST_FOR_ALL_TO_SEE, QUEST_CELEBRATING_GOOD_TIMES } },
+    { ITEM_ONYXIA_BLOOD_TALISMAN,             OnDemand,   HEALERS, { QUEST_FOR_ALL_TO_SEE, QUEST_CELEBRATING_GOOD_TIMES } },
 
-// Nefarian's head (The Lord of Blackrock)
-    {ITEM_MASTER_DRAGONSLAYERS_ORB, ItemAcquireMethod::OnDemand, // # 19366 - Master Dragonslayer's Orb
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID }, { QUEST_LORD_OF_BLACKROCK_H, QUEST_LORD_OF_BLACKROCK_A }},
-    {ITEM_MASTER_DRAGONSLAYERS_MEDALLION, ItemAcquireMethod::OnDemand, // # 19383 - Master Dragonslayer's Medallion
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID }, { QUEST_LORD_OF_BLACKROCK_H, QUEST_LORD_OF_BLACKROCK_A }},
-    {ITEM_MASTER_DRAGONSLAYERS_RING, ItemAcquireMethod::OnDemand, // # 19384 - Master Dragonslayer's Ring
-    { CLASS_WARRIOR, CLASS_PALADIN, CLASS_HUNTER, CLASS_ROGUE, CLASS_DRUID, CLASS_SHAMAN }, { QUEST_LORD_OF_BLACKROCK_H, QUEST_LORD_OF_BLACKROCK_A }},
+    // Nefarian's head (The Lord of Blackrock)
+    { ITEM_MASTER_DRAGONSLAYERS_ORB,          OnDemand,   CASTERS, { QUEST_LORD_OF_BLACKROCK_H, QUEST_LORD_OF_BLACKROCK_A } },
+    { ITEM_MASTER_DRAGONSLAYERS_MEDALLION,    OnDemand,   TANKS, { QUEST_LORD_OF_BLACKROCK_H, QUEST_LORD_OF_BLACKROCK_A } },
+    { ITEM_MASTER_DRAGONSLAYERS_RING,         OnDemand,   PHYSICAL, { QUEST_LORD_OF_BLACKROCK_H, QUEST_LORD_OF_BLACKROCK_A } },
 
-// Ossirian's head (The Fall of Ossirian)
-    {ITEM_CHARM_OF_THE_SHIFTING_SANDS, ItemAcquireMethod::OnDemand, // # 21504 - Charm of the Shifting Sands
-    {}, { QUEST_FALL_OF_OSSIRIAN }},
-    {ITEM_CHOKER_OF_THE_SHIFTING_SANDS, ItemAcquireMethod::OnDemand, // # 21505 - Choker of the Shifting Sands
-    {}, { QUEST_FALL_OF_OSSIRIAN }},
-    {ITEM_PENDANT_OF_THE_SHIFTING_SANDS, ItemAcquireMethod::OnDemand, // # 21506 - Pendant of the Shifting Sands
-    {}, { QUEST_FALL_OF_OSSIRIAN }},
-    {ITEM_AMULET_OF_THE_SHIFTING_SANDS, ItemAcquireMethod::OnDemand, // # 21507 - Amulet of the Shifting Sands
-    {}, { QUEST_FALL_OF_OSSIRIAN }},
+    // Ossirian's head (The Fall of Ossirian)
+    { ITEM_CHARM_OF_THE_SHIFTING_SANDS,       OnDemand,   ALL, { QUEST_FALL_OF_OSSIRIAN } },
+    { ITEM_CHOKER_OF_THE_SHIFTING_SANDS,      OnDemand,   ALL, { QUEST_FALL_OF_OSSIRIAN } },
+    { ITEM_PENDANT_OF_THE_SHIFTING_SANDS,     OnDemand,   ALL, { QUEST_FALL_OF_OSSIRIAN } },
+    { ITEM_AMULET_OF_THE_SHIFTING_SANDS,      OnDemand,   ALL, { QUEST_FALL_OF_OSSIRIAN } },
 
-// C'Thun's eye (The Savior of Kalimdor)
-    {ITEM_RING_OF_THE_FALLEN_GOD, ItemAcquireMethod::OnDemand, // # 21709 - Ring of the Fallen God
-    {}, { QUEST_SAVIOR_OF_KALIMDOR }},
-    {ITEM_CLOAK_OF_THE_FALLEN_GOD, ItemAcquireMethod::OnDemand, // # 21710 - Cloak of the Fallen God
-    {}, { QUEST_SAVIOR_OF_KALIMDOR }},
-    {ITEM_AMULET_OF_THE_FALLEN_GOD, ItemAcquireMethod::OnDemand, // # 21712 - Amulet of the Fallen God
-    {}, { QUEST_SAVIOR_OF_KALIMDOR }}
+    // C'Thun's eye (The Savior of Kalimdor)
+    { ITEM_RING_OF_THE_FALLEN_GOD,            OnDemand,   ALL, { QUEST_SAVIOR_OF_KALIMDOR } },
+    { ITEM_CLOAK_OF_THE_FALLEN_GOD,           OnDemand,   ALL, { QUEST_SAVIOR_OF_KALIMDOR } },
+    { ITEM_AMULET_OF_THE_FALLEN_GOD,          OnDemand,   ALL, { QUEST_SAVIOR_OF_KALIMDOR } }
+};
+
+// mage conjured food / water, lowest rank first, with the level the rank needs to be eaten / drunk
+struct ConjuredRank
+{
+    uint32 itemId;
+    uint32 level;
+};
+
+static const std::vector<std::vector<ConjuredRank>> ConjuredRanks = {
+    {
+        { ITEM_CONJURED_WATER, 1 },
+        { ITEM_CONJURED_FRESH_WATER, 5 },
+        { ITEM_CONJURED_PURIFIED_WATER, 15 },
+        { ITEM_CONJURED_SPRING_WATER, 25 },
+        { ITEM_CONJURED_MINERAL_WATER, 35 },
+        { ITEM_CONJURED_SPARKLING_WATER, 45 },
+        { ITEM_CONJURED_CRYSTAL_WATER, 55 }
+    },
+    {
+        { ITEM_CONJURED_MUFFIN, 1 },
+        { ITEM_CONJURED_BREAD, 5 },
+        { ITEM_CONJURED_RYE, 15 },
+        { ITEM_CONJURED_PUMPERNICKEL, 25 },
+        { ITEM_CONJURED_SOURDOUGH, 35 },
+        { ITEM_CONJURED_SWEET_ROLL, 45 },
+        { ITEM_CONJURED_CINNAMON_ROLL, 55 }
+    }
 };
 
 // addon tab codes: C consumables, R crafted, Q quest
@@ -349,26 +292,16 @@ static const std::vector<std::pair<const std::vector<ItemProgressSet>*, char>> I
 };
 
 static std::vector<AuraProgressSet> approvedBuffs = {
-    {10767, // # 10767 - Rising Spirit (Agamaggan)}
-    { CLASS_MAGE, CLASS_WARLOCK, CLASS_PRIEST, CLASS_SHAMAN, CLASS_DRUID, CLASS_PALADIN }},
-    {15123, // # 15123 - Resist Fire
-    {}},
-    {15366, // # 15366 - Songflower Serenade
-    {}},
-    {16609, // # 16609 - Warchief Blessing
-    {}},
-    {16610, // # 16610 - Razorhide (Agamaggan)
-    { CLASS_WARRIOR, CLASS_DRUID }},
-    {16612, // # 16612 - Agamaggan's Strength (Agamaggan)
-    { CLASS_WARRIOR, CLASS_DRUID, CLASS_ROGUE, CLASS_SHAMAN, CLASS_PALADIN, CLASS_HUNTER }},
-    {16618, // # 16618 - Spirit of the Wind (Agamaggan)
-    {}},
-    {17013, // # 17013 - Agamaggan's Agility (Agamaggan)
-    { CLASS_WARRIOR, CLASS_DRUID, CLASS_ROGUE, CLASS_SHAMAN, CLASS_PALADIN, CLASS_HUNTER }},
-    {22888, // # 22888 - Rallying Cry of the Dragonslayer
-    {}},
-    {24425, // # 24425 - Spirit of Zandalar
-    {}}
+    { 10767, CASTERS_HEALERS },                     // Rising Spirit (Agamaggan)
+    { 15123, ALL },                                 // Resist Fire
+    { 15366, ALL },                                 // Songflower Serenade
+    { 16609, ALL },                                 // Warchief's Blessing
+    { 16610, { CLASS_WARRIOR, CLASS_DRUID } },      // Razorhide (Agamaggan)
+    { 16612, PHYSICAL },                            // Agamaggan's Strength (Agamaggan)
+    { 16618, ALL },                                 // Spirit of the Wind (Agamaggan)
+    { 17013, PHYSICAL },                            // Agamaggan's Agility (Agamaggan)
+    { 22888, ALL },                                 // Rallying Cry of the Dragonslayer
+    { 24425, ALL }                                  // Spirit of Zandalar
 };
 
 
@@ -456,6 +389,30 @@ static bool IsItemViable(uint32 itemId, const std::vector<uint32>& fullSet)
 
         case ITEM_GREAT_RAGE_POTION:
             return std::find(fullSet.begin(), fullSet.end(), ITEM_MIGHTY_RAGE_POTION) == fullSet.end();
+    }
+
+    return true;
+}
+
+// a conjured food / water rank is given only when it is the highest unlocked rank the player's level can use
+static bool IsBestConjuredRank(uint32 itemId, const std::vector<uint32>& unlocked, uint32 level)
+{
+    for (const std::vector<ConjuredRank>& ranks : ConjuredRanks)
+    {
+        if (std::none_of(ranks.begin(), ranks.end(), [&](const ConjuredRank& rank) { return rank.itemId == itemId; }))
+        {
+            continue;
+        }
+
+        for (auto rank = ranks.rbegin(); rank != ranks.rend(); ++rank)
+        {
+            if (rank->level <= level && std::find(unlocked.begin(), unlocked.end(), rank->itemId) != unlocked.end())
+            {
+                return rank->itemId == itemId;
+            }
+        }
+
+        return false;
     }
 
     return true;
@@ -774,8 +731,14 @@ void GuildProgressSubsystem::ApplyGuildProgress(Player* player)
         }
     }
 
-    for (uint32 itemId : GetGuildItemsForClass(guildId, classId))
+    std::vector<uint32> items = GetGuildItemsForClass(guildId, classId);
+    for (uint32 itemId : items)
     {
+        if (!IsBestConjuredRank(itemId, items, player->GetLevel()))
+        {
+            continue;
+        }
+
         if (player->GetItemByEntry(itemId) == nullptr)
         {
             player->StoreNewItemInBestSlots(itemId, 1);
