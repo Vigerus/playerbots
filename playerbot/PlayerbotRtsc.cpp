@@ -249,7 +249,7 @@ void PlayerbotRtsc::MoveTo(PlayerbotAI* ai, Player* requester, const WorldPositi
     if (bot->IsSitState())
         bot->SetStandState(UNIT_STAND_STATE_STAND);
     // outside dungeon stages (inside them the saved stage point is the Position Yourself goal's): the path comes from the
-    // PathfindingWorker, the bot's movement yields to it and the Follow Master goal takes over again once it is over
+    // PathfindingWorker, the bot's movement yields to it and the Follow Leader goal takes over again once it is over
     bot->GetMotionMaster()->MovePointAsync(0, position.getX(), position.getY(), position.getZ(), FORCED_MOVEMENT_RUN);
 }
 

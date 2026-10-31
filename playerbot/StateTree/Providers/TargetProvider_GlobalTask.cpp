@@ -115,7 +115,9 @@ bool TargetProvider_GlobalTask::IsValidTarget(const STAI_TaskContext& context, U
     Player* bot = context.bot;
     if (!unit || !sServerFacade.IsAlive(unit) || !IsOnSameMap(unit, bot))
         return false;
-    if (!sServerFacade.IsHostileTo(bot, unit) || !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance))
+    // a neutral creature the bot or its group pulled fights them without turning hostile
+    const bool fightsTeam = bot->CanAttack(unit) && context.ai->GetTeamAttackers().count(unit->GetObjectGuid());
+    if ((!sServerFacade.IsHostileTo(bot, unit) && !fightsTeam) || !bot->IsWithinDistInMap(unit, sPlayerbotAIConfig.sightDistance))
         return false;
     if (STAI_HasBreakableCC(unit, bot) || STAI_HasUnBreakableCC(unit, bot))
         return false;

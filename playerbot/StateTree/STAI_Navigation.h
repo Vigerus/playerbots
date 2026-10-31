@@ -6,7 +6,7 @@
 
 namespace ai
 {
-    // a spot on a map, as a task property (MasterDistance_GlobalTask::location, Task_MakePath::location); unset
+    // a spot on a map, as a task property (LeaderProvider_GlobalTask::location, Task_MakePath::location); unset
     // while !valid
     struct STAI_Location
     {

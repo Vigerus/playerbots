@@ -15,7 +15,10 @@
 #include "playerbot/StateTree/Providers/InstanceProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/InterruptProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/UIInteractionProvider_GlobalTask.h"
-#include "playerbot/StateTree/Providers/MasterDistance_GlobalTask.h"
+#include "playerbot/StateTree/Providers/LeaderProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/HuntProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/LootProvider_GlobalTask.h"
+#include "playerbot/StateTree/Tasks/Task_Loot.h"
 #include "playerbot/StateTree/Providers/MeleeProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/MovementGoal_GlobalTask.h"
 #include "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h"
@@ -62,7 +65,10 @@ namespace ai
         factory.RegisterTask("Task_RunSubtree", { &Task_RunSubtree::Validate, &Task_RunSubtree::Create });
         factory.RegisterTask("BuffProvider_GlobalTask", { &BuffProvider_GlobalTask::Validate, &BuffProvider_GlobalTask::Create });
         factory.RegisterTask("Task_CastBuff", { &Task_CastBuff::Validate, &Task_CastBuff::Create });
-        factory.RegisterTask("MasterDistance_GlobalTask", { &MasterDistance_GlobalTask::Validate, &MasterDistance_GlobalTask::Create });
+        factory.RegisterTask("LeaderProvider_GlobalTask", { &LeaderProvider_GlobalTask::Validate, &LeaderProvider_GlobalTask::Create });
+        factory.RegisterTask("HuntProvider_GlobalTask", { &HuntProvider_GlobalTask::Validate, &HuntProvider_GlobalTask::Create });
+        factory.RegisterTask("LootProvider_GlobalTask", { &LootProvider_GlobalTask::Validate, &LootProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_Loot", { &Task_Loot::Validate, &Task_Loot::Create });
         factory.RegisterTask("CurseProvider_GlobalTask", { &CurseProvider_GlobalTask::Validate, &CurseProvider_GlobalTask::Create });
         factory.RegisterTask("DispelProvider_GlobalTask", { &DispelProvider_GlobalTask::Validate, &DispelProvider_GlobalTask::Create });
         factory.RegisterTask("Task_CastSpell", { &Task_CastSpell::Validate, &Task_CastSpell::Create });

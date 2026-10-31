@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="2">
+<StateTree version="3">
   <Comment>NonCombat subtree for Warlock bots outside dungeons (run by STAI_NonCombat_Warlock.xml)</Comment>
   <GlobalTasks>
     <Task class="InstanceProvider_GlobalTask">
       <Comment>the rooms (InstanceSubsystem stages) of the bot and its master: stage, masterStage, masterStageCleared,
         pathBlocked, stagePosition, stagePositionFar, onStageBlocked, onStageCleared, onStagePositionFar</Comment>
     </Task>
-    <Task class="MasterDistance_GlobalTask">
-      <Comment>fires onMasterFar while the master is beyond follow range</Comment>
+    <Task class="LeaderProvider_GlobalTask">
+      <Comment>the player the bot follows in its group (its master while in the group, else the group leader, a human or a bot;
+        none while solo): leader, leaderFar, location, onLeaderFar while it is beyond follow range</Comment>
       <Range value="follow"/>
     </Task>
     <Task class="HealthProvider_GlobalTask">
@@ -25,12 +26,12 @@
         <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
       </Conditions>
     </Task>
-    <Task class="MovementGoal_GlobalTask" name="Follow Master" priority="10" kind="location">
-      <Comment>after the master (a path across dungeon portals), reached within follow range: not while the master is in a
+    <Task class="MovementGoal_GlobalTask" name="Follow Leader" priority="10" kind="location">
+      <Comment>after the leader (a path across dungeon portals), reached within follow range; solo bots have no leader: not while the master is in a
         room that is not cleared or between rooms, not through such a room, not with a point for the bot in the master's
         room</Comment>
       <Radius value="follow"/>
-      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
+      <Binding local="location" external="Root|LeaderProvider_GlobalTask::location"/>
       <Conditions>
         <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/>
         <Condition class="Condition_Compare" binding="Root|InstanceProvider_GlobalTask::pathBlocked" inverted="true"/>
@@ -45,7 +46,7 @@
         <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
         <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
       </Any>
-      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Follow Master]::movement" compare="equal" value="reached"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Follow Leader]::movement" compare="equal" value="reached"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_EatAndDrink">
@@ -54,7 +55,7 @@
       </Task>
     </Tasks>
     <Transitions>
-      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Leader]::onMovementChanged" target="Root"/>
     </Transitions>
   </State>
   <State name="Idle">
@@ -75,7 +76,7 @@
           <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
         </Conditions>
       </Transition>
-      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Leader]::onMovementChanged" target="Root"/>
     </Transitions>
   </State>
 </StateTree>

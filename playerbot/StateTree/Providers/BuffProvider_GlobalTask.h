@@ -40,10 +40,15 @@ namespace ai
     //       <Buff spellid="1459"/>                 Arcane Intellect, any rank of the spell (the bot casts its highest)
     //       <Buff spellid="23028"/>                Arcane Brilliance: same aura as Arcane Intellect, so the same buff
     //       <Buff spellid="6117" scope="self"/>    scope optional: self, single or group (default: from the spell)
+    //       <Buff spellid="6117" group="armor"/>   Mage Armor, else Ice Armor, else Frost Armor: one buff
+    //       <Buff spellid="7302" group="armor"/>
+    //       <Buff spellid="168" group="armor"/>
     //     </Task>
     //   </Global>
     // Spells applying the same aura (type and misc value of their first aura effect) are one buff: a member has
-    // it when any rank of any of them is on it. Self spells are only checked on the bot. Otherwise a group spell is
+    // it when any rank of any of them is on it. Spells with the same group="..." are one buff whatever their auras
+    // (armors replacing each other): the first of them the bot knows is cast, and a self buff of a group counts only
+    // with that spell's aura, so a better armor learned replaces the old one. Self spells are only checked on the bot. Otherwise a group spell is
     // cast when 2+ members of a subgroup miss the buff, a single target spell on a member missing it alone (a group
     // spell when the bot knows no single target one).
     class BuffProvider_GlobalTask : public STAI_DataProviderBase, public ISTAI_DebugSpells
@@ -60,6 +65,7 @@ namespace ai
         {
             uint32 auraType = 0;
             int32 miscValue = 0;
+            std::string group;      // named by group="...": its spells replace each other, the first known is the one to have
             std::vector<BuffSpell> spells;
         };
 
@@ -92,6 +98,8 @@ namespace ai
     private:
         static std::vector<Buff> ParseBuffs(const STAI_TaskConfig& config);
         static bool HasBuff(const Unit* unit, const Buff& buff);
+        // the unit has an aura of any rank of the spell
+        static bool HasRankOf(const Unit* unit, uint32 firstSpellId);
         // highest rank of the spell the bot knows, 0 when none
         static uint32 GetKnownRank(const Player* bot, uint32 firstSpellId);
 

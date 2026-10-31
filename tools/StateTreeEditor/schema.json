@@ -20,9 +20,9 @@
       "delegates": [
         "onMissingBuff"
       ],
-      "description": "global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any ...",
-      "doc": "global task, not ticked: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem); property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any; spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance)",
-      "settingsHelp": "`<Buff spellid=\"...\" scope=\"self|single|group\"/>` per spell (any rank; scope optional, read from the spell's targets)",
+      "description": "global task: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem), and while buffs are missing evaluates again every 5s ...",
+      "doc": "global task: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem), and while buffs are missing evaluates again every 5s; property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any (again on every 5s evaluation, so a missed or failed one comes back); spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance)",
+      "settingsHelp": "`<Buff spellid=\"...\" scope=\"self|single|group\" group=\"...\"/>` per spell (any rank; scope optional, read from the spell's targets; group optional: spells with the same group are one buff whatever their auras, the first one the bot knows is cast and a self buff counts only with that spell, so a better armor learned replaces the old one)",
       "taskAttributes": {},
       "settings": {
         "Buff": {
@@ -30,13 +30,18 @@
             "spellid": {
               "examples": [
                 "1459",
-                "23028",
                 "6117",
+                "7302",
+                "168",
+                "23028",
                 "1243",
                 "21562",
-                "14752",
-                "976",
-                "27683"
+                "14752"
+              ]
+            },
+            "group": {
+              "examples": [
+                "armor"
               ]
             },
             "scope": {
@@ -54,7 +59,7 @@
           "seen": true
         }
       },
-      "uses": 8
+      "uses": 9
     },
     "CCProvider_GlobalTask": {
       "cppClass": "CCProvider_GlobalTask",
@@ -120,13 +125,13 @@
             "id": {
               "examples": [
                 "12051",
+                "118",
+                "475",
                 "11958",
                 "586",
                 "12294",
                 "7384",
-                "12292",
-                "100",
-                "2687"
+                "12292"
               ]
             }
           },
@@ -134,7 +139,7 @@
           "seen": true
         }
       },
-      "uses": 7
+      "uses": 10
     },
     "CorpseProvider_GlobalTask": {
       "cppClass": "CorpseProvider_GlobalTask",
@@ -328,7 +333,7 @@
           "seen": false
         }
       },
-      "uses": 4
+      "uses": 5
     },
     "DispelProvider_GlobalTask": {
       "cppClass": "DispelProvider_GlobalTask",
@@ -533,7 +538,7 @@
           "seen": true
         }
       },
-      "uses": 10
+      "uses": 9
     },
     "HealProvider_GlobalTask": {
       "cppClass": "HealProvider_GlobalTask",
@@ -729,6 +734,106 @@
       "settings": {},
       "uses": 24
     },
+    "HuntProvider_GlobalTask": {
+      "cppClass": "HuntProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/HuntProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "pullTarget",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "candidates",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "huntLocation",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onPullTarget"
+      ],
+      "description": "global task of the solo trees, ticked (every 500ms, the hunt location every 5s): property `pullTarget` (the closest living creature within `Range` the bot may attack ...",
+      "doc": "global task of the solo trees, ticked (every 500ms, the hunt location every 5s): property `pullTarget` (the closest living creature within `Range` the bot may attack: of a level from `below` under to `above` over the bot's, not fighting, not tapped by others, no elite unless allowed, no pet, critter, civilian or npc with a service, in sight, and no other aggressive creature that is not fighting within `SafeRadius` of it; kept while valid, at most 30s, then ignored for 5 minutes), `candidates`, `huntLocation` (without a `pullTarget`: the closest spawn point of such creatures beyond `Range` and within `HuntRange`, from the creature table; a reached one is not chosen again for 10 minutes); delegate `onPullTarget`",
+      "settingsHelp": "`<Range value=\"50\"/>` (yards), `<Levels below=\"5\" above=\"1\"/>`, `<Elite value=\"false\"/>`, `<SafeRadius value=\"12\"/>` (yards), `<HuntRange value=\"400\"/>` (yards)",
+      "taskAttributes": {},
+      "settings": {
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "50"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Levels": {
+          "attributes": {
+            "below": {
+              "examples": [
+                "5"
+              ]
+            },
+            "above": {
+              "examples": [
+                "1"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "SafeRadius": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "12"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "HuntRange": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "400"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Elite": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "false"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": false
+        }
+      },
+      "uses": 1
+    },
     "InstanceProvider_GlobalTask": {
       "cppClass": "InstanceProvider_GlobalTask",
       "global": true,
@@ -871,7 +976,7 @@
       "settingsHelp": "",
       "taskAttributes": {},
       "settings": {},
-      "uses": 38
+      "uses": 37
     },
     "InterruptProvider_GlobalTask": {
       "cppClass": "InterruptProvider_GlobalTask",
@@ -938,6 +1043,118 @@
       },
       "uses": 5
     },
+    "LeaderProvider_GlobalTask": {
+      "cppClass": "LeaderProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/LeaderProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "leader",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "hasLeader",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "leaderIsMaster",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "leaderFar",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "location",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onLeaderFar",
+        "onLeaderChanged"
+      ],
+      "description": "global task: the player the bot follows, a human or a bot alike, only in a group: the bot's master while the master is in the bot's group (the master has the higher authority), else the group leader ...",
+      "doc": "global task: the player the bot follows, a human or a bot alike, only in a group: the bot's master while the master is in the bot's group (the master has the higher authority), else the group leader; none while the bot is solo or leads the group. Property `leader` (a guid), `hasLeader`, `leaderIsMaster`, `leaderFar` (a living leader on another map or instance is always far), `location` (where the leader is, for a `location` movement goal); delegates `onLeaderFar` fired every update while the leader is beyond the range, `onLeaderChanged`",
+      "settingsHelp": "`<Range value=\"follow\"/>` (yards or a range name, default `follow`)",
+      "taskAttributes": {},
+      "settings": {
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "follow"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 20
+    },
+    "LootProvider_GlobalTask": {
+      "cppClass": "LootProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/LootProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "lootTarget",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "count",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onLootable"
+      ],
+      "description": "global task, ticked (every 500ms): property `lootTarget` (the closest corpse in range the bot may loot: its or its group's, something left for it; one not looted within 30s is ignored), `count`; delegate `onLootable`",
+      "doc": "global task, ticked (every 500ms): property `lootTarget` (the closest corpse in range the bot may loot: its or its group's, something left for it; one not looted within 30s is ignored), `count`; delegate `onLootable`",
+      "settingsHelp": "`<Range value=\"30\"/>` (yards)",
+      "taskAttributes": {},
+      "settings": {
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "30"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 1
+    },
     "ManaProvider_GlobalTask": {
       "cppClass": "ManaProvider_GlobalTask",
       "global": true,
@@ -962,50 +1179,6 @@
       "taskAttributes": {},
       "settings": {},
       "uses": 29
-    },
-    "MasterDistance_GlobalTask": {
-      "cppClass": "MasterDistance_GlobalTask",
-      "global": true,
-      "header": "playerbot/StateTree/Providers/MasterDistance_GlobalTask.h",
-      "base": "STAI_DataProviderBase",
-      "properties": [
-        {
-          "name": "masterFar",
-          "type": "bool",
-          "traits": [
-            "number",
-            "testable"
-          ]
-        },
-        {
-          "name": "location",
-          "type": "STAI_Location",
-          "traits": [
-            "testable"
-          ]
-        }
-      ],
-      "delegates": [
-        "onMasterFar"
-      ],
-      "description": "global task: property `masterFar` (a living master on another map or instance is always far), property `location` (where the master is, for a `location` movement goal) ...",
-      "doc": "global task: property `masterFar` (a living master on another map or instance is always far), property `location` (where the master is, for a `location` movement goal), delegate `onMasterFar` fired every update while the master is beyond the range",
-      "settingsHelp": "`<Range value=\"follow\"/>` (yards or a range name, default `follow`)",
-      "taskAttributes": {},
-      "settings": {
-        "Range": {
-          "attributes": {
-            "value": {
-              "examples": [
-                "follow"
-              ]
-            }
-          },
-          "repeat": false,
-          "seen": true
-        }
-      },
-      "uses": 20
     },
     "MeleeProvider_GlobalTask": {
       "cppClass": "MeleeProvider_GlobalTask",
@@ -1250,20 +1423,20 @@
       "taskAttributes": {
         "priority": {
           "examples": [
-            "100",
             "10",
+            "100",
             "35",
             "40",
             "45",
             "70",
-            "60",
-            "50"
+            "34",
+            "32"
           ]
         },
         "kind": {
           "examples": [
-            "position",
             "location",
+            "position",
             "range"
           ],
           "options": [
@@ -1284,8 +1457,8 @@
           "attributes": {
             "value": {
               "examples": [
-                "1",
                 "10",
+                "1",
                 "2",
                 "follow"
               ]
@@ -1300,6 +1473,7 @@
               "examples": [
                 "spell",
                 "8",
+                "3",
                 "35",
                 "25",
                 "melee"
@@ -1626,7 +1800,7 @@
       "settingsHelp": "",
       "taskAttributes": {},
       "settings": {},
-      "uses": 10
+      "uses": 9
     },
     "Task_AcceptResurrection": {
       "cppClass": "Task_AcceptResurrection",
@@ -1640,7 +1814,7 @@
       "settingsHelp": "",
       "taskAttributes": {},
       "settings": {},
-      "uses": 10
+      "uses": 9
     },
     "Task_AcceptTrade": {
       "cppClass": "Task_AcceptTrade",
@@ -1654,7 +1828,7 @@
       "settingsHelp": "",
       "taskAttributes": {},
       "settings": {},
-      "uses": 10
+      "uses": 9
     },
     "Task_CastBuff": {
       "cppClass": "Task_CastBuff",
@@ -1677,7 +1851,7 @@
       "settingsHelp": "`<Binding local=\"needs\" external=\"Root|BuffProvider_GlobalTask::needs\"/>`",
       "taskAttributes": {},
       "settings": {},
-      "uses": 8
+      "uses": 9
     },
     "Task_CastSpell": {
       "cppClass": "Task_CastSpell",
@@ -1740,6 +1914,20 @@
           "repeat": false,
           "seen": true
         },
+        "Fallback": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "Fireball",
+                "Heal",
+                "Lesser Heal",
+                "Cure Disease"
+              ]
+            }
+          },
+          "repeat": true,
+          "seen": true
+        },
         "SkipAura": {
           "attributes": {
             "spellid": {
@@ -1755,22 +1943,9 @@
           },
           "repeat": false,
           "seen": true
-        },
-        "Fallback": {
-          "attributes": {
-            "spellid": {
-              "examples": [
-                "Heal",
-                "Lesser Heal",
-                "Cure Disease"
-              ]
-            }
-          },
-          "repeat": true,
-          "seen": true
         }
       },
-      "uses": 90
+      "uses": 92
     },
     "Task_CastTotem": {
       "cppClass": "Task_CastTotem",
@@ -1802,8 +1977,8 @@
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
-      "description": "one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or with the item cheat the spell of the conjured food / drink of the bot's level) ...",
-      "doc": "one meal: eats (everyone) and drinks (mana users) in parallel (a food / drink item of the bags, or with the item cheat the spell of the conjured food / drink of the bot's level); a food / drink that ends before its target is followed by the next one; Succeeded when both targets are reached or nothing is left to eat or drink after the bot ate or drank, Failed when nothing could be started within 3s; `OnExitState` stands the bot up",
+      "description": "one meal: eats (everyone) and drinks (mana users) in parallel (the best food / drink item of the bags; never the item cheat); a food / drink that ends before its target is followed by the next one ...",
+      "doc": "one meal: eats (everyone) and drinks (mana users) in parallel (the best food / drink item of the bags; never the item cheat); a food / drink that ends before its target is followed by the next one; Succeeded when both targets are reached or nothing is left to eat or drink after the bot ate or drank, Failed when nothing could be started within 3s; `OnExitState` stands the bot up",
       "settingsHelp": "`<Health until=\"100\"/>`, `<Mana until=\"100\"/>` (percent, default 100)",
       "taskAttributes": {},
       "settings": {
@@ -1832,6 +2007,28 @@
       },
       "uses": 20
     },
+    "Task_Loot": {
+      "cppClass": "Task_Loot",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_Loot.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "loots the corpse as the client does: opens it (`CMSG_LOOT`), takes the money and every item it may take while the bags have room, closes it; not tickable, Succeeded once opened, Failed when it cannot be opened (gone, too far, no right)",
+      "doc": "loots the corpse as the client does: opens it (`CMSG_LOOT`), takes the money and every item it may take while the bags have room, closes it; not tickable, Succeeded once opened, Failed when it cannot be opened (gone, too far, no right)",
+      "settingsHelp": "`<Binding local=\"target\" external=\"Root|LootProvider_GlobalTask::lootTarget\"/>`",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 1
+    },
     "Task_OpenTrade": {
       "cppClass": "Task_OpenTrade",
       "global": false,
@@ -1844,7 +2041,7 @@
       "settingsHelp": "",
       "taskAttributes": {},
       "settings": {},
-      "uses": 10
+      "uses": 9
     },
     "Task_ReclaimCorpse": {
       "cppClass": "Task_ReclaimCorpse",
@@ -1858,7 +2055,7 @@
       "settingsHelp": "",
       "taskAttributes": {},
       "settings": {},
-      "uses": 10
+      "uses": 9
     },
     "Task_ReleaseSpirit": {
       "cppClass": "Task_ReleaseSpirit",
@@ -1895,7 +2092,7 @@
       "settingsHelp": "`<Binding local=\"rolls\" external=\"Root|UIInteractionProvider_GlobalTask::rolls\"/>`",
       "taskAttributes": {},
       "settings": {},
-      "uses": 10
+      "uses": 9
     },
     "Task_RunSubtree": {
       "cppClass": "Task_RunSubtree",
@@ -1928,7 +2125,7 @@
           "seen": true
         }
       },
-      "uses": 38
+      "uses": 40
     },
     "Task_SelfResurrect": {
       "cppClass": "Task_SelfResurrect",
@@ -2100,6 +2297,7 @@
                 "1000",
                 "1",
                 "100",
+                "10000",
                 "200"
               ]
             },
@@ -2113,7 +2311,7 @@
           "seen": true
         }
       },
-      "uses": 59
+      "uses": 62
     },
     "TeamProvider_GlobalTask": {
       "cppClass": "TeamProvider_GlobalTask",
@@ -2342,7 +2540,7 @@
       "settingsHelp": "",
       "taskAttributes": {},
       "settings": {},
-      "uses": 10
+      "uses": 9
     },
     "WarriorProvider_GlobalTask": {
       "cppClass": "WarriorProvider_GlobalTask",

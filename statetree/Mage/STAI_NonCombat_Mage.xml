@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="2">
+<StateTree version="4">
   <Comment>NonCombat state tree for Mage bots: AiPlayerbot.StateTree.NonCombat.Mage
-    picks the subtree for the bot's map; an instance change selects again</Comment>
+    picks the subtree for the bot's map and leader: in a group it follows its leader, on its own it levels by itself;
+    an instance or leader change selects again</Comment>
   <GlobalTasks>
     <Task class="InstanceProvider_GlobalTask">
       <Comment>the bot's map / instance: mapId, instanceId, inDungeon, onInstanceChanged</Comment>
+    </Task>
+    <Task class="LeaderProvider_GlobalTask">
+      <Comment>whether the bot has a leader to follow (only in a group): hasLeader, onLeaderChanged</Comment>
     </Task>
   </GlobalTasks>
   <State name="Dungeon">
@@ -21,6 +25,10 @@
     </Transitions>
   </State>
   <State name="Outdoors">
+    <Comment>with a leader: follows it (the Follow Leader goal)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|LeaderProvider_GlobalTask::hasLeader"/>
+    </EnterConditions>
     <Tasks>
       <Task class="Task_RunSubtree">
         <Subtree filename="statetree/Mage/STAI_NonCombat_Outdoors_Mage.xml"/>
@@ -28,6 +36,19 @@
     </Tasks>
     <Transitions>
       <Transition trigger="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|LeaderProvider_GlobalTask::onLeaderChanged" target="Root"/>
+    </Transitions>
+  </State>
+  <State name="Autonomous">
+    <Comment>without a leader (solo, or leading the group itself): levels on its own</Comment>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Mage/STAI_NonCombat_Autonomous_Mage.xml"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|InstanceProvider_GlobalTask::onInstanceChanged" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|LeaderProvider_GlobalTask::onLeaderChanged" target="Root"/>
     </Transitions>
   </State>
 </StateTree>

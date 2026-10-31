@@ -12,6 +12,10 @@
       <!-- Ice Block -->
       <Spell id="12051"/>
       <!-- Evocation -->
+      <Spell id="118"/>
+      <!-- Polymorph (level 8): gates CC Target -->
+      <Spell id="475"/>
+      <!-- Remove Lesser Curse (level 18): gates Decurse -->
     </Task>
     <Task class="InterruptProvider_GlobalTask" spellid="Counterspell">
       <Comment>interruptible casts of the enemies that Counterspell reaches now (healing first): whoNeeds, onInterruptNeeded</Comment>
@@ -72,6 +76,7 @@
   <State name="CC Target">
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|CCProvider_GlobalTask::whoNeeds"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="118"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_CastSpell" spellid="Polymorph">
@@ -82,6 +87,7 @@
   <State name="Decurse">
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|CurseProvider_GlobalTask::whoNeeds"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="475"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_CastSpell" spellid="Remove Lesser Curse">
@@ -176,6 +182,8 @@
     </EnterConditions>
     <Tasks>
       <Task class="Task_CastSpell" spellid="Frostbolt">
+        <Comment>Frostbolt from level 4, Fireball before</Comment>
+        <Fallback spellid="Fireball"/>
         <Binding local="target" external="Root|TargetProvider_GlobalTask::target"/>
       </Task>
     </Tasks>

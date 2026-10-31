@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StateTree version="4">
+  <Comment>Grinding subtree for Mage bots on their own (run by STAI_NonCombat_Autonomous_Mage.xml): pulls the closest safe
+    unit of a fitting level, else walks to a spawn point of such units; the fight is the Combat tree's</Comment>
+  <GlobalTasks>
+    <Task class="HuntProvider_GlobalTask">
+      <Comment>what to hunt: pullTarget (closest safe unit of a fitting level), huntLocation (a spawn point of such units
+        further away), onPullTarget</Comment>
+      <Range value="50"/>
+      <Levels below="5" above="1"/>
+      <SafeRadius value="12"/>
+      <HuntRange value="400"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Pull Range" priority="32" kind="range">
+      <Comment>movement goal: in spell range and sight of the unit to pull</Comment>
+      <Range max="spell"/>
+      <Binding local="target" external="Root|HuntProvider_GlobalTask::pullTarget"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Hunt Area" priority="12" kind="location">
+      <Comment>movement goal: to the next spawn point while there is nothing to pull</Comment>
+      <Radius value="10"/>
+      <Binding local="location" external="Root|HuntProvider_GlobalTask::huntLocation"/>
+      <Conditions>
+        <Condition class="Condition_Compare" binding="Root|HuntProvider_GlobalTask::pullTarget" inverted="true"/>
+      </Conditions>
+    </Task>
+  </GlobalTasks>
+  <State name="Pull">
+    <Comment>the opener: once it is cast the unit fights the bot and the Combat tree takes over</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|HuntProvider_GlobalTask::pullTarget"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Pull Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Frostbolt">
+        <Comment>Frostbolt from level 4, Fireball before</Comment>
+        <Fallback spellid="Fireball"/>
+        <Binding local="target" external="Root|HuntProvider_GlobalTask::pullTarget"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Search">
+    <Comment>walking to the unit or the hunt location: Pull once the Pull Range goal arrives; selects again every second
+      (a failed Pull, or an arrival before this state started, fires no delegate)</Comment>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Pull Range]::onArrived" target="Root|Pull"/>
+      <Transition trigger="OnDelegate" source="Root|HuntProvider_GlobalTask::onPullTarget" target="Root"/>
+    </Transitions>
+  </State>
+</StateTree>

@@ -29,6 +29,14 @@ namespace ai
         using std::runtime_error::runtime_error;
     };
 
+    // a tree file written for a newer server (<StateTree version="..."> above STAI_TreeAsset::Version): skipped, the
+    // slots using it fall back to the Default tree, the trees running it as a subtree are skipped too
+    class STAI_TreeVersionSkip : public std::runtime_error
+    {
+    public:
+        using std::runtime_error::runtime_error;
+    };
+
     // an entry of a condition list: a <Condition class="..."> (Leaf) or an <All> / <Any> group of entries
     struct STAI_ConditionExpr
     {
@@ -142,6 +150,10 @@ namespace ai
     class STAI_TreeAsset
     {
     public:
+        // the newest <StateTree version="..."> this server loads (2 is the oldest); raise it when trees start using
+        // node classes or settings older servers do not have, and give those trees the new version
+        static constexpr int Version = 4;
+
         std::string name;   // file stem, e.g. STAI_Combat_Mage
         std::string file;
         std::string comment;

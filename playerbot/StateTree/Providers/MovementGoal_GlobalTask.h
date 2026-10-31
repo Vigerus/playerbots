@@ -22,12 +22,12 @@ namespace ai
         std::string reason;
 
         // fired when the goal started or stopped driving the bot:
-        //   <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onGoalChanged" node="Root"/>
+        //   <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Leader]::onGoalChanged" node="Root"/>
         FSTAI_Delegate onGoalChanged;
         // fired when inRange turned true
         FSTAI_Delegate onArrived;
         // fired when what the movement does changed ("moving" -> "reached", ...), whichever goal drives:
-        //   <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Master]::onMovementChanged" node="Root"/>
+        //   <Transition type="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Leader]::onMovementChanged" node="Root"/>
         FSTAI_Delegate onMovementChanged;
 
         // properties:
@@ -38,7 +38,7 @@ namespace ai
         //   activeGoal / activeSource: the goal that drives the bot now, whichever it is (source "<goal name> (<reason>)"; Stay
         //     without a wanted goal)
         //   movement: what the bot's movement does ("moving", "reached", "blocked", "yielding", "stopped", "none" while dead),
-        //     e.g. eat only while "reached": <Condition binding="Root|MovementGoal_GlobalTask[Follow Master]::movement"
+        //     e.g. eat only while "reached": <Condition binding="Root|MovementGoal_GlobalTask[Follow Leader]::movement"
         //     compare="equal" value="reached"/>
         bool wanted = false;
         bool active = false;
@@ -52,9 +52,9 @@ namespace ai
     // only say where the bot should be; the movement drives the goal with the highest priority of the trees that run
     // (the main state's tree and its subtrees, the Reaction tree) and is the only code that moves the bot.
     //   <Global>
-    //     <Task class="MovementGoal_GlobalTask" name="Follow Master" priority="10" kind="location">
+    //     <Task class="MovementGoal_GlobalTask" name="Follow Leader" priority="10" kind="location">
     //       <Radius value="follow"/>          location / position: arrived within (yards or a range name, default 2)
-    //       <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
+    //       <Binding local="location" external="Root|LeaderProvider_GlobalTask::location"/>
     //       <Conditions> <Condition binding="Root|InstanceProvider_GlobalTask::masterStageCleared"/> </Conditions>
     //     </Task>
     //     <Task class="MovementGoal_GlobalTask" name="Melee" priority="50" kind="range">

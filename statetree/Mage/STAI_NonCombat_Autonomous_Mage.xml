@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StateTree version="4">
+  <Comment>NonCombat subtree for Mage bots on their own, without a leader (run by STAI_NonCombat_Mage.xml): keeps itself
+    up (decurse, buffs, eat, rest), loots its kills, else grinds</Comment>
+  <GlobalTasks>
+    <Task class="BuffProvider_GlobalTask">
+      <Comment>watches the buffs of the bot: needs, onMissingBuff</Comment>
+      <Buff spellid="1459"/>
+      <!-- Arcane Intellect (single) -->
+      <Buff spellid="6117" group="armor"/>
+      <!-- Mage Armor (self), else Ice Armor, else Frost Armor: one buff, the best the bot knows -->
+      <Buff spellid="7302" group="armor"/>
+      <!-- Ice Armor -->
+      <Buff spellid="168" group="armor"/>
+      <!-- Frost Armor -->
+    </Task>
+    <Task class="CurseProvider_GlobalTask">
+      <Comment>watches the bot for dispellable curses: whoNeeds, onNeedsHelp</Comment>
+    </Task>
+    <Task class="CooldownProvider_GlobalTask">
+      <Comment>the spells the tree needs the bot to know (ready: known and off cooldown): Remove Lesser Curse from level 18</Comment>
+      <Spell id="475"/>
+      <!-- Remove Lesser Curse -->
+    </Task>
+    <Task class="HealthProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
+    </Task>
+    <Task class="ManaProvider_GlobalTask"/>
+    <Task class="LootProvider_GlobalTask">
+      <Comment>the closest corpse the bot may loot: lootTarget, onLootable</Comment>
+      <Range value="30"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Loot" priority="34" kind="range">
+      <Comment>movement goal: to the corpse to loot</Comment>
+      <Range max="3"/>
+      <Dead value="true"/>
+      <Binding local="target" external="Root|LootProvider_GlobalTask::lootTarget"/>
+    </Task>
+  </GlobalTasks>
+  <State name="Check Decurse">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|CurseProvider_GlobalTask::whoNeeds"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="475"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Remove Lesser Curse">
+        <Binding local="whoNeeds" external="Root|CurseProvider_GlobalTask::whoNeeds"/>
+        <Binding local="causes" external="Root|CurseProvider_GlobalTask::causes"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Loot">
+    <Comment>right after a fight: the Loot goal walks to the corpse, then it is looted</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|LootProvider_GlobalTask::lootTarget"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Loot]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Loot">
+        <Binding local="target" external="Root|LootProvider_GlobalTask::lootTarget"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Go Loot">
+    <Comment>on the way to the corpse; selects again every second (the corpse may be looted or ignored meanwhile, and an
+      arrival before this state started fires no delegate)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|LootProvider_GlobalTask::lootTarget"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Loot]::onArrived" target="Root|Loot"/>
+      <Transition trigger="OnDelegate" source="Root|LootProvider_GlobalTask::onLootable" target="Root"/>
+    </Transitions>
+  </State>
+  <State name="Check Missing Buffs">
+    <Comment>not at low mana: the buffs wait for Eat and Drink instead of failing every time</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|BuffProvider_GlobalTask::needs"/>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastBuff">
+        <Binding local="needs" external="Root|BuffProvider_GlobalTask::needs"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Eat and Drink">
+    <Comment>below 60% health or 40% mana, while the bot does not move; food and drink until both are full</Comment>
+    <EnterConditions>
+      <Any>
+        <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+        <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
+      </Any>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Loot]::movement" compare="equal" value="moving" inverted="true"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_EatAndDrink">
+        <Health until="100"/>
+        <Mana until="100"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Rest">
+    <Comment>nothing to eat or drink (Eat and Drink failed): sits out the regeneration, then selects again</Comment>
+    <EnterConditions>
+      <Any>
+        <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+        <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
+      </Any>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="10000"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Grind">
+    <Comment>the activity: hunting until upkeep is needed again</Comment>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/Mage/STAI_NonCombat_Grind_Mage.xml"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|LootProvider_GlobalTask::onLootable" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" target="Root|Check Missing Buffs">
+        <Conditions>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+        </Conditions>
+      </Transition>
+      <Transition trigger="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" target="Root|Check Decurse"/>
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
+        <Conditions>
+          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+        </Conditions>
+      </Transition>
+      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
+        <Conditions>
+          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
+        </Conditions>
+      </Transition>
+    </Transitions>
+  </State>
+</StateTree>

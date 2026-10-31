@@ -29,8 +29,16 @@ AiPlayerbot.StateTree.<State>.<Class> = statetree/<Class>/STAI_<State>_<Class>.x
 ```
 
 `<Class>` is Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock, Druid (DeathKnight on WotLK).
-The class entry wins over Default. An empty value, or a file that fails to load (the error is in the server log
-at startup), gives the state a single Idle state (`Task_Wait`, delay 0). Files are read at
+The class entry wins over Default. A class tree that fails to load (the error is in the server log at startup), or
+that runs a subtree that did not load, falls back to Default; without a Default the state gets a single Idle state
+(`Task_Wait`, delay 0). The Default NonCombat, Combat and Reaction trees are only that fallback and hold only Idle;
+`STAI_Dead.xml` is still the Dead tree of every class but Shaman.
+
+Versions: `<StateTree version="...">` is the oldest server that can load the file, `STAI_TreeAsset::Version` the newest
+version a server loads (now 4; versions 2 to 4 share the format). A file of a newer version is skipped with a log line
+(not an error), so trees using new node classes can be deployed before the server that has them: the bots of those
+classes run the Default trees until the new server starts. Raise `STAI_TreeAsset::Version` (and `TREE_VERSION` in the
+editor) when trees start using something new, and give those trees the new version; the Default trees stay at 2. Files are read at
 server start. Every `STAI_*.xml` of `statetree` and its subfolders is loaded, so subtrees need no config entry.
 Each file is loaded once and shared by every bot (per bot only the node contexts differ); every `Task_RunSubtree`
 gets its subtree linked at load, so a bot entering one only creates its contexts and loads nothing.
@@ -44,17 +52,17 @@ states below the task, down to the leaves.
 ```xml
 <StateTree version="2">
   <GlobalTasks>
-    <Task class="MasterDistance_GlobalTask">
+    <Task class="LeaderProvider_GlobalTask">
       <Range value="follow"/>
     </Task>
     <Task class="BuffProvider_GlobalTask">
       <Buff spellid="1459"/>
     </Task>
-    <Task class="MovementGoal_GlobalTask" name="Follow Master" priority="10" kind="location">
+    <Task class="MovementGoal_GlobalTask" name="Follow Leader" priority="10" kind="location">
       <Radius value="follow"/>
-      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
+      <Binding local="location" external="Root|LeaderProvider_GlobalTask::location"/>
       <Conditions>
-        <Condition class="Condition_Compare" binding="Root|MasterDistance_GlobalTask::masterFar"/>
+        <Condition class="Condition_Compare" binding="Root|LeaderProvider_GlobalTask::leaderFar"/>
       </Conditions>
     </Task>
   </GlobalTasks>
@@ -129,8 +137,11 @@ Tasks:
 
 | class                | settings | does |
 |----------------------|----------|------|
-| `MasterDistance_GlobalTask` | `<Range value="follow"/>` (yards or a range name, default `follow`) | global task: property `masterFar` (a living master on another map or instance is always far), property `location` (where the master is, for a `location` movement goal), delegate `onMasterFar` fired every update while the master is beyond the range |
-| `BuffProvider_GlobalTask` | `<Buff spellid="..." scope="self\|single\|group"/>` per spell (any rank; scope optional, read from the spell's targets) | global task: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem), and while buffs are missing evaluates again every 5s; property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any (again on every 5s evaluation, so a missed or failed one comes back); spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance) |
+| `LeaderProvider_GlobalTask` | `<Range value="follow"/>` (yards or a range name, default `follow`) | global task: the player the bot follows, a human or a bot alike, only in a group: the bot's master while the master is in the bot's group (the master has the higher authority), else the group leader; none while the bot is solo or leads the group. Property `leader` (a guid), `hasLeader`, `leaderIsMaster`, `leaderFar` (a living leader on another map or instance is always far), `location` (where the leader is, for a `location` movement goal); delegates `onLeaderFar` fired every update while the leader is beyond the range, `onLeaderChanged` |
+| `HuntProvider_GlobalTask` | `<Range value="50"/>` (yards), `<Levels below="5" above="1"/>`, `<Elite value="false"/>`, `<SafeRadius value="12"/>` (yards), `<HuntRange value="400"/>` (yards) | global task of the solo trees, ticked (every 500ms, the hunt location every 5s): property `pullTarget` (the closest living creature within `Range` the bot may attack: of a level from `below` under to `above` over the bot's, not fighting, not tapped by others, no elite unless allowed, no pet, critter, civilian or npc with a service, in sight, and no other aggressive creature that is not fighting within `SafeRadius` of it; kept while valid, at most 30s, then ignored for 5 minutes), `candidates`, `huntLocation` (without a `pullTarget`: the closest spawn point of such creatures beyond `Range` and within `HuntRange`, from the creature table; a reached one is not chosen again for 10 minutes); delegate `onPullTarget` |
+| `LootProvider_GlobalTask` | `<Range value="30"/>` (yards) | global task, ticked (every 500ms): property `lootTarget` (the closest corpse in range the bot may loot: its or its group's, something left for it; one not looted within 30s is ignored), `count`; delegate `onLootable` |
+| `Task_Loot` | `<Binding local="target" external="Root\|LootProvider_GlobalTask::lootTarget"/>` | loots the corpse as the client does: opens it (`CMSG_LOOT`), takes the money and every item it may take while the bags have room, closes it; not tickable, Succeeded once opened, Failed when it cannot be opened (gone, too far, no right) |
+| `BuffProvider_GlobalTask` | `<Buff spellid="..." scope="self\|single\|group" group="..."/>` per spell (any rank; scope optional, read from the spell's targets; group optional: spells with the same group are one buff whatever their auras, the first one the bot knows is cast and a self buff counts only with that spell, so a better armor learned replaces the old one) | global task: watches the buffs of the bot and its group (TeamSubsystem, SpellAuraWorldSubsystem), and while buffs are missing evaluates again every 5s; property `needs` (the casts to do), delegate `onMissingBuff` fired when an evaluation finds any (again on every 5s evaluation, so a missed or failed one comes back); spells applying the same aura are one buff (Arcane Intellect / Arcane Brilliance) |
 | `DispelProvider_GlobalTask` | `<Dispel type="magic\|curse\|disease\|poison"/>` per watched type (one or more); optional, one of them (both: the tree is not loaded, the error is logged): `<Observe spellid="8399,12345"/>` (comma separated, any rank: only these; `spellid=""`: none) or `<Ignore spellid="8399,12345"/>` (all but these; empty: all) | global task, not ticked: watches the bot and its group for harmful auras of the watched dispel types (only the observed ones, or all but the ignored ones: the others fire no delegate and put nobody in the lists); property `whoNeeds` (every member with one, the bot first), properties `magic`, `curse`, `disease`, `poison` (the same by type, for one dispel spell each), property `causes` (per member and type its first watched aura, bound into `Task_CastSpell`'s `causes`), delegate `onNeedsHelp` fired when an evaluation finds any |
 | `CurseProvider_GlobalTask` | `<Observe spellid="..."/>` or `<Ignore spellid="..."/>` as for `DispelProvider_GlobalTask` | `DispelProvider_GlobalTask` for curses only (every dispellable curse without `<Observe>` / `<Ignore>`), for the trees that only decurse; same properties and delegate |
 | `Task_CastSpell`     | `spellid="..."` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local="target" .../>` and / or `<Binding local="whoNeeds" .../>`, or `<Target value="self"/>` (the bot first); `<Target value="dead"/>`: only dead targets (resurrections; a corpse guid of `HealProvider_GlobalTask::dead` is cast at as the corpse, `PlayerbotAI::CastSpellOnCorpse`); `<Fallback spellid="..."/>` per spell, cast instead while the bot knows none of the spells before it (Flash Heal, then Heal, then Lesser Heal); `<SkipAura spellid="..."/>` (targets with that aura, any rank and caster, are skipped: Weakened Soul) / `<SkipAura own="true"/>` (targets with the bot's own aura of the cast spell: Renew); `<Binding local="causes" .../>` (optional, `DispelProvider_GlobalTask` / `CurseProvider_GlobalTask` / `InterruptProvider_GlobalTask::causes`: its History entry and, while it runs, its task info in the debug views read `Cast <spell> (cause <spell>)`, the aura the dispel removes or the spell the interrupt stops on the cast target, both shown with their icons) | casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target, or every target is skipped by `<SkipAura>` (so the state waits its retry delay instead of being selected again at once) |
@@ -188,7 +199,7 @@ there (and deselects them) without selecting the bots near the spot; `rtsc selec
 `toggle`, `rtsc move` (every cast moves the bot), `rtsc save <name>` / `save selected <name>` (the next cast is saved),
 `rtsc save here <name>`, `rtsc unsave <name>`, `rtsc show [<name>]`, `rtsc go <name>`, `rtsc last`, `rtsc reset`
 (off, forgets everything, removes the spell). The move is a `MovePointAsync` (the bot's movement yields to it); outside
-stages the Follow Master goal takes the bot back once the master is out of follow range, in a dungeon with stages the spot is also saved as the bot's point
+stages the Follow Leader goal takes the bot back once the leader is out of follow range, in a dungeon with stages the spot is also saved as the bot's point
 for the stage the master stands in, cleared or uncleared by the stage's state, nothing while the master is in no stage
 (the Position Yourself goal keeps it there). Saved locations are in `ai_playerbot_db_store` as the legacy values
 (`RTSC saved location::<name>>map|x|y|z|o`). `rtsc jump` and `rtsc file` are not back yet.
@@ -265,7 +276,7 @@ bot is where a goal wants it (`Root|MovementGoal_GlobalTask[<goal>]::inRange`) a
 
 - `location`: a `STAI_Location` on any map, walked along a `PathfindingWorker` path (across dungeon portals, leg by
   leg), planned again when the location moves away by more than the radius (the bot walks on meanwhile), when the
-  bot changed map or the path ended short; a failed path waits 3s. Follow Master, Corpse Run.
+  bot changed map or the path ended short; a failed path waits 3s. Follow Leader, Corpse Run.
 - `position`: a `STAI_Position` on the bot's map, a point move (`MovePointAsync`). Position Yourself (the stage
   point), Escape Hazard (`HazardProvider_GlobalTask::safePosition`, `interruptCast`).
 - `range`: in range and sight of a unit (or a corpse, `Dead`): `melee` chases it (at its back with `Side` behind,
@@ -280,19 +291,28 @@ unit engaged by the group: it fights the group, attacks a member, and no hostile
 within 15 yards of it) and stops
 the movement it gave when no goal is wanted. Goal priorities used by the trees: in combat Escape Hazard 100, Heal Range 60, Position
 Yourself 55 (healer) / 45 (casters: Frost / Fire Mage, Elem / Resto Shaman, Shadow Priest, Warlock), Melee / Follow Tank
-50, Attack Range 40; out of combat Resurrect Range 40, Position Yourself 35, Heal Range 25, Follow Master 10; dead
+50, Attack Range 40; out of combat Resurrect Range 40, Position Yourself 35, Heal Range 25, Follow Leader 10; dead
 Corpse Run 10. The stage point (Position Yourself: the rtsc spot, else the stage file's) beats following the tank and
 the attack range, a healer leaves it only to reach a member to heal, melee stays on its target. The BotStateTree addon shows the goal that drives the bot, its source
 (`<goal> (<reason>)`), what the movement does and how far the destination is (snapshot record `M`).
-The class NonCombat trees follow the master with the Follow Master goal (`location` on `MasterDistance_GlobalTask::location`,
-reached within follow range), also when the master entered or left a dungeon. Each `<Class>/STAI_NonCombat_<Class>.xml`
+The class NonCombat trees follow the group's leader with the Follow Leader goal (`location` on
+`LeaderProvider_GlobalTask::location`, reached within follow range), also when the leader entered or left a dungeon; a
+solo bot has no leader and follows nobody. Each `<Class>/STAI_NonCombat_<Class>.xml`
 only picks a subtree by the bot's map (`InstanceProvider_GlobalTask`): `STAI_NonCombat_Dungeon_<Class>.xml` in dungeon
 and raid instances (`inDungeon`, Scholomance included), `STAI_NonCombat_Outdoors_<Class>.xml` everywhere else (for
-now the same states as the Dungeon trees). `STAI_NonCombat.xml` (Default) has the same goals.
-`onInstanceChanged` sends the class tree back to Root to pick again. Every tree ends with Idle (`Task_Wait`, delay
+now the same states as the Dungeon trees).
+`onInstanceChanged` sends the class tree back to Root to pick again. The Mage NonCombat tree also picks by
+`LeaderProvider_GlobalTask::hasLeader`: with a leader the Outdoors subtree (Follow Leader), without one (solo, or leading
+the group) `Mage/STAI_NonCombat_Autonomous_Mage.xml`, which levels on its own: Check Decurse, Loot (Task_Loot once the
+Loot goal, 3 yards of `LootProvider_GlobalTask::lootTarget`, has the bot at the corpse; Go Loot waits on the way), Check
+Missing Buffs, Eat and Drink (below 60% health or 40% mana, while the bot does not move), Rest (10s, when there is
+nothing to eat or drink) and Grind (`Mage/STAI_NonCombat_Grind_Mage.xml`: the Pull Range goal brings the bot in spell
+range of `HuntProvider_GlobalTask::pullTarget`, Pull casts Frostbolt, Fireball before level 4, and the Combat tree takes
+the fight; the Hunt Area goal walks to `huntLocation` while there is nothing to pull); Grind goes back to Root for a
+corpse, a missing buff, a curse, or health / mana below the eating thresholds. A leader change selects again. Every tree ends with Idle (`Task_Wait`, delay
 0), which leaves through its transitions. Mage decurses and buffs: Idle goes to Check Decurse when someone is cursed
-(Remove Lesser Curse) and to Check Missing Buffs when a buff (Arcane Intellect / Arcane Brilliance, Mage Armor) is
-missing; each casts once per visit and is selected again while its `whoNeeds` / `needs` is not empty.
+(Remove Lesser Curse, once the bot knows it) and to Check Missing Buffs when a buff (Arcane Intellect / Arcane
+Brilliance, the best armor the bot knows: Mage Armor, else Ice Armor, else Frost Armor) is missing; each casts once per visit and is selected again while its `whoNeeds` / `needs` is not empty.
 The class Combat trees of Mage, Priest, Shaman, Druid, Paladin and Warrior only pick a subtree by
 `SpecProvider_GlobalTask::specName`, `<Class>/STAI_Combat_<Spec>_<Class>.xml` (e.g. `Mage/STAI_Combat_Frost_Mage.xml`,
 `Priest/STAI_Combat_Shadow_Priest.xml`; Holy and Disc Priest share `Priest/STAI_Combat_Healer_Priest.xml`), and select again on `onSpecChanged`; Warlock, Rogue and Hunter have one spec and
@@ -305,11 +325,12 @@ health, while `CooldownProvider_GlobalTask::ready` has it), Interrupt (Countersp
 on `CCProvider_GlobalTask::whoNeeds`), Decurse (Remove Lesser Curse on `CurseProvider_GlobalTask::whoNeeds`), Mana
 Gem (`Task_UseItem`, below 30% mana), Evocation (self, below 15%, while ready), Mana Potion (`Task_UseItem`, below 15%), Wand
 (`Task_Shoot` below 10% mana, left once it is back at 20% or the target changed), Attack Target (`Task_CastSpell`
-Frostbolt on `TargetProvider_GlobalTask::target` once the Attack Range goal has the bot in spell range and sight, one
+Frostbolt, Fireball before level 4, on `TargetProvider_GlobalTask::target` once the Attack Range goal has the bot in spell range and sight, one
 cast per visit; `WithThreat` holds the
 target back at 90% of the tank's threat) and Idle. Attack Target, Wand, Evocation and Idle leave on
 `onHealthChanged` (Ice Block, entered only below 20%), `onInterruptNeeded`, `onCCNeeded` (and the others as listed in
-the file). `Mage/STAI_Combat_Fire_Mage.xml` is the same with Fireball instead of Frostbolt and without Ice Block. The
+the file). `Mage/STAI_Combat_Fire_Mage.xml` is the same with Fireball instead of Frostbolt and without Ice Block. CC Target and Decurse wait until the bot knows
+Polymorph / Remove Lesser Curse (`CooldownProvider_GlobalTask::ready`), so a low level mage does not try them. The
 Warlock Combat tree only has the Mage's Wand state (with its Attack Range goal; below 10% mana on `TargetProvider_GlobalTask::target`, until 20%)
 above Idle, which goes there on `onTargetChanged` / `onManaChanged`.
 `Priest/STAI_Combat_Healer_Priest.xml` (Holy and Disc) heals from `HealProvider_GlobalTask`; its goals keep the bot in
@@ -389,15 +410,15 @@ movement's `range` goals stop short of such a target (`PlayerbotAI::IsStageEntry
 it fights the group, attacks a member and no hostile creature that is not fighting yet stands within 15 yards of it
 (the fight goes on inside the room, the bots follow it without pulling the next pack).
 
-Every NonCombat tree (Default, and each class's Dungeon and Outdoors subtrees) uses them; outside instances there are
-no stages, so Follow Master's stage conditions always pass and Position Yourself is never wanted:
+Every NonCombat tree (each class's Dungeon and Outdoors subtrees) uses them; outside instances there are
+no stages, so Follow Leader's stage conditions always pass and Position Yourself is never wanted:
 
-- the Follow Master goal also needs `masterStageCleared` (the master is in a cleared stage: not in one that is not
+- the Follow Leader goal also needs `masterStageCleared` (the master is in a cleared stage: not in one that is not
   cleared and not between stages), `pathBlocked` false (the bot's way to the master crosses no stage that is not
   cleared, tested along the path every 500ms) and no `stagePosition`: the bots stop where they are while the master is
   between stages or in a room that is not cleared and has no uncleared point for them (combat still takes them in),
   and follow again once the master is in a cleared stage.
-- the Position Yourself goal (`position` on `stagePosition`, priority above Follow Master) while the master is in a stage
+- the Position Yourself goal (`position` on `stagePosition`, priority above Follow Leader) while the master is in a stage
   with a point for the bot and the way is not blocked (reached at the point). Each stage has
   two points: the cleared one (used once the stage is cleared) and the uncleared one (before); the way to the
   uncleared point may cross the master's stage. The point is the bot's own override for the dungeon and stage (table

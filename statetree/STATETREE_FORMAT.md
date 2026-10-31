@@ -16,11 +16,11 @@ server only reads v2.
       <Comment>the buffs the group misses: needs, onMissingBuff</Comment>
       <Buff spellid="1459"/>
     </Task>
-    <Task class="MovementGoal_GlobalTask" name="Follow Master" priority="10" kind="location">
+    <Task class="MovementGoal_GlobalTask" name="Follow Leader" priority="10" kind="location">
       <Radius value="follow"/>
-      <Binding local="location" external="Root|MasterDistance_GlobalTask::location"/>
+      <Binding local="location" external="Root|LeaderProvider_GlobalTask::location"/>
       <Conditions>
-        <Condition class="Condition_Compare" binding="Root|MasterDistance_GlobalTask::masterFar"/>
+        <Condition class="Condition_Compare" binding="Root|LeaderProvider_GlobalTask::leaderFar"/>
       </Conditions>
     </Task>
   </GlobalTasks>
@@ -55,7 +55,8 @@ Plain XML comments inside a task's settings stay where they are (the server igno
 
 ### `<StateTree version="2">`
 
-The root element. Children: `<Comment>`, at most one `<GlobalTasks>`, then the top level `<State>`s (at least one).
+The root element. `version`: the oldest server that can load the file, 2 or higher (2 and 3 share this format); a
+server skips files above its `STAI_TreeAsset::Version` (README: Versions). Children: `<Comment>`, at most one `<GlobalTasks>`, then the top level `<State>`s (at least one).
 The top level states are the children of the implicit **Root** state: paths start with `Root|`.
 
 ### `<GlobalTasks>`

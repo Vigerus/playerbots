@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <functional>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 
@@ -460,9 +461,14 @@ namespace
     {
         asset.comment = CommentOf(root);
 
-        const std::string version = Attribute(root, "version");
-        if (version != "2")
-            throw std::runtime_error(asset.file + ": <StateTree version=\"2\"> expected, got version '" + version + "' (convert v1 files with tools/StateTreeEditor/convert_v1_to_v2.py)");
+        // version 2 and up share the format; a higher version only needs node classes or settings of a newer server
+        const std::string versionText = Attribute(root, "version");
+        const int version = std::regex_match(versionText, std::regex(R"(^\d{1,4}$)")) ? std::stoi(versionText) : 0;
+        if (version < 2)
+            throw std::runtime_error(asset.file + ": <StateTree version=\"2\"> or higher expected, got version '" + versionText + "' (convert v1 files with tools/StateTreeEditor/convert_v1_to_v2.py)");
+        if (version > STAI_TreeAsset::Version)
+            throw STAI_TreeVersionSkip(asset.file + ": version " + versionText + " needs a newer server (this one loads up to version " +
+                std::to_string(STAI_TreeAsset::Version) + ")");
 
         bool hasGlobal = false;
         int index = 0;
@@ -963,6 +969,7 @@ void STAI_TreeLibrary::LoadFromConfig()
 
     auto loaded = std::make_shared<Snapshot>();
     uint32 errors = 0;
+    uint32 skipped = 0;     // files of a newer version
     std::vector<std::string> fatalErrors;
 
     auto loadFile = [&](const std::string& file) -> bool
@@ -981,6 +988,12 @@ void STAI_TreeLibrary::LoadFromConfig()
             sLog.outError("StateTree: %s not loaded: %s", file.c_str(), error.what());
             fatalErrors.push_back(error.what());
             ++errors;
+            return false;
+        }
+        catch (const STAI_TreeVersionSkip& error)
+        {
+            sLog.outString("StateTree: %s skipped: %s", file.c_str(), error.what());
+            ++skipped;
             return false;
         }
         catch (const std::exception& error)
@@ -1049,13 +1062,14 @@ void STAI_TreeLibrary::LoadFromConfig()
         auto it = loaded->files.find(GetFileKey(slot.file));
         if (it == loaded->files.end())
         {
-            sLog.outError("StateTree: %s = %s not loaded, using the built-in tree", slot.key.c_str(), slot.file.c_str());
+            sLog.outError("StateTree: %s = %s not loaded, using the Default tree (the built-in Idle tree without one)", slot.key.c_str(), slot.file.c_str());
             continue;
         }
         loaded->trees[{ slot.state, slot.classId }] = it->second;
     }
 
-    sLog.outString("StateTree: %u tree files loaded, %u tree slots configured (%u errors)", uint32(loaded->files.size()), uint32(loaded->trees.size()), errors);
+    sLog.outString("StateTree: %u tree files loaded, %u tree slots configured (%u errors, %u files of a newer version skipped)",
+        uint32(loaded->files.size()), uint32(loaded->trees.size()), errors, skipped);
 
     if (!fatalErrors.empty())
     {

@@ -39,6 +39,8 @@ const KNOWN_ATTRS = {
   Task: ['class', 'name', 'completion', 'show_log', 'enabled'],
   Transition: ['trigger', 'source', 'event', 'target', 'priority', 'delay', 'enabled'],
 };
+// the newest <StateTree version> the server loads (STAI_TreeAsset::Version)
+const TREE_VERSION = 4;
 const TEMPLATE = '<?xml version="1.0" encoding="utf-8"?>\n<StateTree version="2">\n  <Comment>new state tree</Comment>\n' +
   '  <State name="Idle">\n    <Tasks>\n      <Task class="Task_Wait">\n        <Delay value="0"/>\n      </Task>\n' +
   '    </Tasks>\n  </State>\n</StateTree>\n';
@@ -833,7 +835,9 @@ function validateDoc() {
       : 'the root element must be <StateTree version="2">');
     return out;
   }
-  if (attr(r, 'version') !== '2') P('error', r, "<StateTree> version must be 2, got '" + attr(r, 'version') + "'");
+  const version = /^\d{1,4}$/.test(attr(r, 'version')) ? Number(attr(r, 'version')) : 0;
+  if (version < 2) P('error', r, "<StateTree> version must be 2 or higher, got '" + attr(r, 'version') + "'");
+  else if (version > TREE_VERSION) P('warning', r, 'version ' + version + ' is newer than the server loads (' + TREE_VERSION + '): the server skips this tree');
   let globalsCount = 0;
   for (const c of kids(r)) {
     if (c.tagName === 'GlobalTasks') { if (++globalsCount > 1) P('error', c, 'more than one <GlobalTasks>'); }

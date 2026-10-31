@@ -99,13 +99,17 @@ std::vector<BuffProvider_GlobalTask::Buff> BuffProvider_GlobalTask::ParseBuffs(c
         else if (!scope.empty())
             throw std::runtime_error("<Buff spellid=\"" + idText + "\">: scope must be self, single or group, got '" + scope + "'");
 
-        // spells applying the same aura are the same buff (Arcane Intellect / Arcane Brilliance)
+        // spells applying the same aura are the same buff (Arcane Intellect / Arcane Brilliance), a group by its name
         const uint32 auraType = spellInfo->EffectApplyAuraName[auraEffect];
         const int32 miscValue = spellInfo->EffectMiscValue[auraEffect];
-        auto buff = std::find_if(buffs.begin(), buffs.end(), [&](const Buff& b) { return b.auraType == auraType && b.miscValue == miscValue; });
+        const std::string groupName = child.get<std::string>("<xmlattr>.group", "");
+        auto buff = std::find_if(buffs.begin(), buffs.end(), [&](const Buff& b)
+        {
+            return groupName.empty() ? b.group.empty() && b.auraType == auraType && b.miscValue == miscValue : b.group == groupName;
+        });
         if (buff == buffs.end())
         {
-            buffs.push_back({ auraType, miscValue, {} });
+            buffs.push_back({ auraType, miscValue, groupName, {} });
             buff = buffs.end() - 1;
         }
 
@@ -196,9 +200,16 @@ bool BuffProvider_GlobalTask::IsWatchedSpell(uint32 spellId) const
 bool BuffProvider_GlobalTask::HasBuff(const Unit* unit, const Buff& buff)
 {
     for (const BuffSpell& spell : buff.spells)
-        for (uint32 rank = spell.firstSpellId; rank; rank = sSpellMgr.GetNextSpellInChain(rank))
-            if (unit->HasAura(rank))
-                return true;
+        if (HasRankOf(unit, spell.firstSpellId))
+            return true;
+    return false;
+}
+
+bool BuffProvider_GlobalTask::HasRankOf(const Unit* unit, uint32 firstSpellId)
+{
+    for (uint32 rank = firstSpellId; rank; rank = sSpellMgr.GetNextSpellInChain(rank))
+        if (unit->HasAura(rank))
+            return true;
     return false;
 }
 
@@ -231,7 +242,9 @@ std::vector<BuffNeed> BuffProvider_GlobalTask::FindNeeds(Player* bot, Group* gro
 
         if (selfSpell)
         {
-            if (!HasBuff(bot, buff))
+            // a group's self buff counts only as the spell to have: a better armor learned replaces the old one
+            const bool has = buff.group.empty() ? HasBuff(bot, buff) : HasRankOf(bot, sSpellMgr.GetFirstSpellInChain(selfSpell));
+            if (!has)
                 needs.push_back({ bot->GetObjectGuid(), selfSpell, BuffScope::Self, 1 });
             continue;
         }
