@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StateTree version="5">
+  <Comment>Training subtree for every class (run by the classes' Autonomous trees while TrainerProvider_GlobalTask::newSpells):
+    walks to the nearest class trainer and learns what the bot can afford; finishes once it learned</Comment>
+  <GlobalTasks>
+    <Task class="TrainerProvider_GlobalTask">
+      <Comment>the nearest class trainer and the spells the bot can learn there now: newSpells, trainerLocation, trainer</Comment>
+      <Range value="2000"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Trainer" priority="30" kind="location">
+      <Comment>movement goal: to the trainer's spawn (a path, also through other zones of the map)</Comment>
+      <Radius value="8"/>
+      <Binding local="location" external="Root|TrainerProvider_GlobalTask::trainerLocation"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Trainer Range" priority="31" kind="range">
+      <Comment>movement goal: next to the trainer once it is near (the trainer window's interaction range)</Comment>
+      <Range max="4"/>
+      <Binding local="target" external="Root|TrainerProvider_GlobalTask::trainer"/>
+    </Task>
+  </GlobalTasks>
+  <State name="Learn">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TrainerProvider_GlobalTask::trainer"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Trainer Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_LearnSpells">
+        <Binding local="trainer" external="Root|TrainerProvider_GlobalTask::trainer"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnStateSucceeded" target="Succeeded"/>
+    </Transitions>
+  </State>
+  <State name="Go To Trainer">
+    <Comment>on the way: selects again every second</Comment>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
+  </State>
+</StateTree>

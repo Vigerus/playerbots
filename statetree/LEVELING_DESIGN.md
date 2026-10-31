@@ -199,7 +199,7 @@ Armor). Today only Mage Armor (34) is listed, so the bot casts no armor before l
 1. **Fights at level 1** (done): Fireball fallback, known-spell gates, Frost Armor in the buffs. Check: he kills a mob that attacks him.
 2. **Autonomy + grinding** (done for Mage; autonomy is `!LeaderProvider::hasLeader`, ProgressProvider waits for step 3): `ProgressProvider` (autonomous), `HuntProvider`, `LootProvider`, `Task_Loot`, the
    Autonomous subtree with Upkeep / Loot / Grinding only. Check: he levels on his own in Deathknell.
-3. **Training**: `TrainerIndex`, `TrainerProvider`, `Task_LearnSpells`, Maintenance → Train. Check: at 4 he walks to
+3. **Training** (done: TrainerProvider, Task_LearnSpells, the Train subtree; plus InventoryProvider and Conjure Water / Food for the Mage): `TrainerIndex`, `TrainerProvider`, `Task_LearnSpells`, Maintenance → Train. Check: at 4 he walks to
    the trainer and learns Frostbolt, and the frost tree starts casting it.
 4. **Quest pick up and hand in** and 5. **Quest objectives**: one route-driven QuestProvider fed by leveling
    guides (see 11 below): accept / turn in first, then kill and loot objectives, then the guide's XP grind steps.

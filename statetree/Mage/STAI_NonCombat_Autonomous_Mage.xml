@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="4">
+<StateTree version="5">
   <Comment>NonCombat subtree for Mage bots on their own, without a leader (run by STAI_NonCombat_Mage.xml): keeps itself
-    up (decurse, buffs, eat, rest), loots its kills, else grinds</Comment>
+    up (decurse, buffs, conjured water and food, eat, rest), loots its kills, learns new spells at its trainer, else grinds</Comment>
   <GlobalTasks>
     <Task class="BuffProvider_GlobalTask">
       <Comment>watches the buffs of the bot: needs, onMissingBuff</Comment>
@@ -18,14 +18,26 @@
       <Comment>watches the bot for dispellable curses: whoNeeds, onNeedsHelp</Comment>
     </Task>
     <Task class="CooldownProvider_GlobalTask">
-      <Comment>the spells the tree needs the bot to know (ready: known and off cooldown): Remove Lesser Curse from level 18</Comment>
+      <Comment>the spells the tree needs the bot to know (ready: known and off cooldown)</Comment>
       <Spell id="475"/>
-      <!-- Remove Lesser Curse -->
+      <!-- Remove Lesser Curse (level 18) -->
+      <Spell id="5504"/>
+      <!-- Conjure Water (level 4) -->
+      <Spell id="587"/>
+      <!-- Conjure Food (level 6) -->
     </Task>
     <Task class="HealthProvider_GlobalTask">
       <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
     <Task class="ManaProvider_GlobalTask"/>
+    <Task class="InventoryProvider_GlobalTask">
+      <Comment>food / drink in the bags: lowFood, lowDrink (below 5), onLowSupplies</Comment>
+      <Low value="5"/>
+    </Task>
+    <Task class="TrainerProvider_GlobalTask">
+      <Comment>spells the bot can learn and afford at its class trainer: newSpells, onNewSpells (the Train subtree goes there)</Comment>
+      <Range value="2000"/>
+    </Task>
     <Task class="LootProvider_GlobalTask">
       <Comment>the closest corpse the bot may loot: lootTarget, onLootable</Comment>
       <Range value="30"/>
@@ -89,6 +101,31 @@
       </Task>
     </Tasks>
   </State>
+  <State name="Conjure Water">
+    <Comment>a mage's own drink, once it knows the spell; the highest rank it knows</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|InventoryProvider_GlobalTask::lowDrink"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="5504"/>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Conjure Water">
+        <Target value="self"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Conjure Food">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|InventoryProvider_GlobalTask::lowFood"/>
+      <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="587"/>
+      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Conjure Food">
+        <Target value="self"/>
+      </Task>
+    </Tasks>
+  </State>
   <State name="Eat and Drink">
     <Comment>below 60% health or 40% mana, while the bot does not move; food and drink until both are full</Comment>
     <EnterConditions>
@@ -119,6 +156,25 @@
       </Task>
     </Tasks>
   </State>
+  <State name="Train">
+    <Comment>new spells the bot can afford: to its class trainer before hunting on</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|TrainerProvider_GlobalTask::newSpells"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/STAI_NonCombat_Train.xml"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|LootProvider_GlobalTask::onLootable" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
+        <Conditions>
+          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+        </Conditions>
+      </Transition>
+    </Transitions>
+  </State>
   <State name="Grind">
     <Comment>the activity: hunting until upkeep is needed again</Comment>
     <Tasks>
@@ -134,6 +190,8 @@
         </Conditions>
       </Transition>
       <Transition trigger="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" target="Root|Check Decurse"/>
+      <Transition trigger="OnDelegate" source="Root|TrainerProvider_GlobalTask::onNewSpells" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|InventoryProvider_GlobalTask::onLowSupplies" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
         <Conditions>
           <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>

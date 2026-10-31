@@ -128,10 +128,10 @@
                 "118",
                 "475",
                 "11958",
+                "5504",
+                "587",
                 "586",
-                "12294",
-                "7384",
-                "12292"
+                "12294"
               ]
             }
           },
@@ -1043,6 +1043,67 @@
       },
       "uses": 5
     },
+    "InventoryProvider_GlobalTask": {
+      "cppClass": "InventoryProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/InventoryProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "food",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "drink",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "lowFood",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "lowDrink",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onLowSupplies"
+      ],
+      "description": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`); delegate `onLowSupplies`",
+      "doc": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`); delegate `onLowSupplies`",
+      "settingsHelp": "`<Low value=\"5\"/>`",
+      "taskAttributes": {},
+      "settings": {
+        "Low": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "5"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 1
+    },
     "LeaderProvider_GlobalTask": {
       "cppClass": "LeaderProvider_GlobalTask",
       "global": true,
@@ -1424,20 +1485,20 @@
         "priority": {
           "examples": [
             "10",
+            "30",
+            "31",
             "100",
             "35",
             "40",
             "45",
-            "70",
-            "34",
-            "32"
+            "70"
           ]
         },
         "kind": {
           "examples": [
             "location",
-            "position",
-            "range"
+            "range",
+            "position"
           ],
           "options": [
             "location",
@@ -1458,6 +1519,7 @@
             "value": {
               "examples": [
                 "10",
+                "8",
                 "1",
                 "2",
                 "follow"
@@ -1471,6 +1533,7 @@
           "attributes": {
             "max": {
               "examples": [
+                "4",
                 "spell",
                 "8",
                 "3",
@@ -1532,7 +1595,7 @@
           "seen": false
         }
       },
-      "uses": 83
+      "uses": 85
     },
     "STAI_FinishTreeTask": {
       "cppClass": "STAI_FinishTreeTask",
@@ -1945,7 +2008,7 @@
           "seen": true
         }
       },
-      "uses": 92
+      "uses": 94
     },
     "Task_CastTotem": {
       "cppClass": "Task_CastTotem",
@@ -2006,6 +2069,28 @@
         }
       },
       "uses": 20
+    },
+    "Task_LearnSpells": {
+      "cppClass": "Task_LearnSpells",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_LearnSpells.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "trainer",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "buys every green spell the bot's money pays for at the trainer, cheapest first, as the Train button does (`CMSG_TRAINER_BUY_SPELL`: the core checks distance, level and money) ...",
+      "doc": "buys every green spell the bot's money pays for at the trainer, cheapest first, as the Train button does (`CMSG_TRAINER_BUY_SPELL`: the core checks distance, level and money); not tickable, Succeeded when it learned a spell, Failed otherwise",
+      "settingsHelp": "`<Binding local=\"trainer\" external=\"Root|TrainerProvider_GlobalTask::trainer\"/>`",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 1
     },
     "Task_Loot": {
       "cppClass": "Task_Loot",
@@ -2125,7 +2210,7 @@
           "seen": true
         }
       },
-      "uses": 40
+      "uses": 41
     },
     "Task_SelfResurrect": {
       "cppClass": "Task_SelfResurrect",
@@ -2311,7 +2396,7 @@
           "seen": true
         }
       },
-      "uses": 62
+      "uses": 63
     },
     "TeamProvider_GlobalTask": {
       "cppClass": "TeamProvider_GlobalTask",
@@ -2471,6 +2556,73 @@
         }
       },
       "uses": 3
+    },
+    "TrainerProvider_GlobalTask": {
+      "cppClass": "TrainerProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/TrainerProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "newSpells",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "cost",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "trainerLocation",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "trainerDistance",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "trainer",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onNewSpells"
+      ],
+      "description": "global task, ticked (every 5s, every second near the trainer): the nearest class trainer of the bot's class on its map that is not hostile to it (creature table spawns within `Range`) ...",
+      "doc": "global task, ticked (every 5s, every second near the trainer): the nearest class trainer of the bot's class on its map that is not hostile to it (creature table spawns within `Range`); property `newSpells` (the spells the trainer window shows green that the bot's money pays for, cheapest first), `cost`, `trainerLocation`, `trainerDistance` (yards), `trainer` (the trainer's guid while it is within 50 yards); delegate `onNewSpells` (it got spells to learn)",
+      "settingsHelp": "`<Range value=\"2000\"/>` (yards)",
+      "taskAttributes": {},
+      "settings": {
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "2000"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 2
     },
     "UIInteractionProvider_GlobalTask": {
       "cppClass": "UIInteractionProvider_GlobalTask",

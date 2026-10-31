@@ -3,6 +3,7 @@
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/StateTree/STAI_TaskFactory.h"
+#include "playerbot/StateTree/Providers/STAI_SpawnIndex.h"
 
 #include "Entities/Creature.h"
 #include "Globals/ObjectMgr.h"
@@ -11,7 +12,6 @@
 #include "Grids/GridNotifiersImpl.h"
 
 #include <algorithm>
-#include <mutex>
 #include <stdexcept>
 #include <unordered_map>
 
@@ -26,35 +26,6 @@ namespace
     constexpr uint32 visitedForgetMs = 10 * MINUTE * IN_MILLISECONDS;
     constexpr uint32 keepTargetMs = 30 * IN_MILLISECONDS;          // a unit not pulled by then is unreachable
     constexpr uint32 ignoreTargetMs = 5 * MINUTE * IN_MILLISECONDS;
-
-    struct SpawnPoint
-    {
-        uint32 entry;
-        float x, y, z;
-    };
-
-    // every creature spawn by map, built once on first use (read only afterwards, so any map thread may read it)
-    const std::unordered_map<uint32, std::vector<SpawnPoint>>& GetSpawnsByMap()
-    {
-        static std::unordered_map<uint32, std::vector<SpawnPoint>> spawns;
-        static std::once_flag built;
-        std::call_once(built, []()
-        {
-            struct Worker
-            {
-                std::unordered_map<uint32, std::vector<SpawnPoint>>& spawns;
-                bool operator()(CreatureDataPair const& pair)
-                {
-                    const CreatureData& data = pair.second;
-                    if (data.id)    // 0: the entry comes from a spawn group
-                        spawns[data.mapid].push_back({ data.id, data.posX, data.posY, data.posZ });
-                    return false;
-                }
-            } worker{ spawns };
-            sObjectMgr.DoCreatureData(worker);
-        });
-        return spawns;
-    }
 
     float ParseFloatSetting(const STAI_TaskConfig& config, const std::string& name, const std::string& attribute, float fallback)
     {
@@ -220,11 +191,6 @@ void HuntProvider_GlobalTask::UpdateHuntLocation(HuntProvider_GlobalTaskContext&
     if (!bot->IsInWorld() || !sServerFacade.IsAlive(bot))
         return;
 
-    const auto& spawnsByMap = GetSpawnsByMap();
-    auto spawns = spawnsByMap.find(bot->GetMapId());
-    if (spawns == spawnsByMap.end())
-        return;
-
     const FactionTemplateEntry* botFaction = bot->GetFactionTemplateEntry();
     std::unordered_map<uint32, bool> huntable;     // by entry, so every template is checked once
     auto isHuntable = [&](uint32 entry)
@@ -247,7 +213,7 @@ void HuntProvider_GlobalTask::UpdateHuntLocation(HuntProvider_GlobalTaskContext&
 
     const float minDistance = settings.range * 0.8f;   // closer ones would have been found as units
     float best = settings.huntRange;
-    for (const SpawnPoint& spawn : spawns->second)
+    for (const STAI_Spawn& spawn : STAI_GetSpawns(bot->GetMapId()))
     {
         const float distance = bot->GetDistance2d(spawn.x, spawn.y);
         if (distance < minDistance || distance >= best || !isHuntable(spawn.entry))
