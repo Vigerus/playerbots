@@ -31,6 +31,7 @@ void PlayerbotDebugWindow::OnBotRemoved(uint64) {}
 #include <windowsx.h>
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <map>
 #include <memory>
@@ -240,9 +241,12 @@ namespace
         ID_PAUSE,
         ID_INACTIVE,
         ID_FREEZE,
+        ID_PARAMS,
         ID_TAB_STATES,
         ID_TAB_HISTORY,
     };
+
+    constexpr int stackWidth = 220;              // the tree stack panel left of the States tab
 
     // the addon's colors
     namespace Color
@@ -391,6 +395,8 @@ namespace
         void SelectBot(uint64 guid);
         void UpdateScroll();
         void ScrollTo(int y);
+        void UpdateStackScroll();
+        void StackScrollTo(int y);
         void PaintCanvas();
         void PaintStatus(HDC dc);
 
@@ -398,6 +404,7 @@ namespace
         int S(int value) const { return MulDiv(value, dpi, 96); }
         int Dev(int x) const { return S(x); }
         int DevY(int y) const { return S(y - scrollY); }
+        int TopY(int y) const { return inStack ? S(y - stackScrollY) : DevY(y); }
         int TextWidth(const std::wstring& text, HFONT font);
         int RunsWidth(const Runs& runs, int iconSize = 14);
         int DrawLabel(int x, int y, const std::wstring& text, COLORREF color, HFONT font = nullptr);
@@ -425,8 +432,8 @@ namespace
         int SwitchValue(const std::string& key, int reported);
         void SendSwitch(char kind, StateTreeSwitch what, const std::string& state, const std::string& tree, int node, int index, int value);
 
-        HWND combo = nullptr, pauseCheck = nullptr, inactiveCheck = nullptr, freezeCheck = nullptr;
-        HWND statesTab = nullptr, historyTab = nullptr, canvas = nullptr;
+        HWND combo = nullptr, pauseCheck = nullptr, inactiveCheck = nullptr, freezeCheck = nullptr, paramsCheck = nullptr;
+        HWND statesTab = nullptr, historyTab = nullptr, canvas = nullptr, stackBar = nullptr;
         HFONT font = nullptr, bold = nullptr, smallFont = nullptr, controlFont = nullptr;
         HBRUSH backgroundBrush = nullptr;
         int dpi = 96;
@@ -438,7 +445,7 @@ namespace
         bool botActive = false;
 
         uint64 selected = 0;
-        bool paused = false, showInactive = false, freeze = false, historyMode = false;
+        bool paused = false, showInactive = false, freeze = false, showParams = false, historyMode = false;
         std::shared_ptr<const BotView> view;
         std::shared_ptr<const BotHistory> history;
         uint32 version = 0;
@@ -452,7 +459,9 @@ namespace
         HDC dc = nullptr;
         int scrollY = 0, contentHeight = 0, viewHeight = 0, viewWidth = 0;
         int leftX = 0;                              // the canvas content starts here (right of the tree stack)
-        bool inStack = false;                       // drawing the fixed tree stack panel (not scrolled)
+        bool inStack = false;                       // drawing the tree stack panel (scrolled on its own by stackBar)
+        int stackScrollY = 0, stackHeight = 0;
+        std::array<int, 4> stackBarSet{};           // the bar's last range / page / position / height: set again only on a change
         std::vector<Hit> hits;
         std::wstring hoverTooltip;
         POINT hoverPoint{};
@@ -550,11 +559,13 @@ namespace
         pauseCheck = control(L"BUTTON", L"Pause", BS_AUTOCHECKBOX, ID_PAUSE);
         inactiveCheck = control(L"BUTTON", L"Show inactive StateTrees", BS_AUTOCHECKBOX, ID_INACTIVE);
         freezeCheck = control(L"BUTTON", L"dont expand/collapse", BS_AUTOCHECKBOX, ID_FREEZE);
+        paramsCheck = control(L"BUTTON", L"Show params", BS_AUTOCHECKBOX, ID_PARAMS);
         statesTab = control(L"BUTTON", L"States", BS_AUTORADIOBUTTON | BS_PUSHLIKE | WS_GROUP, ID_TAB_STATES);
         historyTab = control(L"BUTTON", L"History", BS_AUTORADIOBUTTON | BS_PUSHLIKE, ID_TAB_HISTORY);
         SendMessageW(statesTab, BM_SETCHECK, BST_CHECKED, 0);
 
-        CreateWindowExW(0, canvasClass.lpszClassName, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 10, 10, main, nullptr, instance, nullptr);
+        CreateWindowExW(0, canvasClass.lpszClassName, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_CLIPCHILDREN, 0, 0, 10, 10, main, nullptr, instance, nullptr);
+        stackBar = CreateWindowExW(0, L"SCROLLBAR", L"", WS_CHILD | SBS_VERT, 0, 0, 10, 10, canvas, nullptr, instance, nullptr);
 
         Layout();
         ShowWindow(main, SW_SHOWNOACTIVATE);
@@ -575,6 +586,8 @@ namespace
         MoveWindow(inactiveCheck, x, S(10), S(180), S(20), TRUE);
         x += S(186);
         MoveWindow(freezeCheck, x, S(10), S(170), S(20), TRUE);
+        x += S(176);
+        MoveWindow(paramsCheck, x, S(10), S(110), S(20), TRUE);
         MoveWindow(statesTab, S(8), S(40), S(96), S(24), TRUE);
         MoveWindow(historyTab, S(106), S(40), S(96), S(24), TRUE);
         MoveWindow(canvas, S(8), S(70), (std::max)(width - S(16), 10), (std::max)(int(client.bottom) - S(70) - S(24), 10), TRUE);
@@ -622,6 +635,8 @@ namespace
                     showInactive = SendMessageW(inactiveCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
                 else if (id == ID_FREEZE)
                     freeze = SendMessageW(freezeCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+                else if (id == ID_PARAMS)
+                    showParams = SendMessageW(paramsCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
                 else if (id == ID_TAB_STATES || id == ID_TAB_HISTORY)
                 {
                     historyMode = id == ID_TAB_HISTORY;
@@ -784,6 +799,7 @@ namespace
         pending.clear();
         lastActive.clear();
         scrollY = 0;
+        stackScrollY = 0;
         botActive = true;
         InvalidateRect(canvas, nullptr, FALSE);
     }
@@ -799,19 +815,35 @@ namespace
                 return 1;
             case WM_SIZE:
                 UpdateScroll();
+                UpdateStackScroll();
                 InvalidateRect(canvas, nullptr, FALSE);
                 return 0;
             case WM_APP_ICON:
                 InvalidateRect(canvas, nullptr, FALSE);
                 return 0;
             case WM_MOUSEWHEEL:
-                ScrollTo(scrollY - GET_WHEEL_DELTA_WPARAM(wParam) * 60 / WHEEL_DELTA);
+            {
+                // over the tree stack panel the wheel scrolls the panel
+                POINT point = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+                ScreenToClient(canvas, &point);
+                const int delta = GET_WHEEL_DELTA_WPARAM(wParam) * 60 / WHEEL_DELTA;
+                if (!historyMode && point.x < S(stackWidth))
+                    StackScrollTo(stackScrollY - delta);
+                else
+                    ScrollTo(scrollY - delta);
                 return 0;
+            }
             case WM_VSCROLL:
             {
+                // the canvas' own bar, or stackBar (lParam) of the tree stack panel
+                const bool stack = HWND(lParam) == stackBar && stackBar;
                 SCROLLINFO info = { sizeof(info), SIF_ALL };
-                GetScrollInfo(canvas, SB_VERT, &info);
-                int y = scrollY;
+                if (stack)
+                    GetScrollInfo(stackBar, SB_CTL, &info);
+                else
+                    GetScrollInfo(canvas, SB_VERT, &info);
+                const int content = stack ? stackHeight : contentHeight;
+                int y = stack ? stackScrollY : scrollY;
                 switch (LOWORD(wParam))
                 {
                     case SB_LINEUP: y -= 20; break;
@@ -821,9 +853,12 @@ namespace
                     case SB_THUMBTRACK:
                     case SB_THUMBPOSITION: y = info.nTrackPos; break;
                     case SB_TOP: y = 0; break;
-                    case SB_BOTTOM: y = contentHeight; break;
+                    case SB_BOTTOM: y = content; break;
                 }
-                ScrollTo(y);
+                if (stack)
+                    StackScrollTo(y);
+                else
+                    ScrollTo(y);
                 return 0;
             }
             case WM_MOUSEMOVE:
@@ -909,6 +944,44 @@ namespace
         InvalidateRect(canvas, nullptr, FALSE);
     }
 
+    // stackBar: along the right edge of the tree stack panel, shown while the panel is taller than the view
+    void DebugWindow::UpdateStackScroll()
+    {
+        RECT client;
+        GetClientRect(canvas, &client);
+        const int height = MulDiv(client.bottom, 96, dpi);
+        const bool needed = selected && !historyMode && view && stackHeight > height;
+        stackScrollY = needed ? (std::max)(0, (std::min)(stackScrollY, stackHeight - height)) : 0;
+        if (!stackBar)
+            return;
+
+        const std::array<int, 4> set = { stackHeight, height, stackScrollY, int(client.bottom) };
+        if (set == stackBarSet && needed == (IsWindowVisible(stackBar) != FALSE))
+            return;
+        stackBarSet = set;
+
+        const int barWidth = GetSystemMetrics(SM_CXVSCROLL);
+        MoveWindow(stackBar, S(stackWidth) - barWidth, 0, barWidth, client.bottom, TRUE);
+        SCROLLINFO info = { sizeof(info), SIF_RANGE | SIF_PAGE | SIF_POS };
+        info.nMin = 0;
+        info.nMax = (std::max)(stackHeight - 1, 0);
+        info.nPage = UINT((std::max)(height, 0));
+        info.nPos = stackScrollY;
+        SetScrollInfo(stackBar, SB_CTL, &info, TRUE);
+        if (needed != (IsWindowVisible(stackBar) != FALSE))
+            ShowWindow(stackBar, needed ? SW_SHOWNOACTIVATE : SW_HIDE);
+    }
+
+    void DebugWindow::StackScrollTo(int y)
+    {
+        y = (std::max)(0, (std::min)(y, stackHeight - viewHeight));
+        if (y == stackScrollY)
+            return;
+        stackScrollY = y;
+        UpdateStackScroll();
+        InvalidateRect(canvas, nullptr, FALSE);
+    }
+
     void DebugWindow::PaintCanvas()
     {
         PAINTSTRUCT paint;
@@ -928,7 +1001,7 @@ namespace
         DeleteObject(canvasBrush);
 
         hits.clear();
-        const int oldHeight = contentHeight;
+        const int oldHeight = contentHeight, oldStackHeight = stackHeight;
         if (!selected)
             RenderMessage(L"Select a bot in the drop-down above.");
         else if (historyMode)
@@ -969,6 +1042,9 @@ namespace
 
         if (contentHeight != oldHeight)
             UpdateScroll();
+        UpdateStackScroll();
+        if (stackHeight != oldStackHeight)
+            InvalidateRect(canvas, nullptr, FALSE);
     }
 
     //--------------------------------------------------------------------
@@ -995,7 +1071,7 @@ namespace
     {
         SelectObject(dc, textFont ? textFont : font);
         SetTextColor(dc, color);
-        const int devY = inStack ? S(y) : DevY(y);
+        const int devY = TopY(y);
         TextOutW(dc, Dev(x), devY, text.c_str(), int(text.size()));
         return x + TextWidth(text, textFont);
     }
@@ -1026,7 +1102,7 @@ namespace
 
     void DebugWindow::Fill(int x, int y, int width, int height, COLORREF color)
     {
-        const int top = inStack ? S(y) : DevY(y);
+        const int top = TopY(y);
         RECT rect = { Dev(x), top, Dev(x) + (std::max)(S(width), 1), top + (std::max)(S(height), 1) };
         HBRUSH brush = CreateSolidBrush(color);
         FillRect(dc, &rect, brush);
@@ -1044,7 +1120,7 @@ namespace
     void DebugWindow::AddHit(int x, int y, int width, int height, std::function<void()> click, std::function<void()> doubleClick,
         std::wstring tooltip)
     {
-        const int top = inStack ? S(y) : DevY(y);
+        const int top = TopY(y);
         Hit hit;
         hit.rect = { Dev(x), top, Dev(x + width), top + S(height) };
         hit.click = std::move(click);
@@ -1056,7 +1132,7 @@ namespace
     // the icon (or a ? while it is downloaded / unknown) with the spell's name on hover; the x right of it
     int DebugWindow::SpellIcon(int x, int y, uint32 spellId, int size)
     {
-        const int top = inStack ? S(y) : DevY(y);
+        const int top = TopY(y);
         if (top > -S(size) && top < S(viewHeight))
         {
             if (!icons.Draw(dc, Dev(x), top, S(size), spellId))
@@ -1188,8 +1264,6 @@ namespace
     //--------------------------------------------------------------------
     // States tab
     //--------------------------------------------------------------------
-
-    constexpr int stackWidth = 220;
 
     void DebugWindow::RenderStates()
     {
@@ -1581,8 +1655,8 @@ namespace
     void DebugWindow::RenderStack(const std::vector<const StateMachineDebugView::State*>& states)
     {
         inStack = true;
-        Fill(0, 0, stackWidth, (std::max)(viewHeight, 1), RGB(22, 22, 22));
-        Fill(stackWidth, 0, 1, (std::max)(viewHeight, 1), RGB(48, 48, 48));
+        Fill(0, stackScrollY, stackWidth, (std::max)(viewHeight, 1), RGB(22, 22, 22));
+        Fill(stackWidth, stackScrollY, 1, (std::max)(viewHeight, 1), RGB(48, 48, 48));
 
         int y = 8;
         for (const StateMachineDebugView::State* state : states)
@@ -1622,8 +1696,8 @@ namespace
                         }
                     }
                     y += 20;
-                    // its property values under the box
-                    if (global < tree.globalProperties.size())
+                    // its property values under the box (Show params)
+                    if (showParams && global < tree.globalProperties.size())
                         for (const auto& [name, value] : tree.globalProperties[global])
                         {
                             DrawRuns(26, y, { { Wide(name) + L": ", Color::gray }, { Wide(value), Color::text } });
@@ -1634,6 +1708,7 @@ namespace
             }
             y += 8;
         }
+        stackHeight = y;
         inStack = false;
     }
 
