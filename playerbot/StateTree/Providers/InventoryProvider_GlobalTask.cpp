@@ -1,9 +1,11 @@
 #include "InventoryProvider_GlobalTask.h"
 
+#include "playerbot/ItemEvalSubsystem.h"
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/StateTree/STAI_TaskFactory.h"
 
 #include "Entities/Bag.h"
+#include "World/World.h"
 
 #include <stdexcept>
 
@@ -69,32 +71,6 @@ uint32 InventoryProvider_GlobalTask::CountFreeSlots(Player* bot)
     return free;
 }
 
-bool InventoryProvider_GlobalTask::IsSellable(const Item* item)
-{
-    const ItemPrototype* proto = item->GetProto();
-    if (!proto || !proto->SellPrice || item->IsBag())
-        return false;
-
-    switch (proto->Class)
-    {
-        case ITEM_CLASS_QUEST:
-        case ITEM_CLASS_CONSUMABLE:
-        case ITEM_CLASS_CONTAINER:
-        case ITEM_CLASS_REAGENT:
-        case ITEM_CLASS_KEY:
-            return false;
-        default:
-            break;
-    }
-
-    if (proto->Quality == ITEM_QUALITY_POOR)
-        return true;
-
-    // the bot does not equip or use loot yet: spare gear and materials are money
-    const bool gearOrGoods = proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR || proto->Class == ITEM_CLASS_TRADE_GOODS;
-    return gearOrGoods && proto->Quality <= ITEM_QUALITY_UNCOMMON;
-}
-
 void InventoryProvider_GlobalTask::Update(InventoryProvider_GlobalTaskContext& context) const
 {
     const bool wasLow = context.lowFood || context.lowDrink;
@@ -108,7 +84,8 @@ void InventoryProvider_GlobalTask::Update(InventoryProvider_GlobalTaskContext& c
     const bool wasFull = context.bagsFull;
     context.freeSlots = CountFreeSlots(context.bot);
     context.sellable = 0;
-    ForEachBagItem(context.bot, [&context](Item* item) { if (IsSellable(item)) ++context.sellable; });
+    if (ItemEvalSubsystem* itemEval = sWorld.GetSubsystem<ItemEvalSubsystem>())
+        ForEachBagItem(context.bot, [&context, itemEval](Item* item) { if (itemEval->Evaluate(context.bot, item) == EItemEval::Vendor) ++context.sellable; });
     context.bagsFull = context.freeSlots < free && context.sellable;
     if (context.bagsFull && !wasFull)
         context.onBagsFull.Broadcast();

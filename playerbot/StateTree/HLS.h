@@ -5,6 +5,7 @@
 #include "Platform/Define.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace ai
@@ -59,6 +60,8 @@ struct StateNodeDebugTree
     bool running = false;
     std::vector<std::string> globalTasks;           // names of the scopeless <Global> tasks
     std::vector<std::vector<uint32_t>> globalSpells; // per global task, the spells it works with
+    // per global task, its properties as name / value text (STAI_PropertyDef::toDebugText, guids named)
+    std::vector<std::vector<std::pair<std::string, std::string>>> globalProperties;
     std::vector<StateNodeDebugChild> nodes;
     int task = -1;                                  // a subtree of a node (StateNodeDebugChild::subtrees): the node's task running it
 };

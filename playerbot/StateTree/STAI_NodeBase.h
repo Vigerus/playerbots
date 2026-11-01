@@ -7,6 +7,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 
+#include <cstdio>
 #include <functional>
 #include <memory>
 #include <new>
@@ -48,6 +49,12 @@ namespace ai
         template <class T>
         struct IsNumberMap<T, std::void_t<typename T::key_type, typename T::mapped_type>>
             : std::bool_constant<std::is_arithmetic_v<typename T::key_type> && std::is_arithmetic_v<typename T::mapped_type>> {};
+        // STAI_Location, STAI_Position: a spot with x, y, z and valid
+        template <class T, class = void>
+        struct IsSpot : std::false_type {};
+        template <class T>
+        struct IsSpot<T, std::void_t<decltype(std::declval<const T&>().x), decltype(std::declval<const T&>().y),
+            decltype(std::declval<const T&>().z), decltype(std::declval<const T&>().valid)>> : std::true_type {};
     }
 
     // A value of a task context that other nodes of the tree can read by path (Root|<TaskClass>::<name> for a
@@ -66,11 +73,14 @@ namespace ai
         std::function<bool(const void* value, double key, double& entry)> lookup;
         // strings for conditions comparing text (compare="equal" value="frost mage"); empty otherwise
         std::function<const std::string&(const void* value)> toText;
+        // the value as the debug views show it (numbers, bools, text, spots, container sizes); empty otherwise (guids
+        // are named by the tree instance, which knows the bot's map)
+        std::function<std::string(const void* value)> toDebugText;
 
         template <class Context, class T>
         static STAI_PropertyDef Of(const std::string& name, T Context::* member)
         {
-            STAI_PropertyDef def{ name, std::type_index(typeid(T)), {}, {}, {}, {}, {}, {} };
+            STAI_PropertyDef def{ name, std::type_index(typeid(T)), {}, {}, {}, {}, {}, {}, {} };
             def.get = [member](STAI_TaskContext& context) -> void* { return &(static_cast<Context&>(context).*member); };
             def.assign = [](void* to, const void* from) { *static_cast<T*>(to) = *static_cast<const T*>(from); };
             if constexpr (STAI_Detail::HasEmpty<T>::value)
@@ -93,6 +103,32 @@ namespace ai
                     entry = static_cast<double>(found->second);
                     return true;
                 };
+
+            if constexpr (std::is_same_v<T, bool>)
+                def.toDebugText = [](const void* value) -> std::string { return *static_cast<const bool*>(value) ? "true" : "false"; };
+            else if constexpr (std::is_floating_point_v<T>)
+                def.toDebugText = [](const void* value)
+                {
+                    char text[32];
+                    std::snprintf(text, sizeof(text), "%.1f", double(*static_cast<const T*>(value)));
+                    return std::string(text);
+                };
+            else if constexpr (std::is_arithmetic_v<T>)
+                def.toDebugText = [](const void* value) { return std::to_string(*static_cast<const T*>(value)); };
+            else if constexpr (std::is_same_v<T, std::string>)
+                def.toDebugText = [](const void* value) { return *static_cast<const std::string*>(value); };
+            else if constexpr (STAI_Detail::IsSpot<T>::value)
+                def.toDebugText = [](const void* value) -> std::string
+                {
+                    const T& spot = *static_cast<const T*>(value);
+                    if (!spot.valid)
+                        return "-";
+                    char text[64];
+                    std::snprintf(text, sizeof(text), "%.0f %.0f %.0f", spot.x, spot.y, spot.z);
+                    return text;
+                };
+            else if constexpr (STAI_Detail::HasEmpty<T>::value)
+                def.toDebugText = [](const void* value) { return std::to_string(static_cast<const T*>(value)->size()) + " entries"; };
             return def;
         }
     };

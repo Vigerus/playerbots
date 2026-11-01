@@ -1,11 +1,13 @@
 #include "Task_SellJunk.h"
 
+#include "playerbot/ItemEvalSubsystem.h"
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/ServerFacade.h"
 #include "playerbot/StateTree/Providers/InventoryProvider_GlobalTask.h"
 
 #include "Entities/Creature.h"
 #include "Server/WorldSession.h"
+#include "World/World.h"
 
 #include <sstream>
 
@@ -18,14 +20,15 @@ EActionRunStatus Task_SellJunk::OnEnterState(STAI_TaskContext& baseContext) cons
     Player* bot = context.bot;
     context.result.clear();
     Creature* vendor = !context.vendor.IsEmpty() && bot->IsInWorld() ? bot->GetMap()->GetCreature(context.vendor) : nullptr;
-    if (!vendor || !sServerFacade.IsAlive(bot))
+    ItemEvalSubsystem* itemEval = sWorld.GetSubsystem<ItemEvalSubsystem>();
+    if (!vendor || !itemEval || !sServerFacade.IsAlive(bot))
         return EActionRunStatus::Failed;
 
     StartLog(context);
     std::vector<ObjectGuid> items;
-    InventoryProvider_GlobalTask::ForEachBagItem(bot, [&items](Item* item)
+    InventoryProvider_GlobalTask::ForEachBagItem(bot, [&](Item* item)
     {
-        if (InventoryProvider_GlobalTask::IsSellable(item))
+        if (itemEval->Evaluate(bot, item) == EItemEval::Vendor)
             items.push_back(item->GetObjectGuid());
     });
 

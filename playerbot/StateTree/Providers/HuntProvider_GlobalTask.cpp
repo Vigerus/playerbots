@@ -49,6 +49,7 @@ HuntProvider_GlobalTask::Settings HuntProvider_GlobalTask::ParseSettings(const S
     settings.levelsAbove = uint32(ParseFloatSetting(config, "Levels", "above", float(settings.levelsAbove)));
     settings.safeRadius = ParseFloatSetting(config, "SafeRadius", "value", settings.safeRadius);
     settings.huntRange = ParseFloatSetting(config, "HuntRange", "value", settings.huntRange);
+    settings.areaRadius = ParseFloatSetting(config, "AreaRadius", "value", settings.areaRadius);
 
     const std::string elite = STAI_TaskFactory::GetSetting(config, "Elite").value_or("false");
     if (elite != "true" && elite != "false")
@@ -70,11 +71,26 @@ std::unique_ptr<STAI_TaskBase> HuntProvider_GlobalTask::Create(const STAI_TaskCo
     return std::make_unique<HuntProvider_GlobalTask>(ParseSettings(config));
 }
 
+bool HuntProvider_GlobalTask::FitsLevel(uint32 level, uint32 minLevel, uint32 maxLevel, uint32 levelsBelow, uint32 levelsAbove)
+{
+    const uint32 lowest = level > levelsBelow ? level - levelsBelow : 1;
+    return maxLevel >= lowest && minLevel <= level + levelsAbove;
+}
+
 bool HuntProvider_GlobalTask::FitsLevel(const Player* bot, uint32 minLevel, uint32 maxLevel) const
 {
-    const uint32 level = bot->GetLevel();
-    const uint32 lowest = level > settings.levelsBelow ? level - settings.levelsBelow : 1;
-    return maxLevel >= lowest && minLevel <= level + settings.levelsAbove;
+    return FitsLevel(bot->GetLevel(), minLevel, maxLevel, settings.levelsBelow, settings.levelsAbove);
+}
+
+bool HuntProvider_GlobalTask::IsHuntable(const FactionTemplateEntry* botFaction, uint32 level, const CreatureInfo* info, uint32 levelsBelow, uint32 levelsAbove, bool elite)
+{
+    if (!info || !botFaction)
+        return false;
+
+    const FactionTemplateEntry* faction = sFactionTemplateStore.LookupEntry(info->Faction);
+    return FitsLevel(level, info->MinLevel, info->MaxLevel, levelsBelow, levelsAbove) && (elite || info->Rank == CREATURE_ELITE_NORMAL) &&
+        info->CreatureType != CREATURE_TYPE_CRITTER && !info->NpcFlags && !info->Civilian &&
+        faction && !faction->IsFriendlyTo(*botFaction);
 }
 
 bool HuntProvider_GlobalTask::CanHunt(Player* bot, Creature* creature) const
@@ -199,35 +215,51 @@ void HuntProvider_GlobalTask::UpdateHuntLocation(HuntProvider_GlobalTaskContext&
         if (known != huntable.end())
             return known->second;
 
-        bool result = false;
-        if (const CreatureInfo* info = ObjectMgr::GetCreatureTemplate(entry))
-        {
-            const FactionTemplateEntry* faction = sFactionTemplateStore.LookupEntry(info->Faction);
-            result = FitsLevel(bot, info->MinLevel, info->MaxLevel) && (settings.elite || info->Rank == CREATURE_ELITE_NORMAL) &&
-                info->CreatureType != CREATURE_TYPE_CRITTER && !info->NpcFlags && !info->Civilian &&
-                faction && botFaction && !faction->IsFriendlyTo(*botFaction);
-        }
+        const bool result = IsHuntable(botFaction, bot->GetLevel(), ObjectMgr::GetCreatureTemplate(entry), settings.levelsBelow, settings.levelsAbove, settings.elite);
         huntable[entry] = result;
         return result;
     };
 
-    const float minDistance = settings.range * 0.8f;   // closer ones would have been found as units
-    float best = settings.huntRange;
-    for (const STAI_Spawn& spawn : STAI_GetSpawns(bot->GetMapId()))
+    // far from the area: walk there first
+    const STAI_Location& area = context.area;
+    const bool hasArea = !area.IsEmpty() && area.mapId == bot->GetMapId();
+    if (hasArea && bot->GetDistance2d(area.x, area.y) > settings.areaRadius)
     {
-        const float distance = bot->GetDistance2d(spawn.x, spawn.y);
-        if (distance < minDistance || distance >= best || !isHuntable(spawn.entry))
-            continue;
+        context.huntLocation = area;
+        return;
+    }
 
-        const bool wasVisited = std::any_of(context.visited.begin(), context.visited.end(), [&spawn](const HuntProvider_GlobalTaskContext::Visited& v)
+    auto search = [&](bool inArea)
+    {
+        const float minDistance = settings.range * 0.8f;   // closer ones would have been found as units
+        float best = settings.huntRange;
+        for (const STAI_Spawn& spawn : STAI_GetSpawns(bot->GetMapId()))
         {
-            return (v.x - spawn.x) * (v.x - spawn.x) + (v.y - spawn.y) * (v.y - spawn.y) < visitedRadius * visitedRadius;
-        });
-        if (wasVisited)
-            continue;
+            const float distance = bot->GetDistance2d(spawn.x, spawn.y);
+            if (distance < minDistance || distance >= best || !isHuntable(spawn.entry))
+                continue;
+            if (inArea && (area.x - spawn.x) * (area.x - spawn.x) + (area.y - spawn.y) * (area.y - spawn.y) > settings.areaRadius * settings.areaRadius)
+                continue;
 
-        best = distance;
-        context.huntLocation = { bot->GetMapId(), spawn.x, spawn.y, spawn.z, true };
+            const bool wasVisited = std::any_of(context.visited.begin(), context.visited.end(), [&spawn](const HuntProvider_GlobalTaskContext::Visited& v)
+            {
+                return (v.x - spawn.x) * (v.x - spawn.x) + (v.y - spawn.y) * (v.y - spawn.y) < visitedRadius * visitedRadius;
+            });
+            if (wasVisited)
+                continue;
+
+            best = distance;
+            context.huntLocation = { bot->GetMapId(), spawn.x, spawn.y, spawn.z, true };
+        }
+    };
+
+    // every spawn point of the area visited: a new round (they respawn); whether the area still pays off is
+    // LevelingProvider's call
+    search(hasArea);
+    if (hasArea && context.huntLocation.IsEmpty() && !context.visited.empty())
+    {
+        context.visited.clear();
+        search(true);
     }
 }
 
@@ -286,6 +318,7 @@ const std::vector<STAI_PropertyDef>& HuntProvider_GlobalTask::GetProperties() co
         STAI_PropertyDef::Of("pullTarget", &HuntProvider_GlobalTaskContext::pullTarget),
         STAI_PropertyDef::Of("candidates", &HuntProvider_GlobalTaskContext::candidates),
         STAI_PropertyDef::Of("huntLocation", &HuntProvider_GlobalTaskContext::huntLocation),
+        STAI_PropertyDef::Of("area", &HuntProvider_GlobalTaskContext::area),
     };
     return properties;
 }

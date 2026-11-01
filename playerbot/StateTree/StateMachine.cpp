@@ -1,5 +1,6 @@
 #include "StateMachine.h"
 
+#include "Entities/Player.h"
 #include "World/ProfilingSubsystem.h"
 
 #include <algorithm>
@@ -113,6 +114,22 @@ void StateMachine::Reset()
     bInitialized = false;
 }
 
+StateMachineDebugBot StateMachineDebugBot::Of(Player* bot)
+{
+    StateMachineDebugBot info;
+    info.name = bot->GetName();
+    info.level = bot->GetLevel();
+    info.health = bot->GetHealth();
+    info.maxHealth = bot->GetMaxHealth();
+    const Powers power = bot->GetPowerType();
+    info.powerName = power == POWER_MANA ? "Mana" : power == POWER_RAGE ? "Rage" : power == POWER_ENERGY ? "Energy" : "Power";
+    info.power = bot->GetPower(power);
+    info.maxPower = bot->GetMaxPower(power);
+    info.xp = bot->GetUInt32Value(PLAYER_XP);
+    info.maxXp = bot->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
+    return info;
+}
+
 static const char* GetHLSStateTypeName(HLSStateType type)
 {
     switch (type)
@@ -150,7 +167,8 @@ static std::string SanitizeTransition(const std::string& text)
 //   N^<type>^<node name>^<active 0|1>^^0.0^-^          (the empty fields were the legacy engine's last action,
 //                                                       relevance, status and strategies; Reaction is always active)
 //   K^<type>^<depth>^<tree name>^<running 0|1>       tree stack of the state above, bottom (depth 0) to top
-//   G^<type>^<depth>^<task name>^<spell id,...>        global task of the tree K^<type>^<depth>, the spells it works with
+//   G^<type>^<depth>^<task name>^<spell id,...>^<name=value;name=value...>
+//       global task of the tree K^<type>^<depth>, the spells it works with, its properties (guids named)
 //   C^<type>^<active 0|1>^<node name>^<task class>^<conditions>^<task info>^<running task index or -1>^<task;task;...>
 //       ^<transition;transition;...>^<spell id,...>   (spells of the running task)
 //       ^<disabled 0|1,...>   (per task: switched off in the addon, STAI_TaskContext::bDisabled)
@@ -177,6 +195,15 @@ static std::string SanitizeTaskInfo(const std::string& info)
     std::string text = SanitizeDebugField(info);
     std::replace(text.begin(), text.end(), ';', ',');
     return text;
+}
+
+// a property name or value inside the ';' separated name=value list of a global task
+static std::string SanitizeProperty(const std::string& text)
+{
+    std::string result = SanitizeDebugField(text);
+    std::replace(result.begin(), result.end(), ';', ' ');
+    std::replace(result.begin(), result.end(), '=', ' ');
+    return result;
 }
 
 // conditions of a node for the snapshot: [ANY:]<result><condition>&&<result><condition>...
@@ -245,6 +272,13 @@ std::string StateMachine::BuildDebugSnapshot() const
                 if (global < stack[depth].globalSpells.size())
                     for (size_t spell = 0; spell < stack[depth].globalSpells[global].size(); ++spell)
                         out << (spell ? "," : "") << stack[depth].globalSpells[global][spell];
+                out << "^";
+                if (global < stack[depth].globalProperties.size())
+                {
+                    const auto& properties = stack[depth].globalProperties[global];
+                    for (size_t property = 0; property < properties.size(); ++property)
+                        out << (property ? ";" : "") << SanitizeProperty(properties[property].first) << "=" << SanitizeProperty(properties[property].second);
+                }
             }
         }
 

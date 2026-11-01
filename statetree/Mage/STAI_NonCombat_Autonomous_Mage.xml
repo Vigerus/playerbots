@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="6">
+<StateTree version="7">
   <Comment>NonCombat subtree for Mage bots on their own, without a leader (run by STAI_NonCombat_Mage.xml): keeps itself
-    up (decurse, buffs, conjured water and food, eat, rest), loots its kills, sells junk when the bags are full, learns
+    up (decurse, buffs, conjured water and food, eat, rest), loots its kills, equips better items, sells junk when the bags are full, learns
     new spells at its trainer, else grinds</Comment>
   <GlobalTasks>
     <Task class="BuffProvider_GlobalTask">
@@ -36,6 +36,9 @@
         something to sell), onBagsFull</Comment>
       <Low value="5"/>
       <Free value="2"/>
+    </Task>
+    <Task class="ItemProvider_GlobalTask">
+      <Comment>evaluates the bag items (ItemEvalSubsystem): equipItem, onItemEquipRequest (an item better than what is worn)</Comment>
     </Task>
     <Task class="TrainerProvider_GlobalTask">
       <Comment>spells the bot can learn and afford at its class trainer: newSpells, onNewSpells (the Train subtree goes there)</Comment>
@@ -91,6 +94,17 @@
       <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Loot]::onArrived" target="Root|Loot"/>
       <Transition trigger="OnDelegate" source="Root|LootProvider_GlobalTask::onLootable" target="Root"/>
     </Transitions>
+  </State>
+  <State name="Equip">
+    <Comment>a better item in the bags: worn at once (the old one goes to the bags, selling judges it again)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|ItemProvider_GlobalTask::equipItem"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_EquipItem">
+        <Binding local="item" external="Root|ItemProvider_GlobalTask::equipItem"/>
+      </Task>
+    </Tasks>
   </State>
   <State name="Sell">
     <Comment>full bags: to the nearest vendor and sell the junk (conjured water, loot and quest items need the room)</Comment>
@@ -214,6 +228,7 @@
       <Transition trigger="OnDelegate" source="Root|TrainerProvider_GlobalTask::onNewSpells" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|InventoryProvider_GlobalTask::onLowSupplies" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|InventoryProvider_GlobalTask::onBagsFull" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|ItemProvider_GlobalTask::onItemEquipRequest" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
         <Conditions>
           <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>

@@ -8,8 +8,23 @@
 #include <map>
 #include <memory>
 
+class Player;
+
 namespace ai
 {
+    // the bot the debug views show above its states: name, level, health, power, experience
+    struct StateMachineDebugBot
+    {
+        std::string name;
+        uint32 level = 0;
+        uint32 health = 0, maxHealth = 0;
+        std::string powerName;                      // Mana, Rage, Energy
+        uint32 power = 0, maxPower = 0;
+        uint32 xp = 0, maxXp = 0;                   // maxXp 0 at the highest level
+
+        static StateMachineDebugBot Of(Player* bot);
+    };
+
     // every state of a StateMachine, for the server's debug window (PlayerbotDebugWindow): what the snapshot of
     // BuildDebugSnapshot holds, not serialized
     struct StateMachineDebugView
@@ -22,6 +37,7 @@ namespace ai
             std::vector<StateNodeDebugTree> stack;  // bottom (initial tree) to top (the tree selecting nodes)
         };
 
+        StateMachineDebugBot bot;                   // filled by the caller (the state machine does not know its bot)
         std::string active;                         // type of the active main state, empty none
         uint32 msInState = 0;
         std::vector<State> states;

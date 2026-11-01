@@ -13,8 +13,8 @@
       <Binding local="location" external="Root|TrainerProvider_GlobalTask::trainerLocation"/>
     </Task>
     <Task class="MovementGoal_GlobalTask" name="Trainer Range" priority="31" kind="range">
-      <Comment>movement goal: next to the trainer once it is near (the trainer window's interaction range)</Comment>
-      <Range max="4"/>
+      <Comment>movement goal: next to the trainer once it is near (the trainer window: 5 yards, INTERACTION_DISTANCE; a counter may keep the bot further than 4)</Comment>
+      <Range max="5"/>
       <Binding local="target" external="Root|TrainerProvider_GlobalTask::trainer"/>
     </Task>
   </GlobalTasks>

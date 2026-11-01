@@ -5877,6 +5877,10 @@ void PlayerbotAI::SendStateTreeDebug()
         std::ostringstream out;
         out.setf(std::ios::fixed);
         out.precision(1);
+        // the bot: P^<name>^<level>^<health>^<max health>^<power name>^<power>^<max power>^<xp>^<xp of the level, 0 at the highest>
+        const ai::StateMachineDebugBot info = ai::StateMachineDebugBot::Of(bot);
+        out << "~P^" << field(info.name) << "^" << info.level << "^" << info.health << "^" << info.maxHealth << "^" << info.powerName
+            << "^" << info.power << "^" << info.maxPower << "^" << info.xp << "^" << info.maxXp;
         out << "~M^" << field(goal.name) << "^" << field(goal.source) << "^" << movement.GetStateName()
             << "^" << distance << "^" << goal.priority;
         snapshot += out.str();

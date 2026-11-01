@@ -10,6 +10,8 @@
 
 class Creature;
 class Player;
+struct CreatureInfo;
+struct FactionTemplateEntry;
 
 namespace ai
 {
@@ -23,6 +25,9 @@ namespace ai
         uint32 candidates = 0;          // property "candidates": the units that could be pulled (before the safety check)
         // property "huntLocation": a spawn point of fitting creatures further away, to walk to while nothing is in range
         STAI_Location huntLocation;
+        // property "area" (bound, optional, e.g. to LevelingProvider_GlobalTask::huntArea): where to hunt; while the bot is
+        // beyond AreaRadius of it huntLocation is the area itself, inside only spawn points within AreaRadius of it count
+        STAI_Location area;
 
         struct Visited
         {
@@ -42,7 +47,8 @@ namespace ai
     // service, in sight, and safe to pull (no other aggressive creature that is not fighting within SafeRadius of it).
     // The closest one wins; a chosen unit is kept while it stays valid, for 30s at most (then it is ignored for 5 minutes:
     // the bot could not reach or pull it). Without one, huntLocation is the closest spawn
-    // point (creature table) of such creatures beyond Range, not visited lately:
+    // point (creature table) of such creatures beyond Range, not visited lately (with a bound area only inside it, a
+    // new round once all were visited):
     //   <GlobalTasks>
     //     <Task class="HuntProvider_GlobalTask">
     //       <Range value="50"/>                yards searched for units, default 50
@@ -50,6 +56,8 @@ namespace ai
     //       <Elite value="false"/>             elites may be pulled, default false
     //       <SafeRadius value="12"/>           yards around the unit without another idle aggressive creature, default 12
     //       <HuntRange value="400"/>           yards searched for a hunt location, default 400
+    //       <AreaRadius value="150"/>          yards around the bound area its spawn points are taken from, default 150
+    //       <Binding local="area" external="Root|LevelingProvider_GlobalTask::huntArea"/>    optional
     //     </Task>
     //   </GlobalTasks>
     // Ticked: the unit every 500ms, the hunt location every 5s (at once when the bot reached it).
@@ -64,6 +72,7 @@ namespace ai
             bool elite = false;
             float safeRadius = 12.0f;
             float huntRange = 400.0f;
+            float areaRadius = 150.0f;
         };
 
         explicit HuntProvider_GlobalTask(const Settings& settings) : settings(settings) {}
@@ -83,6 +92,11 @@ namespace ai
 
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
         virtual const std::vector<STAI_DelegateDef>& GetDelegates() const override;
+
+        // a creature template a bot of this faction and level may hunt: its levels within levelsBelow / levelsAbove of
+        // the bot's, no elite (unless allowed), no critter, civilian or npc with a service, not friendly to the bot
+        static bool IsHuntable(const FactionTemplateEntry* botFaction, uint32 level, const CreatureInfo* info, uint32 levelsBelow, uint32 levelsAbove, bool elite);
+        static bool FitsLevel(uint32 level, uint32 minLevel, uint32 maxLevel, uint32 levelsBelow, uint32 levelsAbove);
 
     private:
         static Settings ParseSettings(const STAI_TaskConfig& config);

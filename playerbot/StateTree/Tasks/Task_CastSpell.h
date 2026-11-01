@@ -20,6 +20,7 @@ namespace ai
         uint32 spellId = 0;                 // 0: nothing was cast
         uint32 causeSpellId = 0;            // the cause of the cast on castTarget, 0 none
         ObjectGuid castTarget;
+        std::string castTargetName;         // the debug views: who the cast is on
         uint32 castStartMs = 0;
         bool resultAtStart = false;         // instant / channeled: successful once started
         int8 result = -1;                   // the spell went off: -1 not known yet, 0 no, 1 yes
@@ -92,14 +93,16 @@ namespace ai
         virtual const std::vector<STAI_PropertyDef>& GetProperties() const override;
 
         virtual std::string GetDebugInfo() const override { return "Cast " + STAI_SpellMarkup(spell.spellId); }
-        // the rank the run casts (a fallback, a lower rank than the highest one) and its cause, the configured spell
-        // before it cast
+        // the rank the run casts (a fallback, a lower rank than the highest one), on whom and its cause, the configured
+        // spell before it cast
         virtual std::string GetActivityInfo(const STAI_TaskContext& context) const override
         {
             const Task_CastSpellContext& cast = ContextAs<Task_CastSpellContext>(context);
             if (!cast.spellId)
                 return cast.refused.empty() ? GetDebugInfo() : GetDebugInfo() + ": " + cast.refused;
-            const std::string info = "Cast " + STAI_SpellMarkup(cast.spellId);
+            std::string info = "Cast " + STAI_SpellMarkup(cast.spellId);
+            if (!cast.castTargetName.empty())
+                info += " on " + cast.castTargetName;
             return cast.causeSpellId ? info + " (cause " + STAI_SpellMarkup(cast.causeSpellId) + ")" : info;
         }
         // every cast gets its own History entry

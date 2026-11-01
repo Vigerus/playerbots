@@ -182,6 +182,7 @@ void PlayerbotDebugWindow::OnBotUpdate(PlayerbotAI* ai)
         view->guid = guid;
         view->takenMs = now;
         ai->StateMachine.GetDebugView(view->machine);
+        view->machine.bot = StateMachineDebugBot::Of(bot);
 
         ai::PlayerbotMovement& movement = ai->GetMovement();
         const ai::MovementGoalRequest& goal = movement.GetActive();
@@ -1226,6 +1227,21 @@ namespace
         leftX = stackWidth + 10;
         int y = 8;
 
+        // the bot: name and level, health, power, experience
+        const StateMachineDebugBot& bot = machine.bot;
+        auto amount = [](const wchar_t* label, uint32 value, uint32 max)
+        {
+            return std::wstring(label) + L": " + std::to_wstring(value) + L"/" + std::to_wstring(max);
+        };
+        DrawRuns(leftX, y, { { Wide(bot.name), Color::white, 0, true }, { L"  " + std::to_wstring(bot.level), Color::light } });
+        y += 18;
+        DrawLabel(leftX, y, amount(L"HP", bot.health, bot.maxHealth), Color::brightGreen);
+        y += 16;
+        DrawLabel(leftX, y, amount(Wide(bot.powerName).c_str(), bot.power, bot.maxPower), RGB(96, 160, 255));
+        y += 16;
+        DrawLabel(leftX, y, bot.maxXp ? amount(L"Xp", bot.xp, bot.maxXp) : std::wstring(L"Xp: max level"), RGB(200, 120, 255));
+        y += 22;
+
         // the bot's movement first (independent of the states): the goal driving it and where it comes from
         Runs movement;
         movement.push_back({ L"Movement:  ", Color::light });
@@ -1606,6 +1622,13 @@ namespace
                         }
                     }
                     y += 20;
+                    // its property values under the box
+                    if (global < tree.globalProperties.size())
+                        for (const auto& [name, value] : tree.globalProperties[global])
+                        {
+                            DrawRuns(26, y, { { Wide(name) + L": ", Color::gray }, { Wide(value), Color::text } });
+                            y += 15;
+                        }
                 }
                 y += 4;
             }

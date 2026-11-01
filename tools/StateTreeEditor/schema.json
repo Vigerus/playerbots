@@ -761,14 +761,21 @@
           "traits": [
             "testable"
           ]
+        },
+        {
+          "name": "area",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
         }
       ],
       "delegates": [
         "onPullTarget"
       ],
       "description": "global task of the solo trees, ticked (every 500ms, the hunt location every 5s): property `pullTarget` (the closest living creature within `Range` the bot may attack ...",
-      "doc": "global task of the solo trees, ticked (every 500ms, the hunt location every 5s): property `pullTarget` (the closest living creature within `Range` the bot may attack: of a level from `below` under to `above` over the bot's, not fighting, not tapped by others, no elite unless allowed, no pet, critter, civilian or npc with a service, in sight, and no other aggressive creature that is not fighting within `SafeRadius` of it; kept while valid, at most 30s, then ignored for 5 minutes), `candidates`, `huntLocation` (without a `pullTarget`: the closest spawn point of such creatures beyond `Range` and within `HuntRange`, from the creature table; a reached one is not chosen again for 10 minutes); delegate `onPullTarget`",
-      "settingsHelp": "`<Range value=\"50\"/>` (yards), `<Levels below=\"5\" above=\"1\"/>`, `<Elite value=\"false\"/>`, `<SafeRadius value=\"12\"/>` (yards), `<HuntRange value=\"400\"/>` (yards)",
+      "doc": "global task of the solo trees, ticked (every 500ms, the hunt location every 5s): property `pullTarget` (the closest living creature within `Range` the bot may attack: of a level from `below` under to `above` over the bot's, not fighting, not tapped by others, no elite unless allowed, no pet, critter, civilian or npc with a service, in sight, and no other aggressive creature that is not fighting within `SafeRadius` of it; kept while valid, at most 30s, then ignored for 5 minutes), `candidates`, `huntLocation` (without a `pullTarget`: the closest spawn point of such creatures beyond `Range` and within `HuntRange`, from the creature table; a reached one is not chosen again for 10 minutes; with a bound `area`: the area itself while the bot is beyond `AreaRadius` of it, else only its spawn points within `AreaRadius`, a new round once all were reached); delegate `onPullTarget`",
+      "settingsHelp": "`<Range value=\"50\"/>` (yards), `<Levels below=\"5\" above=\"1\"/>`, `<Elite value=\"false\"/>`, `<SafeRadius value=\"12\"/>` (yards), `<HuntRange value=\"400\"/>` (yards), `<AreaRadius value=\"150\"/>` (yards), optional `<Binding local=\"area\" external=\"Root|LevelingProvider_GlobalTask::huntArea\"/>`",
       "taskAttributes": {},
       "settings": {
         "Range": {
@@ -814,6 +821,17 @@
             "value": {
               "examples": [
                 "400"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "AreaRadius": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "150"
               ]
             }
           },
@@ -1110,8 +1128,8 @@
         "onLowSupplies",
         "onBagsFull"
       ],
-      "description": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags), `sellable` (stacks a vendor buys ...",
-      "doc": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags), `sellable` (stacks a vendor buys: grey items, white / green weapons, armor and trade goods; never quest items, consumables, containers, reagents or keys), `bagsFull` (fewer than `Free` free slots with something sellable); delegates `onLowSupplies`, `onBagsFull`",
+      "description": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags) ...",
+      "doc": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags), `sellable` (stacks `ItemEvalSubsystem` says to sell to a vendor), `bagsFull` (fewer than `Free` free slots with something sellable); delegates `onLowSupplies`, `onBagsFull`",
       "settingsHelp": "`<Low value=\"5\"/>`, `<Free value=\"2\"/>`",
       "taskAttributes": {},
       "settings": {
@@ -1138,6 +1156,54 @@
           "seen": true
         }
       },
+      "uses": 1
+    },
+    "ItemProvider_GlobalTask": {
+      "cppClass": "ItemProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/ItemProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "equipItem",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "equipCount",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "vendorCount",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "ahCount",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onItemEquipRequest"
+      ],
+      "description": "global task, ticked (every 2s, and on the next update after the core's `TeamSubsystem` OnItemReceived: looted, quest reward, crafted, bought): evaluates the bag items with `ItemEvalSubsystem` (`Vendor` / `AH` / `Keep` / `Equip` ...",
+      "doc": "global task, ticked (every 2s, and on the next update after the core's `TeamSubsystem` OnItemReceived: looted, quest reward, crafted, bought): evaluates the bag items with `ItemEvalSubsystem` (`Vendor` / `AH` / `Keep` / `Equip`: gear by stat weight, quality, item level against the weakest worn item of its slots, a generic bag against a free bag slot or a smaller bag; a worse one is `Vendor` below level 60 when grey, white or soulbound, else `AH` when bind on equip and not bound yet, else `Keep`); property `equipItem` (an `Equip` item; one still not equipped after 10s is ignored while it stays in the bags), `equipCount`, `vendorCount`, `ahCount`; delegate `onItemEquipRequest` (`equipItem` got a new item)",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
       "uses": 1
     },
     "LeaderProvider_GlobalTask": {
@@ -1207,6 +1273,130 @@
         }
       },
       "uses": 20
+    },
+    "LevelingProvider_GlobalTask": {
+      "cppClass": "LevelingProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/LevelingProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "zoneId",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "zoneName",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "inZone",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "huntArea",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "areaLevel",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "areas",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "xpPerHour",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onZoneChanged",
+        "onAreaChanged"
+      ],
+      "description": "global task of the solo trees, ticked (every 5s): where the bot levels. The zone from the classic zone level table (its faction's zones and the contested ones, on its continent for now) ...",
+      "doc": "global task of the solo trees, ticked (every 5s): where the bot levels. The zone from the classic zone level table (its faction's zones and the contested ones, on its continent for now): the planned one, else the one it is in, while it fits its level, else the one whose range centers nearest its level, then the nearest. In it the spawn group to grind: creature spawns grouped by `Cell` yards, a group needs `MinCount` huntable creatures (`HuntProvider_GlobalTask::IsHuntable` with `Levels`) and no elite or creature more than `above` + 2 levels over the bot in or next to it; the average level nearest the bot's wins, then the nearest (worked out once per zone, level and faction for every bot). A level up chooses again. After 5 minutes within 150 yards of the group its pay is measured: less than a level per `MaxHours` leaves the group for 20 minutes (the next one is taken), a zone without a group left is left for 30 minutes (the next zone). Kept per bot across tree restarts. Property `zoneId`, `zoneName`, `inZone`, `huntArea` (bound into `HuntProvider_GlobalTask`'s `area`), `areaLevel`, `areas`, `xpPerHour`; delegates `onZoneChanged`, `onAreaChanged`",
+      "settingsHelp": "`<Levels below=\"4\" above=\"1\"/>`, `<Cell value=\"80\"/>` (yards), `<MinCount value=\"4\"/>`, `<MaxHours value=\"0.75\"/>`",
+      "taskAttributes": {},
+      "settings": {
+        "Levels": {
+          "attributes": {
+            "below": {
+              "examples": [
+                "4"
+              ]
+            },
+            "above": {
+              "examples": [
+                "1"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Cell": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "80"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "MinCount": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "4"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "MaxHours": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "0.75"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 1
     },
     "LootProvider_GlobalTask": {
       "cppClass": "LootProvider_GlobalTask",
@@ -2106,6 +2296,28 @@
       },
       "uses": 20
     },
+    "Task_EquipItem": {
+      "cppClass": "Task_EquipItem",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_EquipItem.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "item",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "equips the item at the slot `ItemEvalSubsystem::FindEquipSlot` picks (a free one, else the weakest worn item's) as a player dragging it there (`CMSG_SWAP_ITEM`: the worn item goes to the bag slot, a two-hander takes the off hand off too) ...",
+      "doc": "equips the item at the slot `ItemEvalSubsystem::FindEquipSlot` picks (a free one, else the weakest worn item's) as a player dragging it there (`CMSG_SWAP_ITEM`: the worn item goes to the bag slot, a two-hander takes the off hand off too); not tickable, Succeeded when the item is worn, Failed otherwise (gone, not better any more, refused by the core), its History entry tells which",
+      "settingsHelp": "`<Binding local=\"item\" external=\"Root|ItemProvider_GlobalTask::equipItem\"/>`",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 1
+    },
     "Task_LearnSpells": {
       "cppClass": "Task_LearnSpells",
       "global": false,
@@ -2289,8 +2501,8 @@
         }
       ],
       "delegates": [],
-      "description": "sells the bags' sellable items (`InventoryProvider_GlobalTask::IsSellable`) to the vendor as the client does (`CMSG_SELL_ITEM`) ...",
-      "doc": "sells the bags' sellable items (`InventoryProvider_GlobalTask::IsSellable`) to the vendor as the client does (`CMSG_SELL_ITEM`); not tickable, Succeeded when it sold something, Failed otherwise, its History entry tells how many and the money",
+      "description": "sells the bag items `ItemEvalSubsystem` evaluates as `Vendor` to the vendor as the client does (`CMSG_SELL_ITEM`); not tickable, Succeeded when it sold something or nothing is left to sell, Failed otherwise ...",
+      "doc": "sells the bag items `ItemEvalSubsystem` evaluates as `Vendor` to the vendor as the client does (`CMSG_SELL_ITEM`); not tickable, Succeeded when it sold something or nothing is left to sell, Failed otherwise, its History entry tells how many and the money",
       "settingsHelp": "`<Binding local=\"vendor\" external=\"Root|VendorProvider_GlobalTask::vendor\"/>`",
       "taskAttributes": {},
       "settings": {},

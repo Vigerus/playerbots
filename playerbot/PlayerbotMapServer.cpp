@@ -175,8 +175,14 @@ namespace
         out << "{\"name\":" << Quote(tree.name) << ",\"running\":" << (tree.running ? "true" : "false")
             << ",\"task\":" << tree.task << ",\"globals\":[";
         for (size_t i = 0; i < tree.globalTasks.size(); ++i)
+        {
             out << (i ? "," : "") << "{\"name\":" << Quote(tree.globalTasks[i]) << ",\"spells\":"
-                << spells.List(i < tree.globalSpells.size() ? tree.globalSpells[i] : std::vector<uint32>()) << "}";
+                << spells.List(i < tree.globalSpells.size() ? tree.globalSpells[i] : std::vector<uint32>()) << ",\"properties\":[";
+            if (i < tree.globalProperties.size())
+                for (size_t p = 0; p < tree.globalProperties[i].size(); ++p)
+                    out << (p ? "," : "") << "{\"name\":" << Quote(tree.globalProperties[i][p].first) << ",\"value\":" << Quote(tree.globalProperties[i][p].second) << "}";
+            out << "]}";
+        }
         out << "],\"nodes\":[";
         for (size_t i = 0; i < tree.nodes.size(); ++i)
             out << (i ? "," : "") << Node(tree.nodes[i], spells);
@@ -194,6 +200,11 @@ namespace
         std::ostringstream out;
         out << "{\"guid\":" << bot->GetObjectGuid().GetRawValue() << ",\"name\":" << Quote(bot->GetName())
             << ",\"active\":" << Quote(machine.active) << ",\"msInState\":" << machine.msInState;
+
+        const StateMachineDebugBot info = StateMachineDebugBot::Of(bot);
+        out << ",\"bot\":{\"level\":" << info.level << ",\"health\":" << info.health << ",\"maxHealth\":" << info.maxHealth
+            << ",\"powerName\":" << Quote(info.powerName) << ",\"power\":" << info.power << ",\"maxPower\":" << info.maxPower
+            << ",\"xp\":" << info.xp << ",\"maxXp\":" << info.maxXp << "}";
 
         PlayerbotMovement& movement = ai->GetMovement();
         const MovementGoalRequest& goal = movement.GetActive();

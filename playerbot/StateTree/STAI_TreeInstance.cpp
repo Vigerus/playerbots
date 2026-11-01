@@ -822,6 +822,17 @@ EActionRunStatus STAI_TreeInstance::OnTick(uint32 elapsed, bool minimal)
     return EActionRunStatus::Running;
 }
 
+// a guid property in the debug views: the object's name while it is on the bot's map
+static std::string DebugName(Player* bot, ObjectGuid guid)
+{
+    if (guid.IsEmpty())
+        return "-";
+    if (bot && bot->IsInWorld())
+        if (WorldObject* object = bot->GetMap()->GetWorldObject(guid))
+            return object->GetName();
+    return guid.GetString();
+}
+
 void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& stack) const
 {
     StateNodeDebugTree tree;
@@ -833,6 +844,16 @@ void STAI_TreeInstance::AppendDebugTreeStack(std::vector<StateNodeDebugTree>& st
         tree.globalTasks.push_back(global.def->task->GetName());
         const ISTAI_DebugSpells* spells = dynamic_cast<const ISTAI_DebugSpells*>(global.def->task.get());
         tree.globalSpells.push_back(spells ? spells->GetDebugSpells(*global.context) : std::vector<uint32>());
+
+        std::vector<std::pair<std::string, std::string>>& properties = tree.globalProperties.emplace_back();
+        for (const STAI_PropertyDef& property : global.def->task->GetProperties())
+        {
+            void* value = property.get(*global.context);
+            if (property.type == std::type_index(typeid(ObjectGuid)))
+                properties.emplace_back(property.name, DebugName(global.context->bot, *static_cast<const ObjectGuid*>(value)));
+            else if (property.toDebugText)
+                properties.emplace_back(property.name, property.toDebugText(value));
+        }
     }
 
     for (size_t i = 0; i < states.size(); ++i)

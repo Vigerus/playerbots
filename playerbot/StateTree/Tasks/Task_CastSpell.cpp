@@ -116,6 +116,7 @@ EActionRunStatus Task_CastSpell::OnEnterState(STAI_TaskContext& baseContext) con
     context.spellId = 0;
     context.causeSpellId = 0;
     context.castTarget.Clear();
+    context.castTargetName.clear();
     context.resultAtStart = false;
     context.result = -1;
     context.refused.clear();
@@ -189,6 +190,7 @@ EActionRunStatus Task_CastSpell::OnEnterState(STAI_TaskContext& baseContext) con
 
         context.spellId = spellId;
         context.castTarget = target->GetObjectGuid();
+        context.castTargetName = target == bot ? "self" : target->GetName();
         context.causeSpellId = FindCause(context, context.castTarget, spellId);
 
         // instant and channeled spells went off when they started; a cast time is decided by the spell go
@@ -209,6 +211,7 @@ EActionRunStatus Task_CastSpell::OnEnterState(STAI_TaskContext& baseContext) con
 
         context.spellId = spellId;
         context.castTarget = corpse->GetObjectGuid();
+        context.castTargetName = "a corpse";
         const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
         context.resultAtStart = spellInfo && (IsChanneledSpell(spellInfo) || GetSpellCastTime(spellInfo, bot) == 0);
         if (context.resultAtStart)

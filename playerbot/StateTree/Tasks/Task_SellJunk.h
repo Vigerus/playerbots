@@ -15,7 +15,7 @@ namespace ai
         std::string result;         // how the run went, in its History entry
     };
 
-    // Sells what InventoryProvider_GlobalTask::IsSellable picks from the bags to the vendor, as a player dragging the
+    // Sells the bag items ItemEvalSubsystem says to sell to a vendor (EItemEval::Vendor), as a player dragging the
     // items onto the vendor window (CMSG_SELL_ITEM: the core checks the distance and pays). The tree's movement goal
     // (range on the vendor) brings the bot there:
     //   <Task class="Task_SellJunk">

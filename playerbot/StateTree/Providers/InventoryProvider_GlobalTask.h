@@ -20,7 +20,7 @@ namespace ai
         bool lowFood = false;           // property "lowFood": food below the Low count
         bool lowDrink = false;          // property "lowDrink"
         uint32 freeSlots = 0;           // property "freeSlots": empty slots in the backpack and the bags
-        uint32 sellable = 0;            // property "sellable": item stacks in the bags a vendor would buy (IsSellable)
+        uint32 sellable = 0;            // property "sellable": item stacks in the bags ItemEvalSubsystem says to sell to a vendor
         bool bagsFull = false;          // property "bagsFull": fewer free slots than Free while something is sellable
         FSTAI_Delegate onBagsFull;      // fired when bagsFull turned true
         uint32 sinceCheckMs = 0;
@@ -43,9 +43,6 @@ namespace ai
         // every item in the backpack and the bags (not equipped, not in the bank)
         static void ForEachBagItem(Player* bot, const std::function<void(Item*)>& visit);
         static uint32 CountFreeSlots(Player* bot);
-        // what the bot sells at a vendor: grey items, and white / green weapons, armor and trade goods; never quest
-        // items, consumables, containers, reagents, keys or items without a sell price
-        static bool IsSellable(const Item* item);
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);

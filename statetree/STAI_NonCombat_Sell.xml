@@ -13,8 +13,8 @@
       <Binding local="location" external="Root|VendorProvider_GlobalTask::vendorLocation"/>
     </Task>
     <Task class="MovementGoal_GlobalTask" name="Vendor Range" priority="31" kind="range">
-      <Comment>movement goal: next to the vendor once it is near (the vendor window's interaction range)</Comment>
-      <Range max="4"/>
+      <Comment>movement goal: next to the vendor once it is near (the vendor window: 5 yards, INTERACTION_DISTANCE; a counter may keep the bot further than 4)</Comment>
+      <Range max="5"/>
       <Binding local="target" external="Root|VendorProvider_GlobalTask::vendor"/>
     </Task>
   </GlobalTasks>

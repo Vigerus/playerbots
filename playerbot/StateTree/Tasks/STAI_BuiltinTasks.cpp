@@ -24,6 +24,9 @@
 #include "playerbot/StateTree/Tasks/Task_LearnSpells.h"
 #include "playerbot/StateTree/Providers/VendorProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/Task_SellJunk.h"
+#include "playerbot/StateTree/Providers/ItemProvider_GlobalTask.h"
+#include "playerbot/StateTree/Tasks/Task_EquipItem.h"
+#include "playerbot/StateTree/Providers/LevelingProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/MeleeProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/MovementGoal_GlobalTask.h"
 #include "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h"
@@ -79,6 +82,9 @@ namespace ai
         factory.RegisterTask("Task_LearnSpells", { &Task_LearnSpells::Validate, &Task_LearnSpells::Create });
         factory.RegisterTask("VendorProvider_GlobalTask", { &VendorProvider_GlobalTask::Validate, &VendorProvider_GlobalTask::Create });
         factory.RegisterTask("Task_SellJunk", { &Task_SellJunk::Validate, &Task_SellJunk::Create });
+        factory.RegisterTask("ItemProvider_GlobalTask", { &ItemProvider_GlobalTask::Validate, &ItemProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_EquipItem", { &Task_EquipItem::Validate, &Task_EquipItem::Create });
+        factory.RegisterTask("LevelingProvider_GlobalTask", { &LevelingProvider_GlobalTask::Validate, &LevelingProvider_GlobalTask::Create });
         factory.RegisterTask("CurseProvider_GlobalTask", { &CurseProvider_GlobalTask::Validate, &CurseProvider_GlobalTask::Create });
         factory.RegisterTask("DispelProvider_GlobalTask", { &DispelProvider_GlobalTask::Validate, &DispelProvider_GlobalTask::Create });
         factory.RegisterTask("Task_CastSpell", { &Task_CastSpell::Validate, &Task_CastSpell::Create });

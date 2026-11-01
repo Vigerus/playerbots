@@ -152,7 +152,7 @@ namespace ai
     public:
         // the newest <StateTree version="..."> this server loads (2 is the oldest); raise it when trees start using
         // node classes or settings older servers do not have, and give those trees the new version
-        static constexpr int Version = 6;
+        static constexpr int Version = 7;
 
         std::string name;   // file stem, e.g. STAI_Combat_Mage
         std::string file;

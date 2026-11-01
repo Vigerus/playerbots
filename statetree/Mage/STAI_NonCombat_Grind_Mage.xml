@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="4">
+<StateTree version="7">
   <Comment>Grinding subtree for Mage bots on their own (run by STAI_NonCombat_Autonomous_Mage.xml): pulls the closest safe
-    unit of a fitting level, else walks to a spawn point of such units; the fight is the Combat tree's</Comment>
+    unit of a fitting level, else walks to a spawn point of such units in the spawn group LevelingProvider picked for the
+    bot's level (another group, or zone, once grinding there stops paying); the fight is the Combat tree's</Comment>
   <GlobalTasks>
+    <Task class="LevelingProvider_GlobalTask">
+      <Comment>where to level: zoneId / zoneName for the bot's level, huntArea (the spawn group to grind there, no elites
+        around), xpPerHour; another group / zone when one pays less than a level per 45 minutes</Comment>
+      <Levels below="4" above="1"/>
+      <Cell value="80"/>
+      <MinCount value="4"/>
+      <MaxHours value="0.75"/>
+    </Task>
     <Task class="HuntProvider_GlobalTask">
       <Comment>what to hunt: pullTarget (closest safe unit of a fitting level), huntLocation (a spawn point of such units
         further away), onPullTarget</Comment>
@@ -10,6 +19,8 @@
       <Levels below="5" above="1"/>
       <SafeRadius value="12"/>
       <HuntRange value="400"/>
+      <AreaRadius value="150"/>
+      <Binding local="area" external="Root|LevelingProvider_GlobalTask::huntArea"/>
     </Task>
     <Task class="MovementGoal_GlobalTask" name="Pull Range" priority="32" kind="range">
       <Comment>movement goal: in spell range and sight of the unit to pull</Comment>
@@ -17,7 +28,7 @@
       <Binding local="target" external="Root|HuntProvider_GlobalTask::pullTarget"/>
     </Task>
     <Task class="MovementGoal_GlobalTask" name="Hunt Area" priority="12" kind="location">
-      <Comment>movement goal: to the next spawn point while there is nothing to pull</Comment>
+      <Comment>movement goal: to the hunt area, then its next spawn point, while there is nothing to pull</Comment>
       <Radius value="10"/>
       <Binding local="location" external="Root|HuntProvider_GlobalTask::huntLocation"/>
       <Conditions>
