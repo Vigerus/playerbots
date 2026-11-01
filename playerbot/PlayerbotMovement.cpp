@@ -2,11 +2,16 @@
 
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/ServerFacade.h"
-#include "playerbot/StateTree/Providers/MeleeProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/Combat/MeleeProvider_GlobalTask.h"
 
 #include "Entities/Corpse.h"
 #include "Entities/Player.h"
+#include "Entities/Transports.h"
+#include "Grids/CellImpl.h"
+#include "Grids/GridNotifiers.h"
+#include "Grids/GridNotifiersImpl.h"
 #include "Maps/Map.h"
+#include "Server/WorldSession.h"
 #include "Server/DBCStores.h"
 #include "World/World.h"
 
@@ -24,6 +29,21 @@ namespace
     constexpr uint32 replanMs = 1000;
     // walking into a portal's area trigger this long without a teleport: plan again
     constexpr uint32 portalTimeoutMs = 10000;
+    // a taxi flight asked for that has not started after this long: plan again without flights for a while
+    constexpr uint32 flightTimeoutMs = 5000;
+    constexpr uint32 noFlightsMs = 60000;
+    // the flight master is searched this close to the end of the leg
+    constexpr float flightMasterRange = 10.0f;
+    // waiting for a transport this long: plan again
+    constexpr uint32 transportWaitMs = 15 * MINUTE * IN_MILLISECONDS;
+    // a transport stands this close to where it is boarded / left
+    constexpr float dockedDistance = 5.0f;
+    // elevators are searched this far around the bot
+    constexpr float elevatorRange = 100.0f;
+    // on an elevator's platform this close to its centre
+    constexpr float platformDistance = 2.0f;
+    // a walked piece ended this far from its end: the bot was pushed off the path, plan again
+    constexpr float offPathDistance = 8.0f;
     // in the unit's front arc this long before the bot walks to its back (units turn with their victim)
     constexpr uint32 frontGraceMs = 1000;
     // how far behind the unit's back the bot stands (inside melee reach)
@@ -41,26 +61,39 @@ namespace
         return WorldTimer::getMSTimeDiff(at, now) < 0x80000000;
     }
 
-    // the leg of the path on the map, nullptr when the path does not cross it
-    const NavPathSegment* FindLeg(const NavPathRequest& path, uint32 mapId, bool& last)
+    float Distance(const WorldObject* object, const Vector3& point)
     {
-        for (size_t i = 0; i < path.segments.size(); ++i)
-            if (path.segments[i].mapId == mapId)
-            {
-                last = i + 1 == path.segments.size();
-                return &path.segments[i];
-            }
+        return (Vector3(object->GetPositionX(), object->GetPositionY(), object->GetPositionZ()) - point).length();
+    }
+
+    // the flight master the leg ends at
+    Creature* FindFlightMaster(Player* bot)
+    {
+        CreatureList found;
+        MaNGOS::AnyUnitInObjectRangeCheck check(bot, flightMasterRange);
+        MaNGOS::CreatureListSearcher<MaNGOS::AnyUnitInObjectRangeCheck> searcher(found, check);
+        Cell::VisitGridObjects(bot, searcher, flightMasterRange);
+        for (Creature* creature : found)
+            if (Creature* master = bot->GetNPCIfCanInteractWith(creature->GetObjectGuid(), UNIT_NPC_FLAG_FLIGHTMASTER))
+                return master;
         return nullptr;
     }
 
-    // where the leg ends: the destination, or the centre of its navlink's area trigger
-    Vector3 GetLegEnd(const NavPathRequest& path, const NavPathSegment& leg, bool last)
+    // the transport of the leg: a boat or zeppelin of the map, else an elevator nearby
+    GenericTransport* FindTransport(Player* bot, uint32 entry)
     {
-        if (last)
-            return path.dest;
-        if (AreaTriggerEntry const* entry = sAreaTriggerStore.LookupEntry(leg.areaTriggerId))
-            return Vector3(entry->x, entry->y, entry->z);
-        return leg.points.back();
+        for (Transport* transport : bot->GetMap()->GetTransports())
+            if (transport->GetEntry() == entry)
+                return transport;
+
+        GameObjectList found;
+        MaNGOS::AllGameObjectsMatchingOneEntryInRange check(bot, { entry }, elevatorRange);
+        MaNGOS::GameObjectListSearcher<MaNGOS::AllGameObjectsMatchingOneEntryInRange> searcher(found, check);
+        Cell::VisitGridObjects(bot, searcher, elevatorRange);
+        for (GameObject* object : found)
+            if (GenericTransport* transport = dynamic_cast<GenericTransport*>(object))
+                return transport;
+        return nullptr;
     }
 }
 
@@ -106,8 +139,7 @@ bool PlayerbotMovement::IsInRange(Player* bot, const MovementGoalRequest& goal, 
 void PlayerbotMovement::ResetDrive()
 {
     pathRequest.reset();
-    walking = false;
-    pushed = false;
+    StartLeg(0);
     nextPlanMs = 0;
     moveSpot = STAI_Position();
     chased.Clear();
@@ -180,6 +212,13 @@ void PlayerbotMovement::Drive(PlayerbotAI* ai, const MovementGoalRequest& goal, 
     MotionMaster& motion = *bot->GetMotionMaster();
     const MovementGeneratorType current = motion.GetCurrentMovementGeneratorType();
 
+    // a taxi flight: the path goes on where it lands
+    if (bot->IsTaxiFlying())
+    {
+        tookOff = tookOff || step == LegStep::Flight;
+        state = MovementState::Moving;
+        return;
+    }
     // movement somebody else gave (a charge, fear, a spell, the rtsc move): left alone until it is over
     const bool own = ownActive && current == ownType;
     if (current != IDLE_MOTION_TYPE && current != FOLLOW_MOTION_TYPE && !own && !(current == CHASE_MOTION_TYPE && goal.kind == MovementGoalKind::Range))
@@ -212,7 +251,6 @@ void PlayerbotMovement::Drive(PlayerbotAI* ai, const MovementGoalRequest& goal, 
 void PlayerbotMovement::DriveLocation(PlayerbotAI* ai, const MovementGoalRequest& goal)
 {
     Player* bot = ai->GetBot();
-    MotionMaster& motion = *bot->GetMotionMaster();
     const STAI_Location& location = goal.location;
     destination = location;
     const uint32 now = WorldTimer::getMSTime();
@@ -226,20 +264,20 @@ void PlayerbotMovement::DriveLocation(PlayerbotAI* ai, const MovementGoalRequest
         return;
     }
 
-    // a path: none yet, the bot changed map (a portal), or the location moved away from where the path leads
-    const bool stale = !pathRequest || pathMap != bot->GetMapId() ||
+    // a path: none yet, or the location moved away from where the path leads; not while the bot is on a flight or a
+    // transport
+    const bool travelling = pathRequest && pathRequest->IsReady() && (step == LegStep::Flight || step == LegStep::Ride);
+    const bool stale = !pathRequest ||
         (pathRequest->IsReady() && (location.mapId != pathRequest->destMapId ||
             (Vector3(location.x, location.y, location.z) - pathRequest->dest).length() > goal.radius));
-    if (stale && Reached(nextPlanMs, now))
+    if (stale && !travelling && Reached(nextPlanMs, now))
     {
-        pathRequest = sPathfindingWorker.Request(bot->GetMapId(), Vector3(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()),
-            location.mapId, Vector3(location.x, location.y, location.z));
-        pathMap = bot->GetMapId();
+        pathRequest = sWorld.GetSubsystem<PathSubsystem>()->Request(bot->GetMapId(), Vector3(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()),
+            location.mapId, Vector3(location.x, location.y, location.z), true, NavTraveler::Of(bot, Reached(noFlightsUntilMs, now)));
         requestMs = now;
         nextPlanMs = now + replanMs;
-        pushed = false;
-        // the new path's leg is walked once it is ready; the bot walks on along the old one meanwhile
-        walking = false;
+        // the new path is walked from its start once it is ready; the bot walks on along the old one meanwhile
+        StartLeg(0);
     }
     if (!pathRequest)
     {
@@ -260,69 +298,217 @@ void PlayerbotMovement::DriveLocation(PlayerbotAI* ai, const MovementGoalRequest
     }
     if (!pathRequest->IsReady() || pathRequest->segments.empty())
     {
-        // no way there (another continent without a portal, no navmesh way): stand, try again later
+        // no way there (no route over the travel graph, no navmesh way): stand, try again later
         StopOwn(bot);
-        pathRequest.reset();
-        walking = false;
+        Replan();
         nextPlanMs = now + retryMs;
         state = MovementState::Blocked;
         return;
     }
 
-    bool last = false;
-    const NavPathSegment* leg = FindLeg(*pathRequest, bot->GetMapId(), last);
-    if (!leg)
+    // a portal or a transport took the bot to another map: its leg there (on a transport the leg is the ride)
+    const std::vector<NavPathSegment>& legs = pathRequest->segments;
+    if (step != LegStep::Ride && legs[legIndex].mapId != bot->GetMapId())
     {
-        pathRequest.reset();
-        walking = false;
-        state = MovementState::Blocked;
-        return;
+        size_t next = legIndex + 1;
+        while (next < legs.size() && legs[next].mapId != bot->GetMapId())
+            ++next;
+        if (next == legs.size())
+        {
+            Replan();
+            state = MovementState::Moving;
+            return;
+        }
+        StartLeg(next);
     }
-    const Vector3 end = GetLegEnd(*pathRequest, *leg, last);
-    state = MovementState::Moving;
 
-    // a new path (or none walked yet): walk its leg on this map
-    const MovementGeneratorType current = motion.GetCurrentMovementGeneratorType();
-    const bool moving = ownActive && current == ownType && (current == PATH_MOTION_TYPE || current == POINT_MOTION_TYPE);
-    if (!walking)
+    const NavPathSegment& leg = legs[legIndex];
+    state = MovementState::Moving;
+    switch (step)
     {
-        // the worker has no unit to put the points on the ground with; the first point is where the bot stood
-        std::vector<G3D::Vector3> points(leg->points.begin() + 1, leg->points.end());
+        case LegStep::Walk:   WalkLeg(ai, leg, now); break;
+        case LegStep::Flight: TakeFlight(ai, leg, now); break;
+        case LegStep::Board:  BoardTransport(ai, leg, now); break;
+        case LegStep::Ride:   RideTransport(ai, leg, now); break;
+        case LegStep::Portal:
+            // straight into the portal's area trigger, then wait for the teleport (the map changes)
+            if (!stepMs)
+            {
+                AreaTriggerEntry const* entry = sAreaTriggerStore.LookupEntry(leg.areaTriggerId);
+                const Vector3 end = entry ? Vector3(entry->x, entry->y, entry->z) : leg.points.back();
+                bot->GetMotionMaster()->MovePoint(0, end.x, end.y, end.z, FORCED_MOVEMENT_RUN, false);
+                Gave(POINT_MOTION_TYPE);
+                stepMs = std::max<uint32>(1, now);
+            }
+            else if (WorldTimer::getMSTimeDiff(stepMs, now) > portalTimeoutMs)
+            {
+                Replan();
+                state = MovementState::Blocked;
+            }
+            break;
+    }
+}
+
+void PlayerbotMovement::StartLeg(size_t index)
+{
+    legIndex = index;
+    pointIndex = 0;
+    pieceEnd = 0;
+    walking = false;
+    step = LegStep::Walk;
+    stepMs = 0;
+    tookOff = false;
+}
+
+void PlayerbotMovement::Replan()
+{
+    pathRequest.reset();
+    StartLeg(0);
+}
+
+void PlayerbotMovement::WalkLeg(PlayerbotAI* ai, const NavPathSegment& leg, uint32 now)
+{
+    Player* bot = ai->GetBot();
+    MotionMaster& motion = *bot->GetMotionMaster();
+    const MovementGeneratorType current = motion.GetCurrentMovementGeneratorType();
+    if (walking && ownActive && current == ownType && current == PATH_MOTION_TYPE)
+        return;
+
+    // the piece is walked: on to the next one, unless the bot was pushed off the path
+    if (walking)
+    {
+        walking = false;
+        const Vector3& end = leg.points[pieceEnd];
+        if (pieceEnd + 1 < leg.points.size() && bot->GetDistance(end.x, end.y, end.z) > offPathDistance)
+        {
+            Replan();
+            return;
+        }
+        pointIndex = pieceEnd;
+    }
+
+    if (pointIndex + 1 < leg.points.size())
+    {
+        pieceEnd = PathSubsystem::SplinePieceEnd(leg.points, pointIndex);
+        std::vector<G3D::Vector3> points(leg.points.begin() + pointIndex + 1, leg.points.begin() + pieceEnd + 1);
+        // from the piece's start, unless the bot stands there (the first leg starts where it stood)
+        const Vector3& from = leg.points[pointIndex];
+        if (bot->GetDistance(from.x, from.y, from.z) > 2.0f)
+            points.insert(points.begin(), from);
+        // the worker has no unit to put the points on the ground with
         if (sWorld.getConfig(CONFIG_BOOL_PATH_FIND_NORMALIZE_Z))
             for (G3D::Vector3& point : points)
                 bot->UpdateAllowedPositionZ(point.x, point.y, point.z);
-        if (points.empty())
-            points.push_back(end);
         motion.MovePath(points, FORCED_MOVEMENT_RUN, false, false);
         Gave(PATH_MOTION_TYPE);
         walking = true;
         return;
     }
-    if (moving)
-        return;
 
-    // the leg ended short of a portal: straight into its area trigger, then wait for the teleport
-    if (!last)
+    // the leg is walked: what ends it
+    stepMs = 0;
+    switch (leg.end)
     {
-        if (!pushed)
+        // the path ended short (an incomplete navmesh path): plan again from here
+        case NavLegEnd::Arrive:      Replan(); break;
+        case NavLegEnd::AreaTrigger: step = LegStep::Portal; break;
+        case NavLegEnd::Flight:      step = LegStep::Flight; break;
+        case NavLegEnd::Transport:   step = LegStep::Board; stepMs = std::max<uint32>(1, now); break;
+    }
+}
+
+void PlayerbotMovement::TakeFlight(PlayerbotAI* ai, const NavPathSegment& leg, uint32 now)
+{
+    Player* bot = ai->GetBot();
+    // landed (Drive leaves the bot alone while it flies): on to the next leg
+    if (tookOff)
+    {
+        StartLeg(legIndex + 1);
+        return;
+    }
+    if (stepMs)
+    {
+        if (WorldTimer::getMSTimeDiff(stepMs, now) > flightTimeoutMs)
         {
-            motion.MovePoint(0, end.x, end.y, end.z, FORCED_MOVEMENT_RUN, false);
-            Gave(POINT_MOTION_TYPE);
-            pushed = true;
-            pushedMs = now;
-        }
-        else if (WorldTimer::getMSTimeDiff(pushedMs, now) > portalTimeoutMs)
-        {
-            pathRequest.reset();
-            walking = false;
+            noFlightsUntilMs = now + noFlightsMs;
+            Replan();
             state = MovementState::Blocked;
         }
         return;
     }
 
-    // the path ended short (length limit, incomplete navmesh path): plan again from here
-    pathRequest.reset();
-    walking = false;
+    Creature* master = FindFlightMaster(bot);
+    if (!master || leg.taxiNodes.size() < 2)
+    {
+        noFlightsUntilMs = now + noFlightsMs;
+        Replan();
+        state = MovementState::Blocked;
+        return;
+    }
+    StopOwn(bot);
+    // as the client: talking to the flight master learns its node, then the flight over the nodes
+    bot->GetSession()->SendLearnNewTaxiNode(master);
+    WorldPacket packet(CMSG_ACTIVATETAXIEXPRESS, 8 + 4 + 4 + 4 * leg.taxiNodes.size());
+    packet << master->GetObjectGuid() << uint32(0) << uint32(leg.taxiNodes.size());
+    for (uint32 node : leg.taxiNodes)
+        packet << node;
+    bot->GetSession()->HandleActivateTaxiExpressOpcode(packet);
+    stepMs = std::max<uint32>(1, now);
+}
+
+void PlayerbotMovement::BoardTransport(PlayerbotAI* ai, const NavPathSegment& leg, uint32 now)
+{
+    Player* bot = ai->GetBot();
+    GenericTransport* transport = FindTransport(bot, leg.transportEntry);
+    if (!transport || Distance(transport, leg.boardPoint) > dockedDistance)
+    {
+        // waiting on the dock
+        if (WorldTimer::getMSTimeDiff(stepMs, now) > transportWaitMs)
+        {
+            Replan();
+            state = MovementState::Blocked;
+        }
+        return;
+    }
+
+    // an elevator: the bot walks onto its platform from beside the shaft, and is on it once it stands there; a boat is
+    // boarded from its dock where the bot stands (it keeps its place beside the deck)
+    if (!dynamic_cast<Transport*>(transport) && bot->GetDistance2d(transport->GetPositionX(), transport->GetPositionY(), DIST_CALC_NONE) > platformDistance)
+    {
+        MotionMaster& motion = *bot->GetMotionMaster();
+        if (!(ownActive && motion.GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE))
+        {
+            motion.MovePoint(0, transport->GetPositionX(), transport->GetPositionY(), transport->GetPositionZ() + 0.5f, FORCED_MOVEMENT_RUN, false);
+            Gave(POINT_MOTION_TYPE);
+        }
+        return;
+    }
+    StopOwn(bot);
+    transport->AddPassenger(bot, true);
+    bot->NearTeleportTo(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), bot->GetOrientation());
+    step = LegStep::Ride;
+    stepMs = std::max<uint32>(1, now);
+}
+
+void PlayerbotMovement::RideTransport(PlayerbotAI* ai, const NavPathSegment& leg, uint32 /*now*/)
+{
+    Player* bot = ai->GetBot();
+    GenericTransport* transport = bot->GetTransport();
+    // fell off, or the transport is gone
+    if (!transport)
+    {
+        Replan();
+        return;
+    }
+    if (bot->GetMapId() != leg.leaveMapId || Distance(transport, leg.leavePoint) > dockedDistance || legIndex + 1 >= pathRequest->segments.size())
+        return;
+
+    // arrived: off onto the next leg's start (the dock), not into the water beside the boat
+    const NavPathSegment& next = pathRequest->segments[legIndex + 1];
+    const Vector3 off = next.points.empty() ? leg.leavePoint : next.points.front();
+    transport->RemovePassenger(bot);
+    bot->NearTeleportTo(off.x, off.y, off.z, bot->GetOrientation(), false, true);
+    StartLeg(legIndex + 1);
 }
 
 void PlayerbotMovement::DrivePosition(PlayerbotAI* ai, const MovementGoalRequest& goal)
@@ -346,7 +532,7 @@ void PlayerbotMovement::DrivePosition(PlayerbotAI* ai, const MovementGoalRequest
     // a new spot, or the move ended outside the radius (tried again after a moment)
     if (moveSpot != spot || (!moving && Reached(nextPlanMs, now)))
     {
-        // the path comes from the PathfindingWorker
+        // the path comes from the PathSubsystem
         motion.MovePointAsync(0, spot.x, spot.y, spot.z, FORCED_MOVEMENT_RUN);
         Gave(POINT_MOTION_TYPE);
         moveSpot = spot;

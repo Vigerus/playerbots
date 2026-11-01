@@ -1,6 +1,6 @@
 #pragma once
 
-#include "MotionGenerators/PathfindingWorker.h"
+#include "MotionGenerators/PathSubsystem.h"
 
 #include <memory>
 
@@ -31,7 +31,7 @@ namespace ai
         bool operator!=(const STAI_Position& other) const { return !(*this == other); }
     };
 
-    // a path calculated by the PathfindingWorker (Task_MakePath::path, walked by Task_MoveTo): its legs on each
+    // a path calculated by the PathSubsystem (Task_MakePath::path, walked by Task_MoveTo): its legs on each
     // map, joined by navlinks (dungeon portals); shared, so binding it copies no points. Unset until it is ready.
     struct STAI_Path
     {

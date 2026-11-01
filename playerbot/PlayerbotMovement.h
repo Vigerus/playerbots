@@ -45,13 +45,18 @@ namespace ai
     // movement it did not give, stopped (the goal is not wanted any more, it was not reached), none (dead, nothing yet)
     enum class MovementState : uint8 { None, Moving, Arrived, Blocked, Yielding, Stopped };
 
+    // Location: what the bot does on the path's leg: walks it, walks into its portal, flies from its flight master,
+    // waits for its transport, rides the transport
+    enum class LegStep : uint8 { Walk, Portal, Flight, Board, Ride };
+
     // The bot's movement: the trees' MovementGoal_GlobalTask goals submit what they want every update (Submit), the
     // controller drives the one with the highest priority (Update, after the state machine) and is the only code
     // that gives the bot movement, always running (point moves with FORCED_MOVEMENT_RUN: without it a player walks;
     // paths run, chases do not walk). A goal stays the one shown after it is not wanted any more (reached, or stopped
     // before), with its source, until another goal drives; before the first goal it is Stay (the bot stands). It yields to movement it did not give (a charge, fear, the rtsc move) and gives none
-    // while the bot casts (unless the goal interrupts casts). Location: a path from the PathfindingWorker (across
-    // dungeon portals), walked leg by leg, planned again when the location moves away. Position: a point move on the
+    // while the bot casts (unless the goal interrupts casts). Location: a path from the PathSubsystem (the navmesh, or the travel
+    // graph across portals, flights and boats), walked leg by leg in spline pieces, planned again when the location
+    // moves away; not while the bot flies or rides a transport. Position: a point move on the
     // map. Range: melee chases the unit (at its back for Behind, after 1s in its front arc it walks around), ranged
     // chases into range and sight and stops there; a corpse is walked to. Not after a unit into a dungeon stage that
     // is not cleared, except its boxes that may be entered in combat while the group fights the unit, or when the unit
@@ -86,6 +91,13 @@ namespace ai
         // remembers the movement just given
         void Gave(MovementGeneratorType type) { ownType = type; ownActive = true; }
         void ResetDrive();
+        // Location: the leg's steps
+        void StartLeg(size_t index);
+        void Replan();
+        void WalkLeg(PlayerbotAI* ai, const NavPathSegment& leg, uint32 now);
+        void TakeFlight(PlayerbotAI* ai, const NavPathSegment& leg, uint32 now);
+        void BoardTransport(PlayerbotAI* ai, const NavPathSegment& leg, uint32 now);
+        void RideTransport(PlayerbotAI* ai, const NavPathSegment& leg, uint32 now);
 
         std::vector<MovementGoalRequest> requests;      // this update's goals
         MovementGoalRequest active;
@@ -109,12 +121,16 @@ namespace ai
 
         // Location: the path and how far it is walked
         std::shared_ptr<const NavPathRequest> pathRequest;
-        uint32 pathMap = 0;                         // the bot's map when it was requested
         uint32 requestMs = 0;
         uint32 nextPlanMs = 0;                      // no new request before (a failed one waits)
-        bool walking = false;                       // the leg is being walked (MovePath)
-        bool pushed = false;                        // walking into the leg's portal (MovePoint)
-        uint32 pushedMs = 0;
+        size_t legIndex = 0;                        // the leg of the path the bot is on
+        size_t pointIndex = 0;                      // the leg's point the walked piece starts at
+        size_t pieceEnd = 0;                        // the leg's point the walked piece ends at
+        bool walking = false;                       // the piece is being walked (MovePath)
+        LegStep step = LegStep::Walk;
+        uint32 stepMs = 0;                          // when the step's action was taken (0: not yet)
+        bool tookOff = false;                       // the leg's taxi flight started
+        uint32 noFlightsUntilMs = 0;                // a flight that did not start: routes without flights until then
         // Position: the spot of the point move
         STAI_Position moveSpot;
         // Range: the unit of the chase, its angle, the walk around to its back
