@@ -1,7 +1,7 @@
 #include "PlayerbotTargetIcons.h"
 
 #include "playerbot/ServerFacade.h"
-#include "playerbot/StateTree/Providers/STAI_TargetIcons.h"
+#include "playerbot/StateTree/Providers/Combat/STAI_TargetIcons.h"
 
 #include "Database/DatabaseEnv.h"
 #include "Entities/Player.h"

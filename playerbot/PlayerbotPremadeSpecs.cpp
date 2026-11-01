@@ -1,7 +1,7 @@
 #include "PlayerbotPremadeSpecs.h"
 
 #include "playerbot/PlayerbotAIConfig.h"
-#include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/Group/SpecProvider_GlobalTask.h"
 
 #include "Entities/Player.h"
 

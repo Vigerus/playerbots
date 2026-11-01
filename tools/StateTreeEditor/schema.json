@@ -5,7 +5,7 @@
     "BuffProvider_GlobalTask": {
       "cppClass": "BuffProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/BuffProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Spells/BuffProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -64,7 +64,7 @@
     "CCProvider_GlobalTask": {
       "cppClass": "CCProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/CCProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Combat/CCProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -99,7 +99,7 @@
     "CooldownProvider_GlobalTask": {
       "cppClass": "CooldownProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/CooldownProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Spells/CooldownProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -144,7 +144,7 @@
     "CorpseProvider_GlobalTask": {
       "cppClass": "CorpseProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/CorpseProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Status/CorpseProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -184,7 +184,7 @@
     "CreatureProvider_GlobalTask": {
       "cppClass": "CreatureProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/CreatureProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Dungeon/CreatureProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -248,7 +248,7 @@
     "CurseProvider_GlobalTask": {
       "cppClass": "CurseProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/DispelProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Spells/DispelProvider_GlobalTask.h",
       "base": "DispelProvider_GlobalTask",
       "propertiesFrom": "DispelProvider_GlobalTask",
       "delegatesFrom": "DispelProvider_GlobalTask",
@@ -338,7 +338,7 @@
     "DispelProvider_GlobalTask": {
       "cppClass": "DispelProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/DispelProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Spells/DispelProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -446,7 +446,7 @@
     "EncounterProvider_GlobalTask": {
       "cppClass": "EncounterProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/EncounterProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Dungeon/EncounterProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -499,7 +499,7 @@
     "HazardProvider_GlobalTask": {
       "cppClass": "HazardProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/HazardProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Dungeon/HazardProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -543,7 +543,7 @@
     "HealProvider_GlobalTask": {
       "cppClass": "HealProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/HealProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Spells/HealProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -709,35 +709,10 @@
       },
       "uses": 7
     },
-    "HealthProvider_GlobalTask": {
-      "cppClass": "HealthProvider_GlobalTask",
-      "global": true,
-      "header": "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h",
-      "base": "ResourceProvider_GlobalTask",
-      "properties": [
-        {
-          "name": "healthPct",
-          "type": "float",
-          "traits": [
-            "number",
-            "testable"
-          ]
-        }
-      ],
-      "delegates": [
-        "onHealthChanged"
-      ],
-      "description": "global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second",
-      "doc": "global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second",
-      "settingsHelp": "",
-      "taskAttributes": {},
-      "settings": {},
-      "uses": 24
-    },
     "HuntProvider_GlobalTask": {
       "cppClass": "HuntProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/HuntProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Leveling/HuntProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -855,7 +830,7 @@
     "InstanceProvider_GlobalTask": {
       "cppClass": "InstanceProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/InstanceProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Dungeon/InstanceProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -999,7 +974,7 @@
     "InterruptProvider_GlobalTask": {
       "cppClass": "InterruptProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/InterruptProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Combat/InterruptProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1064,7 +1039,7 @@
     "InventoryProvider_GlobalTask": {
       "cppClass": "InventoryProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/InventoryProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Items/InventoryProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1116,8 +1091,31 @@
           ]
         },
         {
+          "name": "ahCount",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
           "name": "bagsFull",
           "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "equipItem",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "equipCount",
+          "type": "uint32",
           "traits": [
             "number",
             "testable"
@@ -1126,10 +1124,11 @@
       ],
       "delegates": [
         "onLowSupplies",
-        "onBagsFull"
+        "onBagsFull",
+        "onItemEquipRequest"
       ],
-      "description": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags) ...",
-      "doc": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags), `sellable` (stacks `ItemEvalSubsystem` says to sell to a vendor), `bagsFull` (fewer than `Free` free slots with something sellable); delegates `onLowSupplies`, `onBagsFull`",
+      "description": "global task, ticked (every 2s, on the next update after the core's `TeamSubsystem` OnItemReceived: looted, quest reward, crafted, bought, and at once when `equipItem` left the bags) ...",
+      "doc": "global task, ticked (every 2s, on the next update after the core's `TeamSubsystem` OnItemReceived: looted, quest reward, crafted, bought, and at once when `equipItem` left the bags): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags), `bagsFull` (fewer than `Free` free slots with something sellable); the bag items evaluated with `ItemEvalSubsystem` (`Vendor` / `AH` / `Keep` / `Equip`: gear by stat weight, quality, item level against the weakest worn item of its slots, a generic bag against a free bag slot or a smaller bag; a worse one is `Vendor` below level 60 when grey, white or soulbound, else `AH` when bind on equip and not bound yet, else `Keep`): `sellable` (`Vendor`), `ahCount`, `equipItem` (an `Equip` item; one still not equipped after 10s is ignored while it stays in the bags), `equipCount`; delegates `onLowSupplies`, `onBagsFull`, `onItemEquipRequest` (`equipItem` got a new item)",
       "settingsHelp": "`<Low value=\"5\"/>`, `<Free value=\"2\"/>`",
       "taskAttributes": {},
       "settings": {
@@ -1158,58 +1157,10 @@
       },
       "uses": 1
     },
-    "ItemProvider_GlobalTask": {
-      "cppClass": "ItemProvider_GlobalTask",
-      "global": true,
-      "header": "playerbot/StateTree/Providers/ItemProvider_GlobalTask.h",
-      "base": "STAI_DataProviderBase",
-      "properties": [
-        {
-          "name": "equipItem",
-          "type": "ObjectGuid",
-          "traits": [
-            "testable"
-          ]
-        },
-        {
-          "name": "equipCount",
-          "type": "uint32",
-          "traits": [
-            "number",
-            "testable"
-          ]
-        },
-        {
-          "name": "vendorCount",
-          "type": "uint32",
-          "traits": [
-            "number",
-            "testable"
-          ]
-        },
-        {
-          "name": "ahCount",
-          "type": "uint32",
-          "traits": [
-            "number",
-            "testable"
-          ]
-        }
-      ],
-      "delegates": [
-        "onItemEquipRequest"
-      ],
-      "description": "global task, ticked (every 2s, and on the next update after the core's `TeamSubsystem` OnItemReceived: looted, quest reward, crafted, bought): evaluates the bag items with `ItemEvalSubsystem` (`Vendor` / `AH` / `Keep` / `Equip` ...",
-      "doc": "global task, ticked (every 2s, and on the next update after the core's `TeamSubsystem` OnItemReceived: looted, quest reward, crafted, bought): evaluates the bag items with `ItemEvalSubsystem` (`Vendor` / `AH` / `Keep` / `Equip`: gear by stat weight, quality, item level against the weakest worn item of its slots, a generic bag against a free bag slot or a smaller bag; a worse one is `Vendor` below level 60 when grey, white or soulbound, else `AH` when bind on equip and not bound yet, else `Keep`); property `equipItem` (an `Equip` item; one still not equipped after 10s is ignored while it stays in the bags), `equipCount`, `vendorCount`, `ahCount`; delegate `onItemEquipRequest` (`equipItem` got a new item)",
-      "settingsHelp": "",
-      "taskAttributes": {},
-      "settings": {},
-      "uses": 1
-    },
     "LeaderProvider_GlobalTask": {
       "cppClass": "LeaderProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/LeaderProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Group/LeaderProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1277,7 +1228,7 @@
     "LevelingProvider_GlobalTask": {
       "cppClass": "LevelingProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/LevelingProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Leveling/LevelingProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1401,7 +1352,7 @@
     "LootProvider_GlobalTask": {
       "cppClass": "LootProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/LootProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Leveling/LootProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1442,35 +1393,10 @@
       },
       "uses": 1
     },
-    "ManaProvider_GlobalTask": {
-      "cppClass": "ManaProvider_GlobalTask",
-      "global": true,
-      "header": "playerbot/StateTree/Providers/ResourceProvider_GlobalTask.h",
-      "base": "ResourceProvider_GlobalTask",
-      "properties": [
-        {
-          "name": "manaPct",
-          "type": "float",
-          "traits": [
-            "number",
-            "testable"
-          ]
-        }
-      ],
-      "delegates": [
-        "onManaChanged"
-      ],
-      "description": "global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second",
-      "doc": "global tasks, ticked: properties `healthPct` / `manaPct` (always 100 without mana), delegates `onHealthChanged` / `onManaChanged` fired when the whole percentage changes (and on the first update), at most once per second",
-      "settingsHelp": "",
-      "taskAttributes": {},
-      "settings": {},
-      "uses": 29
-    },
     "MeleeProvider_GlobalTask": {
       "cppClass": "MeleeProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/MeleeProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Combat/MeleeProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1614,7 +1540,7 @@
     "MovementGoal_GlobalTask": {
       "cppClass": "MovementGoal_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/MovementGoal_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Movement/MovementGoal_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1759,7 +1685,7 @@
           "attributes": {
             "max": {
               "examples": [
-                "4",
+                "5",
                 "spell",
                 "8",
                 "3",
@@ -1826,7 +1752,7 @@
     "STAI_FinishTreeTask": {
       "cppClass": "STAI_FinishTreeTask",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/STAI_FinishTreeTask.h",
+      "header": "playerbot/StateTree/Tasks/Flow/STAI_FinishTreeTask.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -1854,7 +1780,7 @@
     "STAI_SendEventTask": {
       "cppClass": "STAI_SendEventTask",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/STAI_SendEventTask.h",
+      "header": "playerbot/StateTree/Tasks/Flow/STAI_SendEventTask.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -1874,7 +1800,7 @@
     "SpecProvider_GlobalTask": {
       "cppClass": "SpecProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Group/SpecProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1897,10 +1823,44 @@
       "settings": {},
       "uses": 8
     },
+    "StatsProvider_GlobalTask": {
+      "cppClass": "StatsProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/Status/StatsProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "healthPct",
+          "type": "float",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "manaPct",
+          "type": "float",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onHealthChanged",
+        "onManaChanged"
+      ],
+      "description": "global task, ticked: properties `healthPct`, `manaPct` (always 100 without mana: a warrior, a druid in a form), delegates `onHealthChanged`, `onManaChanged`, each fired when its whole percentage changes (and on the first update) ...",
+      "doc": "global task, ticked: properties `healthPct`, `manaPct` (always 100 without mana: a warrior, a druid in a form), delegates `onHealthChanged`, `onManaChanged`, each fired when its whole percentage changes (and on the first update), at most once per second",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 32
+    },
     "TankTargetProvider_GlobalTask": {
       "cppClass": "TankTargetProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/TankTargetProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Combat/TankTargetProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -1970,7 +1930,7 @@
     "TargetProvider_GlobalTask": {
       "cppClass": "TargetProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/TargetProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Combat/TargetProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -2080,7 +2040,7 @@
     "Task_AcceptInvite": {
       "cppClass": "Task_AcceptInvite",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_AcceptInvite.h",
+      "header": "playerbot/StateTree/Tasks/Group/Task_AcceptInvite.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2094,7 +2054,7 @@
     "Task_AcceptResurrection": {
       "cppClass": "Task_AcceptResurrection",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_AcceptResurrection.h",
+      "header": "playerbot/StateTree/Tasks/Status/Task_AcceptResurrection.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2108,7 +2068,7 @@
     "Task_AcceptTrade": {
       "cppClass": "Task_AcceptTrade",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Trade.h",
+      "header": "playerbot/StateTree/Tasks/Group/Task_Trade.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2122,7 +2082,7 @@
     "Task_CastBuff": {
       "cppClass": "Task_CastBuff",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_CastBuff.h",
+      "header": "playerbot/StateTree/Tasks/Spells/Task_CastBuff.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2145,7 +2105,7 @@
     "Task_CastSpell": {
       "cppClass": "Task_CastSpell",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_CastSpell.h",
+      "header": "playerbot/StateTree/Tasks/Spells/Task_CastSpell.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2239,7 +2199,7 @@
     "Task_CastTotem": {
       "cppClass": "Task_CastTotem",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_CastTotem.h",
+      "header": "playerbot/StateTree/Tasks/Spells/Task_CastTotem.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2262,7 +2222,7 @@
     "Task_EatAndDrink": {
       "cppClass": "Task_EatAndDrink",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_EatAndDrink.h",
+      "header": "playerbot/StateTree/Tasks/Items/Task_EatAndDrink.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2299,7 +2259,7 @@
     "Task_EquipItem": {
       "cppClass": "Task_EquipItem",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_EquipItem.h",
+      "header": "playerbot/StateTree/Tasks/Items/Task_EquipItem.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2313,7 +2273,7 @@
       "delegates": [],
       "description": "equips the item at the slot `ItemEvalSubsystem::FindEquipSlot` picks (a free one, else the weakest worn item's) as a player dragging it there (`CMSG_SWAP_ITEM`: the worn item goes to the bag slot, a two-hander takes the off hand off too) ...",
       "doc": "equips the item at the slot `ItemEvalSubsystem::FindEquipSlot` picks (a free one, else the weakest worn item's) as a player dragging it there (`CMSG_SWAP_ITEM`: the worn item goes to the bag slot, a two-hander takes the off hand off too); not tickable, Succeeded when the item is worn, Failed otherwise (gone, not better any more, refused by the core), its History entry tells which",
-      "settingsHelp": "`<Binding local=\"item\" external=\"Root|ItemProvider_GlobalTask::equipItem\"/>`",
+      "settingsHelp": "`<Binding local=\"item\" external=\"Root|InventoryProvider_GlobalTask::equipItem\"/>`",
       "taskAttributes": {},
       "settings": {},
       "uses": 1
@@ -2321,7 +2281,7 @@
     "Task_LearnSpells": {
       "cppClass": "Task_LearnSpells",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_LearnSpells.h",
+      "header": "playerbot/StateTree/Tasks/Leveling/Task_LearnSpells.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2343,7 +2303,7 @@
     "Task_Loot": {
       "cppClass": "Task_Loot",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Loot.h",
+      "header": "playerbot/StateTree/Tasks/Leveling/Task_Loot.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2365,7 +2325,7 @@
     "Task_OpenTrade": {
       "cppClass": "Task_OpenTrade",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Trade.h",
+      "header": "playerbot/StateTree/Tasks/Group/Task_Trade.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2379,7 +2339,7 @@
     "Task_ReclaimCorpse": {
       "cppClass": "Task_ReclaimCorpse",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Corpse.h",
+      "header": "playerbot/StateTree/Tasks/Status/Task_Corpse.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2393,7 +2353,7 @@
     "Task_ReleaseSpirit": {
       "cppClass": "Task_ReleaseSpirit",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Corpse.h",
+      "header": "playerbot/StateTree/Tasks/Status/Task_Corpse.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2407,7 +2367,7 @@
     "Task_RollForItem": {
       "cppClass": "Task_RollForItem",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_RollForItem.h",
+      "header": "playerbot/StateTree/Tasks/Group/Task_RollForItem.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2430,7 +2390,7 @@
     "Task_RunSubtree": {
       "cppClass": "Task_RunSubtree",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_RunSubtree.h",
+      "header": "playerbot/StateTree/Tasks/Flow/Task_RunSubtree.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2463,7 +2423,7 @@
     "Task_SelfResurrect": {
       "cppClass": "Task_SelfResurrect",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_SelfResurrect.h",
+      "header": "playerbot/StateTree/Tasks/Status/Task_SelfResurrect.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2489,7 +2449,7 @@
     "Task_SellJunk": {
       "cppClass": "Task_SellJunk",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_SellJunk.h",
+      "header": "playerbot/StateTree/Tasks/Leveling/Task_SellJunk.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2511,7 +2471,7 @@
     "Task_Shoot": {
       "cppClass": "Task_Shoot",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Shoot.h",
+      "header": "playerbot/StateTree/Tasks/Combat/Task_Shoot.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2533,7 +2493,7 @@
     "Task_Stance": {
       "cppClass": "Task_Stance",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Stance.h",
+      "header": "playerbot/StateTree/Tasks/Combat/Task_Stance.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2566,7 +2526,7 @@
     "Task_StartAttack": {
       "cppClass": "Task_StartAttack",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Attack.h",
+      "header": "playerbot/StateTree/Tasks/Combat/Task_Attack.h",
       "base": "STAI_TaskBase",
       "properties": [
         {
@@ -2588,7 +2548,7 @@
     "Task_StopAttack": {
       "cppClass": "Task_StopAttack",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Attack.h",
+      "header": "playerbot/StateTree/Tasks/Combat/Task_Attack.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2602,7 +2562,7 @@
     "Task_UseItem": {
       "cppClass": "Task_UseItem",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_UseItem.h",
+      "header": "playerbot/StateTree/Tasks/Items/Task_UseItem.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2635,7 +2595,7 @@
     "Task_Wait": {
       "cppClass": "Task_Wait",
       "global": false,
-      "header": "playerbot/StateTree/Tasks/Task_Wait.h",
+      "header": "playerbot/StateTree/Tasks/Flow/Task_Wait.h",
       "base": "STAI_TaskBase",
       "properties": [],
       "delegates": [],
@@ -2671,7 +2631,7 @@
     "TeamProvider_GlobalTask": {
       "cppClass": "TeamProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/TeamProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Group/TeamProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -2744,7 +2704,7 @@
     "TotemProvider_GlobalTask": {
       "cppClass": "TotemProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/TotemProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Spells/TotemProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -2830,7 +2790,7 @@
     "TrainerProvider_GlobalTask": {
       "cppClass": "TrainerProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/TrainerProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Leveling/TrainerProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -2897,7 +2857,7 @@
     "UIInteractionProvider_GlobalTask": {
       "cppClass": "UIInteractionProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/UIInteractionProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Group/UIInteractionProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -2967,7 +2927,7 @@
     "VendorProvider_GlobalTask": {
       "cppClass": "VendorProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/VendorProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Leveling/VendorProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {
@@ -3016,7 +2976,7 @@
     "WarriorProvider_GlobalTask": {
       "cppClass": "WarriorProvider_GlobalTask",
       "global": true,
-      "header": "playerbot/StateTree/Providers/WarriorProvider_GlobalTask.h",
+      "header": "playerbot/StateTree/Providers/Combat/WarriorProvider_GlobalTask.h",
       "base": "STAI_DataProviderBase",
       "properties": [
         {

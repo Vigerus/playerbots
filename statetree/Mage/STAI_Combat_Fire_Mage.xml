@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="2">
+<StateTree version="8">
   <Comment>Combat subtree for fire Mage bots (run by STAI_Combat_Mage.xml): the frost setup with Fireball, without Ice Block</Comment>
   <GlobalTasks>
-    <Task class="ManaProvider_GlobalTask">
-      <Comment>mana of the bot: manaPct, onManaChanged</Comment>
+    <Task class="StatsProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
     <Task class="CooldownProvider_GlobalTask">
       <Comment>the cooldowns the tree waits for: ready[&lt;spell id&gt;], onCooldownChanged</Comment>
@@ -86,7 +86,7 @@
     <Comment>low mana: a mana gem first (its own cooldown), then Evocation (only while ready), then a potion; the items fail
       while none can be used (none in the bags, on cooldown) and are not selected for 3s</Comment>
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="30"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="30"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_UseItem">
@@ -103,7 +103,7 @@
   </State>
   <State name="Evocation">
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
       <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="12051"/>
     </EnterConditions>
     <Tasks>
@@ -114,7 +114,7 @@
   </State>
   <State name="Mana Potion">
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_UseItem">
@@ -137,7 +137,7 @@
     <Comment>out of mana: the wand until the mana is back at 20% (no regeneration while casting)</Comment>
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
       <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </EnterConditions>
     <Tasks>
@@ -150,9 +150,9 @@
       <Transition trigger="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" target="Root|CC Target"/>
       <Transition trigger="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" target="Root|Decurse"/>
       <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root"/>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
         </Conditions>
       </Transition>
     </Transitions>
@@ -184,9 +184,9 @@
       <Transition trigger="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" target="Root|CC Target"/>
       <Transition trigger="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" target="Root|Decurse"/>
       <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root|Attack Target"/>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="30"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="30"/>
         </Conditions>
       </Transition>
     </Transitions>

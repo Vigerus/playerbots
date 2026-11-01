@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="7">
+<StateTree version="8">
   <Comment>NonCombat subtree for Mage bots on their own, without a leader (run by STAI_NonCombat_Mage.xml): keeps itself
     up (decurse, buffs, conjured water and food, eat, rest), loots its kills, equips better items, sells junk when the bags are full, learns
     new spells at its trainer, else grinds</Comment>
@@ -27,18 +27,14 @@
       <Spell id="587"/>
       <!-- Conjure Food (level 6) -->
     </Task>
-    <Task class="HealthProvider_GlobalTask">
+    <Task class="StatsProvider_GlobalTask">
       <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
-    <Task class="ManaProvider_GlobalTask"/>
     <Task class="InventoryProvider_GlobalTask">
-      <Comment>food / drink in the bags: lowFood, lowDrink (below 5), onLowSupplies; bagsFull (below 2 free slots with
-        something to sell), onBagsFull</Comment>
+      <Comment>the bags: lowFood, lowDrink (below 5), onLowSupplies; bagsFull (below 2 free slots with something to
+        sell), onBagsFull; equipItem, onItemEquipRequest (an item better than what is worn, ItemEvalSubsystem)</Comment>
       <Low value="5"/>
       <Free value="2"/>
-    </Task>
-    <Task class="ItemProvider_GlobalTask">
-      <Comment>evaluates the bag items (ItemEvalSubsystem): equipItem, onItemEquipRequest (an item better than what is worn)</Comment>
     </Task>
     <Task class="TrainerProvider_GlobalTask">
       <Comment>spells the bot can learn and afford at its class trainer: newSpells, onNewSpells (the Train subtree goes there)</Comment>
@@ -98,11 +94,11 @@
   <State name="Equip">
     <Comment>a better item in the bags: worn at once (the old one goes to the bags, selling judges it again)</Comment>
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|ItemProvider_GlobalTask::equipItem"/>
+      <Condition class="Condition_Compare" binding="Root|InventoryProvider_GlobalTask::equipItem"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_EquipItem">
-        <Binding local="item" external="Root|ItemProvider_GlobalTask::equipItem"/>
+        <Binding local="item" external="Root|InventoryProvider_GlobalTask::equipItem"/>
       </Task>
     </Tasks>
   </State>
@@ -117,9 +113,9 @@
       </Task>
     </Tasks>
     <Transitions>
-      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onHealthChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
         </Conditions>
       </Transition>
     </Transitions>
@@ -128,7 +124,7 @@
     <Comment>not at low mana: the buffs wait for Eat and Drink instead of failing every time</Comment>
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|BuffProvider_GlobalTask::needs"/>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater" value="30"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_CastBuff">
@@ -141,7 +137,7 @@
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|InventoryProvider_GlobalTask::lowDrink"/>
       <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="5504"/>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater" value="30"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_CastSpell" spellid="Conjure Water">
@@ -153,7 +149,7 @@
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|InventoryProvider_GlobalTask::lowFood"/>
       <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="587"/>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater" value="30"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_CastSpell" spellid="Conjure Food">
@@ -165,8 +161,8 @@
     <Comment>below 60% health or 40% mana, while the bot does not move; food and drink until both are full</Comment>
     <EnterConditions>
       <Any>
-        <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
-        <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
+        <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+        <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
       </Any>
       <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Loot]::movement" compare="equal" value="moving" inverted="true"/>
     </EnterConditions>
@@ -181,8 +177,8 @@
     <Comment>nothing to eat or drink (Eat and Drink failed): sits out the regeneration, then selects again</Comment>
     <EnterConditions>
       <Any>
-        <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
-        <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
+        <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+        <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
       </Any>
     </EnterConditions>
     <Tasks>
@@ -203,9 +199,9 @@
     </Tasks>
     <Transitions>
       <Transition trigger="OnDelegate" source="Root|LootProvider_GlobalTask::onLootable" target="Root"/>
-      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onHealthChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
         </Conditions>
       </Transition>
     </Transitions>
@@ -221,22 +217,22 @@
       <Transition trigger="OnDelegate" source="Root|LootProvider_GlobalTask::onLootable" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|BuffProvider_GlobalTask::onMissingBuff" target="Root|Check Missing Buffs">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="30"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater" value="30"/>
         </Conditions>
       </Transition>
       <Transition trigger="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" target="Root|Check Decurse"/>
       <Transition trigger="OnDelegate" source="Root|TrainerProvider_GlobalTask::onNewSpells" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|InventoryProvider_GlobalTask::onLowSupplies" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|InventoryProvider_GlobalTask::onBagsFull" target="Root"/>
-      <Transition trigger="OnDelegate" source="Root|ItemProvider_GlobalTask::onItemEquipRequest" target="Root"/>
-      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|InventoryProvider_GlobalTask::onItemEquipRequest" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onHealthChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
         </Conditions>
       </Transition>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="40"/>
         </Conditions>
       </Transition>
     </Transitions>

@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="2">
+<StateTree version="8">
   <Comment>Combat state tree for Warlock bots: AiPlayerbot.StateTree.Combat.Warlock</Comment>
   <GlobalTasks>
     <Task class="HazardProvider_GlobalTask">
       <Comment>hostile area effects on the ground around the bot: inHazard, safePosition, onHazard</Comment>
       <Margin value="2"/>
     </Task>
-    <Task class="ManaProvider_GlobalTask">
-      <Comment>mana of the bot: manaPct, onManaChanged</Comment>
+    <Task class="StatsProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
     <Task class="TargetProvider_GlobalTask">
       <Comment>the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;
@@ -47,7 +47,7 @@
     <Comment>out of mana: the wand until the mana is back at 20% (no regeneration while casting)</Comment>
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="10"/>
       <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </EnterConditions>
     <Tasks>
@@ -57,9 +57,9 @@
     </Tasks>
     <Transitions>
       <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root"/>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater or equal" value="20"/>
         </Conditions>
       </Transition>
     </Transitions>
@@ -73,7 +73,7 @@
     </Tasks>
     <Transitions>
       <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root|Wand"/>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root|Wand"/>
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root|Wand"/>
     </Transitions>
   </State>
 </StateTree>

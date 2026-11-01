@@ -7,7 +7,7 @@ namespace ai
     // A task property tested by path (RedStateTree's Compare):
     //   <Condition class="Condition_Compare" binding="Root|BuffProvider_GlobalTask::needs"/>
     //       passes while the property is set (a container not empty, otherwise its bool value)
-    //   <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+    //   <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
     //       compares a number property (compare: equal, lesser, lesser or equal, greater, greater or equal)
     //   <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="45438"/>
     //       the entry of a map of numbers (or bools) instead of the property itself: passes while it is set

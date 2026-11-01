@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="2">
+<StateTree version="8">
   <Comment>Combat subtree for Prot Warrior bots (run by STAI_Combat_Warrior.xml): defensive stance (battle below 10), holds
     the units fighting the group (TankTargetProvider_GlobalTask: loose units first; as off tank not the main tank's),
     faces them where they stand, taunts loose units, Revenge / Shield Block / Shield Slam / Sunder Armor for threat;
     Charge (out of combat) only when it pulls nothing</Comment>
   <GlobalTasks>
-    <Task class="HealthProvider_GlobalTask">
-      <Comment>health of the bot: healthPct, onHealthChanged</Comment>
+    <Task class="StatsProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
     <Task class="WarriorProvider_GlobalTask">
       <Comment>rage, stance, Revenge: rage, stance, revenge, knowsDefensive, onReactive</Comment>
@@ -69,7 +69,7 @@
   </GlobalTasks>
   <State name="Last Stand">
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="25"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="25"/>
       <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="12975"/>
     </EnterConditions>
     <Tasks>
@@ -80,7 +80,7 @@
   </State>
   <State name="Shield Wall">
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
       <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::stance" compare="equal" value="defensive"/>
       <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="871"/>
     </EnterConditions>
@@ -93,7 +93,7 @@
   <State name="Health Potion">
     <Comment>low health: the best healing potion of the bags (fails while none can be used, not selected again for 3s)</Comment>
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="20"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_UseItem">
@@ -193,7 +193,7 @@
       <Condition class="Condition_Compare" binding="Root|TankTargetProvider_GlobalTask::target"/>
       <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="2687"/>
       <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="lesser" value="20"/>
-      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="greater" value="40"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="greater" value="40"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_CastSpell" spellid="Bloodrage">

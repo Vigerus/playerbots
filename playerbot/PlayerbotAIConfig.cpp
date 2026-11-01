@@ -11,7 +11,7 @@
 #include "playerbot/StateTree/STAI_Tree.h"
 #include "playerbot/PlayerbotDebugWindow.h"
 #include "playerbot/PlayerbotMapServer.h"
-#include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/Group/SpecProvider_GlobalTask.h"
 
 #include "instancebot/GuildProgressSubsystem.h"
 

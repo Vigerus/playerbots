@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="2">
+<StateTree version="8">
   <Comment>Combat subtree for Resto Shaman bots (run by STAI_Combat_Shaman.xml)</Comment>
   <GlobalTasks>
-    <Task class="ManaProvider_GlobalTask">
-      <Comment>mana of the bot: manaPct, onManaChanged</Comment>
+    <Task class="StatsProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
     <Task class="TotemProvider_GlobalTask">
       <Comment>the totems selected for the bot (outdoor, or the master's dungeon stage) that are not up: needs,
@@ -27,7 +27,7 @@
   <State name="Mana Potion">
     <Comment>low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s)</Comment>
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_UseItem">
@@ -67,7 +67,7 @@
       </Task>
     </Tasks>
     <Transitions>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root|Mana Potion"/>
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root|Mana Potion"/>
       <Transition trigger="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemMissing" target="Root|Totems"/>
       <Transition trigger="OnDelegate" source="Root|TotemProvider_GlobalTask::onTotemsChanged" target="Root"/>
     </Transitions>

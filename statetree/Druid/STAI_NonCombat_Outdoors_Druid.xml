@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="3">
+<StateTree version="8">
   <Comment>NonCombat subtree for Druid bots outside dungeons (run by STAI_NonCombat_Druid.xml)</Comment>
   <GlobalTasks>
     <Task class="InstanceProvider_GlobalTask">
@@ -11,10 +11,9 @@
         none while solo): leader, leaderFar, location, onLeaderFar while it is beyond follow range</Comment>
       <Range value="follow"/>
     </Task>
-    <Task class="HealthProvider_GlobalTask">
+    <Task class="StatsProvider_GlobalTask">
       <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
-    <Task class="ManaProvider_GlobalTask"/>
     <Task class="MovementGoal_GlobalTask" name="Position Yourself" priority="35" kind="position">
       <Comment>movement goals (MovementGoal_GlobalTask, the highest wanted one drives the bot): the bot's point in the master's
         room (its rtsc / entrance override, else the room's position; the reason says which), reached at it, while the way
@@ -43,8 +42,8 @@
     <Comment>eating and drinking while the bot stands (its movement goal "reached"); moving again leaves the node</Comment>
     <EnterConditions>
       <Any>
-        <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
-        <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+        <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+        <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
       </Any>
       <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Follow Leader]::movement" compare="equal" value="reached"/>
     </EnterConditions>
@@ -66,14 +65,14 @@
       </Task>
     </Tasks>
     <Transitions>
-      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root|Eat and Drink">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onHealthChanged" target="Root|Eat and Drink">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="80"/>
         </Conditions>
       </Transition>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root|Eat and Drink">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root|Eat and Drink">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="90"/>
         </Conditions>
       </Transition>
       <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Follow Leader]::onMovementChanged" target="Root"/>

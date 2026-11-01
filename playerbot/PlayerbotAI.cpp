@@ -4,7 +4,7 @@
 #include <iomanip>
 
 #include "playerbot/PlayerSpec.h"
-#include "playerbot/StateTree/Providers/SpecProvider_GlobalTask.h"
+#include "playerbot/StateTree/Providers/Group/SpecProvider_GlobalTask.h"
 #include "playerbot/Helpers.h"
 
 #include "MotionGenerators/MovementGenerator.h"

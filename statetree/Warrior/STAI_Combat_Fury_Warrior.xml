@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="2">
+<StateTree version="8">
   <Comment>Combat subtree for Fury Warrior bots (run by STAI_Combat_Warrior.xml): berserker stance (battle until the bot knows
     it), the tank's unit from behind, Bloodthirst / Whirlwind, Execute, rage dumps; Intercept only when it pulls nothing</Comment>
   <GlobalTasks>
-    <Task class="HealthProvider_GlobalTask">
-      <Comment>health of the bot: healthPct, onHealthChanged</Comment>
+    <Task class="StatsProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
     <Task class="WarriorProvider_GlobalTask">
       <Comment>rage, stance, Revenge / Overpower: rage, stance, knowsBerserker, onReactive</Comment>
@@ -84,7 +84,7 @@
   <State name="Health Potion">
     <Comment>low health: the best healing potion of the bags (fails while none can be used, not selected again for 3s)</Comment>
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="25"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="lesser" value="25"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_UseItem">
@@ -145,7 +145,7 @@
       <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
       <Condition class="Condition_Compare" binding="Root|CooldownProvider_GlobalTask::ready" key="2687"/>
       <Condition class="Condition_Compare" binding="Root|WarriorProvider_GlobalTask::rage" compare="lesser" value="20"/>
-      <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="greater" value="50"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::healthPct" compare="greater" value="50"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_CastSpell" spellid="Bloodrage">

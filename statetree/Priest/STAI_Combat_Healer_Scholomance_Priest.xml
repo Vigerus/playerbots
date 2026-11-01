@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="2">
+<StateTree version="8">
   <Comment>Combat subtree for healing (Holy and Disc) Priest bots in Scholomance (run by STAI_Combat_Priest.xml): the healer
     subtree (STAI_Combat_Healer_Priest.xml) dispelling only the auras it observes</Comment>
   <GlobalTasks>
-    <Task class="ManaProvider_GlobalTask">
-      <Comment>mana of the bot: manaPct, onManaChanged</Comment>
+    <Task class="StatsProvider_GlobalTask">
+      <Comment>health / mana of the bot: healthPct, onHealthChanged / manaPct, onManaChanged</Comment>
     </Task>
     <Task class="HealProvider_GlobalTask">
       <Comment>the health of the bot and its group: critical / low / medium / almostFull (worst first), healTarget, aggroed,
@@ -201,7 +201,7 @@
   <State name="Mana Potion">
     <Comment>low mana: the best mana potion of the bags (fails while none can be used, not selected again for 3s)</Comment>
     <EnterConditions>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
     </EnterConditions>
     <Tasks>
       <Task class="Task_UseItem">
@@ -236,7 +236,7 @@
       time spells are skipped (the node fails, 3s) while the bot's own is on the target</Comment>
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater" value="70"/>
       <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </EnterConditions>
     <Tasks>
@@ -249,7 +249,7 @@
   <State name="Holy Fire">
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater" value="70"/>
       <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </EnterConditions>
     <Tasks>
@@ -262,7 +262,7 @@
   <State name="Smite">
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|TargetProvider_GlobalTask::target"/>
-      <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+      <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater" value="70"/>
       <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Attack Range]::inRange"/>
     </EnterConditions>
     <Tasks>
@@ -289,9 +289,9 @@
       <Transition trigger="OnDelegate" source="Root|DispelProvider_GlobalTask::onNeedsHelp" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root"/>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="greater" value="70"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="greater" value="70"/>
         </Conditions>
       </Transition>
     </Transitions>
@@ -312,9 +312,9 @@
       <Transition trigger="OnDelegate" source="Root|CCProvider_GlobalTask::onCCNeeded" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|TargetProvider_GlobalTask::onTargetChanged" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|CooldownProvider_GlobalTask::onCooldownChanged" target="Root"/>
-      <Transition trigger="OnDelegate" source="Root|ManaProvider_GlobalTask::onManaChanged" target="Root">
+      <Transition trigger="OnDelegate" source="Root|StatsProvider_GlobalTask::onManaChanged" target="Root">
         <Conditions>
-          <Condition class="Condition_Compare" binding="Root|ManaProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
+          <Condition class="Condition_Compare" binding="Root|StatsProvider_GlobalTask::manaPct" compare="lesser" value="15"/>
         </Conditions>
       </Transition>
     </Transitions>
