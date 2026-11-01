@@ -10,7 +10,12 @@
 <div id="app">
   <header id="toolbar">
     <span class="brand">State Tree Editor</span>
-    <span id="docTitle" class="doc-title"></span>
+    <div id="filePick" class="file-pick">
+      <input id="fileFilter" type="search" placeholder="Open a tree file (Ctrl+P)" spellcheck="false" autocomplete="off"
+        role="combobox" aria-controls="fileList" aria-expanded="false">
+      <span id="docDirty" class="dirty hidden" title="modified">●</span>
+      <div id="fileList" class="file-drop hidden" role="listbox"></div>
+    </div>
     <span class="spacer"></span>
     <button id="btnNew" title="New tree file">New</button>
     <button id="btnSave" title="Save (Ctrl+S)">Save</button>
@@ -23,12 +28,13 @@
     <button id="btnTheme" title="Dark / light theme">Theme</button>
     <button id="btnHelp" title="Keyboard shortcuts (F1)">?</button>
   </header>
-  <aside id="files">
-    <div class="panel-head">Files</div>
-    <div class="files-tools">
-      <input id="fileFilter" type="search" placeholder="Filter files (Ctrl+P)" spellcheck="false">
+  <aside id="globalsPanel">
+    <div id="globalsHead" class="panel-head">
+      <span>Global Providers</span>
+      <span class="spacer"></span>
+      <button id="btnAddGlobal" class="small" title="Add a global task (data provider)">+ Task</button>
     </div>
-    <div id="fileList" class="scroll"></div>
+    <div id="globals" class="scroll"></div>
   </aside>
   <div class="splitter v" data-split="left"></div>
   <main id="outlinePanel">

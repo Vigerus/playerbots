@@ -1,8 +1,10 @@
 """
 Local server of the state tree editor: serves the editor (index.html, editor.js, editor.css, schema.json) and a JSON
-API over the tree files of the statetree directory. Binds to 127.0.0.1 only.
+API over the tree files of the statetree directory. Binds to 127.0.0.1 unless --host says otherwise; requests
+from other addresses than this machine's and the --allow networks are refused.
 
     python tools/StateTreeEditor/serve.py [--port 8765] [--root ../../statetree] [--open] [--eol auto|crlf|lf]
+    python tools/StateTreeEditor/serve.py --host 0.0.0.0 --allow 192.168.1.0/24     (reachable in the home network)
 
 API (paths are relative to the root, '/' separated, only *.xml):
     GET  /api/files                  {"root", "files": [{"path", "size", "mtime"}], "folders": [...]}
@@ -18,9 +20,11 @@ Wowhead answers are cached in cache/ next to this script.
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import re
+import socket
 import struct
 import sys
 import tempfile
@@ -224,6 +228,27 @@ def cached(name, url):
     return data
 
 
+def local_addresses():
+    """the IPv4 addresses of this machine"""
+    try:
+        return sorted(set(socket.gethostbyname_ex(socket.gethostname())[2]))
+    except OSError:
+        return []
+
+
+class Server(ThreadingHTTPServer):
+    allowed = []  # ip_network list besides loopback and this machine
+
+    def verify_request(self, request, client_address):
+        # refused before a byte is read: the editor writes files, so only the allowed networks may reach it
+        address = ipaddress.ip_address(client_address[0])
+        if address.is_loopback or client_address[0] in self.own or any(address in net for net in self.allowed):
+            return True
+        if self.verbose:
+            sys.stderr.write("refused %s\n" % client_address[0])
+        return False
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "StateTreeEditor/1"
     root = ""
@@ -267,6 +292,36 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         self.do_GET()
+
+    def known_host(self):
+        """the Host header names this server (an ip, localhost or the machine name): a page of another site that
+        resolves its name to this machine (DNS rebinding) is refused"""
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
+        if host in ("localhost", socket.gethostname().lower()):
+            return True
+        try:
+            ipaddress.ip_address(host)
+            return True
+        except ValueError:
+            return False
+
+    def handle_one_request(self):
+        # parse_request fills self.headers; the check sits between it and the do_* method
+        self.raw_requestline = self.rfile.readline(65537)
+        if not self.raw_requestline:
+            self.close_connection = True
+            return
+        if not self.parse_request():
+            return
+        if not self.known_host():
+            self.fail(HTTPStatus.FORBIDDEN, "unknown host name")
+            return
+        method = getattr(self, "do_" + self.command, None)
+        if not method:
+            self.send_error(HTTPStatus.NOT_IMPLEMENTED, "Unsupported method (%r)" % self.command)
+            return
+        method()
+        self.wfile.flush()
 
     def do_GET(self):
         path, query = self.query()
@@ -402,6 +457,10 @@ def main():
     parser.add_argument("--eol", choices=("auto", "crlf", "lf"), default="auto",
                         help="line endings of saved files; auto keeps the file's own (CRLF for new files)")
     parser.add_argument("--dbc", help="the server's dbc directory (Spell.dbc, SpellIcon.dbc): spell lookup by name")
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="address to bind (0.0.0.0: every network interface, see --allow)")
+    parser.add_argument("--allow", action="append", default=[], metavar="NETWORK",
+                        help="network that may use the editor besides this machine, e.g. 192.168.1.0/24 (repeatable)")
     parser.add_argument("--open", action="store_true", help="open the editor in the browser")
     parser.add_argument("--verbose", action="store_true", help="log every request")
     args = parser.parse_args()
@@ -418,10 +477,22 @@ def main():
             print("Spell lookup: %d spells from %s" % (len(Handler.spells.spells), args.dbc), flush=True)
         except (OSError, ValueError) as error:
             print("no spell lookup: %s" % error, file=sys.stderr)
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    try:
+        Server.allowed = [ipaddress.ip_network(net, strict=False) for net in args.allow]
+    except ValueError as error:
+        print("bad --allow: %s" % error, file=sys.stderr)
+        return 1
+    server = Server((args.host, args.port), Handler)
     server.verbose = args.verbose
-    url = "http://127.0.0.1:%d/" % server.server_address[1]
+    server.own = set(local_addresses())
+    port = server.server_address[1]
+    url = "http://127.0.0.1:%d/" % port
     print("State tree editor: %s  (root %s)" % (url, root), flush=True)
+    if args.host not in ("127.0.0.1", "localhost"):
+        for address in sorted(server.own):
+            if any(ipaddress.ip_address(address) in net for net in Server.allowed):
+                print("  from the network: http://%s:%d/" % (address, port), flush=True)
+        print("  allowed: this machine" + "".join(", " + str(net) for net in Server.allowed), flush=True)
     if args.open:
         threading.Timer(0.3, lambda: webbrowser.open(url)).start()
     try:

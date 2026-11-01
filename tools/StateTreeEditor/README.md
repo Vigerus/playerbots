@@ -10,11 +10,23 @@ standard library and plain HTML / CSS / JavaScript: no install, no build step, n
 python tools/StateTreeEditor/serve.py --open
 ```
 
-The server binds to `127.0.0.1` only and prints the URL (default `http://127.0.0.1:8765/`).
+The server binds to `127.0.0.1` by default and prints the URL (default `http://127.0.0.1:8765/`). To use it from
+another computer of the home network:
+
+```
+python tools/StateTreeEditor/serve.py --host 0.0.0.0 --allow 192.168.1.0/24
+```
+
+It prints the network URL (`http://<this machine's ip>:8765/`). Connections from other addresses than this machine and
+the `--allow` networks are dropped, and requests whose `Host` is not an ip, `localhost` or the machine name are refused
+(a web page cannot reach the editor through a name of its own). Windows Firewall must let python in on the private
+network. `deploy_watch.py` starts it this way.
 
 | option | default | |
 |--------|---------|-|
 | `--port` | `8765` | |
+| `--host` | `127.0.0.1` | the address to bind, `0.0.0.0` for every network interface |
+| `--allow` | | a network that may use the editor besides this machine, e.g. `192.168.1.0/24` (repeatable) |
 | `--root` | `../../statetree` (relative to the script) | the directory of the tree files |
 | `--eol` | `auto` | line endings of saved files: `auto` keeps the file's own (CRLF for new files), `crlf`, `lf` |
 | `--dbc` | | the server's `dbc` directory (`Spell.dbc`, `SpellIcon.dbc`): spell lookup by id or name |
@@ -23,18 +35,21 @@ The server binds to `127.0.0.1` only and prints the URL (default `http://127.0.0
 
 ## What it does
 
-- **Files** (left): the tree files of the root by folder (class folders), a filter box, a dot on modified files and
-  the error count of the opened ones. New creates a tree from a minimal template, Save writes the file (refused when
+- **File box** (toolbar): the open file; clicking it (or Ctrl+P) lists the tree files of the root by folder (class
+  folders) with a dot on modified files and the error count of the opened ones. Typing searches the paths (every word
+  must match, e.g. `mage comb`), ↑ / ↓ and Enter open a file, Esc closes the list. New creates a tree from a minimal template, Save writes the file (refused when
   it changed on disk since it was loaded, you can overwrite), Revert reloads it. Every opened file keeps its own
   changes and undo history until the page is closed (the browser warns about unsaved changes).
-- **Outline** (center): the tree's comment, the Global Tasks, then the states, nested and collapsible. A state row
+- **Global Providers** (left): the tree's global tasks (data providers) with their conditions; + Task adds one, a task
+  dropped on the panel becomes a global task.
+- **Outline** (center): the tree's comment, then the states, nested and collapsible. A state row
   shows its selection behaviour icon, name, type (Subtree / Linked badge), utility (`U`: weight and considerations),
   enter conditions as chips, its tasks (class and a short info: spell, delay, subtree...) and below it its
   transitions (`trigger -> target`). Disabled states / tasks / transitions are dimmed, comments are tooltips (the pen
   mark). Click selects, right click opens the context menu (add child / sibling state, add task, transition,
   condition, consideration, duplicate, move up / down, enable / disable, delete). Drag a state onto the upper / lower
   edge of another state to put it before / after it, onto its middle to make it a child; drag a task onto a state, a
-  task chip or the Global Tasks header. Moves and renames keep the paths, targets and `linkedSubtree` that point to the
+  task chip or the Global Providers panel. Moves and renames keep the paths, targets and `linkedSubtree` that point to the
   moved / renamed state or task working.
 - **Details** (right): the selected tree, state, global task, task, transition, condition (group) or consideration,
   every attribute of the format with dropdowns for the enums, comment fields, pickers for `linkedSubtree` (the Subtree
@@ -69,7 +84,7 @@ file that was not changed reproduces it byte for byte (line endings aside).
 |-----|-|
 | Ctrl+S | save |
 | Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) | undo / redo |
-| Ctrl+P | filter the files |
+| Ctrl+P | open a file (type to search) |
 | Ctrl+F | find a state / task in the outline (Enter: next match) |
 | Ctrl+Shift+X | XML source view |
 | Up / Down | previous / next row of the outline |

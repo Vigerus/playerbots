@@ -81,12 +81,12 @@ code, .mono { font-family: var(--mono); font-size: 12px; }
   grid-template-rows: 38px minmax(120px, 1fr) 4px var(--bottom);
   grid-template-areas:
     "tb tb tb tb tb"
-    "files sl outline sr details"
-    "files sl sb sb sb"
-    "files sl problems problems problems";
+    "globals sl outline sr details"
+    "globals sl sb sb sb"
+    "globals sl problems problems problems";
 }
 #toolbar { grid-area: tb; display: flex; align-items: center; gap: 6px; padding: 0 10px; background: var(--panel2); border-bottom: 1px solid var(--border); }
-#files { grid-area: files; display: flex; flex-direction: column; background: var(--panel); min-height: 0; }
+#globalsPanel { grid-area: globals; display: flex; flex-direction: column; background: var(--panel); min-height: 0; min-width: 0; }
 #outlinePanel { grid-area: outline; display: flex; flex-direction: column; background: var(--bg); min-height: 0; min-width: 0; }
 #detailsPanel { grid-area: details; display: flex; flex-direction: column; background: var(--panel); min-height: 0; min-width: 0; }
 #problemsPanel { grid-area: problems; display: flex; flex-direction: column; background: var(--panel); min-height: 0; }
@@ -96,9 +96,7 @@ code, .mono { font-family: var(--mono); font-size: 12px; }
 .splitter[data-split="bottom"] { grid-area: sb; cursor: row-resize; }
 .splitter:hover, .splitter.active { background: var(--accent); }
 
-.brand { font-weight: 600; letter-spacing: .3px; margin-right: 8px; }
-.doc-title { font-family: var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.doc-title .dirty { color: var(--warning); }
+.brand { font-weight: 600; letter-spacing: .3px; margin-right: 8px; white-space: nowrap; }
 .sep { width: 1px; height: 20px; background: var(--border2); margin: 0 4px; }
 
 button {
@@ -128,19 +126,25 @@ select { padding: 2px 4px; }
 }
 .panel-head input[type="search"] { text-transform: none; font-weight: normal; letter-spacing: 0; height: 22px; width: 170px; }
 
-/* files */
-.files-tools { padding: 6px; border-bottom: 1px solid var(--border); }
-.files-tools input { width: 100%; }
-#fileList { flex: 1; padding: 4px 0; }
-.folder > .folder-head { display: flex; align-items: center; gap: 4px; padding: 2px 8px; cursor: pointer; color: var(--muted); font-weight: 600; user-select: none; }
-.folder > .folder-head:hover { color: var(--text); }
-.folder.collapsed > .folder-files { display: none; }
-.twist { display: inline-block; width: 12px; text-align: center; color: var(--muted); font-size: 10px; }
-.file { display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px 24px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
-.file:hover { background: var(--hover); }
-.file.active { background: var(--sel); }
+/* file combobox (toolbar) */
+.file-pick { position: relative; display: flex; align-items: center; gap: 4px; width: 420px; min-width: 160px; flex: 0 1 auto; }
+.file-pick input { flex: 1; height: 26px; font-family: var(--mono); font-size: 12.5px; }
+.file-pick .dirty { color: var(--warning); }
+.file-drop { position: absolute; z-index: 55; top: 30px; left: 0; width: 100%; min-width: 300px; max-height: 70vh; overflow-y: auto; background: var(--panel2); border: 1px solid var(--border2); border-radius: 5px; padding: 3px 0; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+.file-drop .folder-head { padding: 4px 8px 1px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+.file-drop .folder-head .count { font-weight: normal; }
+.file { display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px 18px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
+.file.current { color: var(--accent-text); }
+.file.active, .file:hover { background: var(--sel); }
+.file mark { background: none; color: var(--warning); font-weight: 600; }
 .file .dot { color: var(--warning); font-weight: bold; }
 .file .err { color: var(--error); font-size: 11px; }
+.twist { display: inline-block; width: 12px; text-align: center; color: var(--muted); font-size: 10px; }
+
+/* global providers (left) */
+#globals { flex: 1; padding: 6px 8px 40px; }
+#globalsHead.drop-inside { color: var(--drop); box-shadow: inset 0 -2px 0 var(--drop); }
+#globals.drop-inside { box-shadow: inset 0 0 0 2px var(--drop); }
 
 /* outline */
 #outline { flex: 1; padding: 8px 10px 40px; outline: none; }

@@ -63,7 +63,7 @@ let sourceOpen = false;
 let sourceDirty = false;
 let validateTimer = 0;
 let uid = 0;
-const collapsedFolders = new Set();
+let fileActive = -1;  // highlighted entry of the open file list, -1: the open file
 const collapsedGroups = new Set(storageGet('ste.groups', '').split('|').filter(Boolean));
 
 const $ = (q) => document.querySelector(q);
@@ -1350,10 +1350,11 @@ function renderOutline() {
   box.textContent = '';
   elRows = new Map();
   rowOrder = [];
-  if (!cur) { box.append(h('div', { class: 'empty-hint' }, 'Open a tree from the file list, or create one with New.')); return; }
+  if (!cur) { box.append(h('div', { class: 'empty-hint' }, 'Open a tree with the file box (Ctrl+P), or create one with New.')); renderGlobals(); return; }
   if (!cur.doc) {
     box.append(h('div', { class: 'empty-hint' }, 'The file does not parse: ' + (cur.parseError || '')),
       h('div', { class: 'empty-hint' }, h('button', { onclick: () => openSource() }, 'Edit the XML source')));
+    renderGlobals();
     return;
   }
   invalidate();
@@ -1366,16 +1367,9 @@ function renderOutline() {
   box.append(head);
   const comment = getComment(r);
   if (comment) box.append(h('div', { class: 'tree-comment', title: comment }, comment));
+  // the globals' rows come between the tree and the states in rowOrder (Up / Down walk them in that order)
+  renderGlobals();
   if (r.tagName !== 'StateTree') return;
-
-  const gHead = h('div', { class: 'section-head' }, h('span', null, 'Global Tasks'), h('span', { class: 'spacer' }),
-    h('button', { class: 'icon', title: 'Add global task', onclick: (e) => { e.stopPropagation(); pickTask(r); } }, '+ Task'));
-  addDropTarget(gHead, { kind: 'globals' });
-  const gSection = h('div', { class: 'section' }, gHead);
-  const gl = globalTasks();
-  if (!gl.length) gSection.append(h('div', { class: 'empty-hint' }, 'No global tasks.'));
-  for (const t of gl) gSection.append(renderGlobalTask(t));
-  box.append(gSection);
 
   const sHead = h('div', { class: 'section-head' }, h('span', null, 'States'), h('span', { class: 'spacer' }),
     h('button', { class: 'icon', title: 'Add top level state', onclick: (e) => { e.stopPropagation(); opAddState(r); } }, '+ State'));
@@ -1386,6 +1380,19 @@ function renderOutline() {
   sSection.append(end);
   box.append(sSection);
   markRows();
+  box.scrollTop = scroll;
+}
+// the left panel: the tree's global tasks (data providers); rendered by renderOutline, they share elRows / rowOrder
+function renderGlobals() {
+  const box = $('#globals');
+  const scroll = box.scrollTop;
+  box.textContent = '';
+  const ok = !!(cur && cur.doc && root().tagName === 'StateTree');
+  $('#btnAddGlobal').disabled = !ok;
+  if (!ok) { box.append(h('div', { class: 'empty-hint' }, cur ? 'No global tasks here.' : 'No tree open.')); return; }
+  const gl = globalTasks();
+  if (!gl.length) box.append(h('div', { class: 'empty-hint' }, 'No global tasks: add one with + Task, or drop a task here.'));
+  for (const t of gl) box.append(renderGlobalTask(t));
   box.scrollTop = scroll;
 }
 function matchesFind(el) {
@@ -1747,7 +1754,7 @@ function pickConsideration(state) {
 }
 function showHelp() {
   const rows = [
-    ['Ctrl+S', 'save'], ['Ctrl+Z / Ctrl+Y', 'undo / redo (Ctrl+Shift+Z redo)'], ['Ctrl+P', 'filter files'], ['Ctrl+F', 'find in the outline'],
+    ['Ctrl+S', 'save'], ['Ctrl+Z / Ctrl+Y', 'undo / redo (Ctrl+Shift+Z redo)'], ['Ctrl+P', 'open a file (type to search)'], ['Ctrl+F', 'find in the outline'],
     ['Ctrl+Shift+X', 'XML source view'], ['↑ ↓', 'previous / next row'], ['← →', 'collapse / expand, parent'],
     ['Alt+↑ / Alt+↓', 'move the selection up / down'], ['Ins', 'add a child state'], ['Shift+Ins', 'add a sibling state'],
     ['T', 'add a task to the state'], ['Ctrl+D', 'duplicate'], ['Del', 'delete'], ['Ctrl+E', 'enable / disable'],
@@ -2438,37 +2445,96 @@ async function loadFiles() {
   files = body.files;
   renderFileList();
 }
-function renderFileList() {
-  const box = $('#fileList');
-  const scroll = box.scrollTop;
-  box.textContent = '';
-  const q = $('#fileFilter').value.toLowerCase();
+// ---------- file combobox (toolbar): focus or Ctrl+P lists the files, typing filters them (every word must match)
+
+function fileListOpen() { return !$('#fileList').classList.contains('hidden'); }
+function openFileList() {
+  const input = $('#fileFilter');
+  if (!fileListOpen()) {
+    // the open file stays visible as the placeholder while searching
+    input.value = '';
+    input.placeholder = cur ? cur.path : 'Open a tree file (Ctrl+P)';
+    $('#fileList').classList.remove('hidden');
+    input.setAttribute('aria-expanded', 'true');
+    fileActive = -1;
+  }
+  renderFileList();
+}
+function closeFileList() {
+  const input = $('#fileFilter');
+  $('#fileList').classList.add('hidden');
+  input.setAttribute('aria-expanded', 'false');
+  input.placeholder = 'Open a tree file (Ctrl+P)';
+  input.value = cur ? cur.path : '';
+}
+function pickFile(path) {
+  closeFileList();
+  $('#fileFilter').blur();
+  openFile(path);
+}
+function marked(text, words) {
+  const on = new Array(text.length).fill(false);
+  const low = text.toLowerCase();
+  for (const w of words) for (let i = low.indexOf(w); i >= 0; i = low.indexOf(w, i + 1)) on.fill(true, i, i + w.length);
+  const out = [];
+  for (let i = 0, j; i < text.length; i = j) {
+    for (j = i; j < text.length && on[j] === on[i]; j++);
+    out.push(on[i] ? h('mark', null, text.slice(i, j)) : text.slice(i, j));
+  }
+  return out;
+}
+function visibleFiles() {
+  const words = $('#fileFilter').value.toLowerCase().split(/\s+/).filter(Boolean);
   const byFolder = new Map();
   for (const f of files) {
-    if (q && !f.path.toLowerCase().includes(q)) continue;
+    if (!words.every((w) => f.path.toLowerCase().includes(w))) continue;
     const i = f.path.lastIndexOf('/');
     const folder = i < 0 ? '' : f.path.slice(0, i);
     if (!byFolder.has(folder)) byFolder.set(folder, []);
     byFolder.get(folder).push(f);
   }
   const folders = Array.from(byFolder.keys()).sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)));
+  return { words, folders, byFolder, list: folders.flatMap((folder) => byFolder.get(folder)) };
+}
+function renderFileList() {
+  if (!fileListOpen()) return;
+  const box = $('#fileList');
+  box.textContent = '';
+  const { words, folders, byFolder, list } = visibleFiles();
+  if (fileActive < 0) fileActive = Math.max(0, list.findIndex((f) => cur && f.path === cur.path));
+  fileActive = Math.min(fileActive, list.length - 1);
+  let n = 0;
   for (const folder of folders) {
-    const collapsed = !q && collapsedFolders.has(folder);
-    const el = h('div', { class: 'folder' + (collapsed ? ' collapsed' : '') });
-    el.append(h('div', { class: 'folder-head', onclick: () => { if (collapsedFolders.has(folder)) collapsedFolders.delete(folder); else collapsedFolders.add(folder); renderFileList(); } },
-      h('span', { class: 'twist' }, collapsed ? '▸' : '▾'), folder || 'statetree', h('span', { class: 'count', style: 'font-weight:normal' }, ' ' + byFolder.get(folder).length)));
-    const list = h('div', { class: 'folder-files' });
+    box.append(h('div', { class: 'folder-head' }, folder || 'statetree', h('span', { class: 'count' }, ' ' + byFolder.get(folder).length)));
     for (const f of byFolder.get(folder)) {
       const s = sessions.get(f.path);
-      list.append(h('div', { class: 'file' + (cur && cur.path === f.path ? ' active' : ''), title: f.path, onclick: () => openFile(f.path) },
-        h('span', null, f.path.slice(f.path.lastIndexOf('/') + 1)), isDirty(s) ? h('span', { class: 'dot', title: 'modified' }, '●') : null,
-        s && (s.problemCount || s.parseError) ? h('span', { class: 'err', title: 'errors' }, '✖' + (s.parseError ? '' : s.problemCount)) : null));
+      const name = f.path.slice(f.path.lastIndexOf('/') + 1);
+      // folder words match too, but only the name is marked: the folder is the group head
+      box.append(h('div', { class: 'file' + (cur && cur.path === f.path ? ' current' : '') + (n++ === fileActive ? ' active' : ''), role: 'option', title: f.path,
+        onmousedown: (e) => { e.preventDefault(); pickFile(f.path); } },
+      h('span', null, marked(name, words)), isDirty(s) ? h('span', { class: 'dot', title: 'modified' }, '●') : null,
+      s && (s.problemCount || s.parseError) ? h('span', { class: 'err', title: 'errors' }, '✖' + (s.parseError ? '' : s.problemCount)) : null));
     }
-    el.append(list);
-    box.append(el);
   }
-  if (!files.length) box.append(h('div', { class: 'empty-hint' }, 'No *.xml files under the root.'));
-  box.scrollTop = scroll;
+  if (!list.length) box.append(h('div', { class: 'empty-hint' }, files.length ? 'No file matches.' : 'No *.xml files under the root.'));
+  const active = box.querySelector('.file.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+function onFileKey(e) {
+  if (!fileListOpen()) openFileList();
+  const list = visibleFiles().list;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (list.length) fileActive = (fileActive + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length;
+    renderFileList();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const f = list[fileActive] || list[0];
+    if (f) pickFile(f.path);
+  } else if (e.key === 'Escape') {
+    closeFileList();
+    $('#outline').focus();
+  } else if (e.key === 'Tab') closeFileList();
 }
 async function openFile(path, opts) {
   opts = opts || {};
@@ -2594,21 +2660,14 @@ function applySource() {
 // ---------- chrome
 
 function refreshChrome() {
-  const t = $('#docTitle');
-  t.textContent = '';
-  if (cur) t.append(cur.path, isDirty(cur) ? h('span', { class: 'dirty', title: 'modified' }, ' ●') : '');
+  $('#docDirty').classList.toggle('hidden', !isDirty(cur));
+  if (!fileListOpen()) $('#fileFilter').value = cur ? cur.path : '';
   document.title = (cur ? (isDirty(cur) ? '● ' : '') + cur.path.replace(/^.*\//, '') + ' — ' : '') + 'State Tree Editor';
   $('#btnSave').disabled = !cur;
   $('#btnRevert').disabled = !cur;
   $('#btnUndo').disabled = !cur || !cur.doc || cur.index <= 0 && cur.text === (cur.history[0] || {}).text;
   $('#btnRedo').disabled = !cur || !cur.doc || cur.index >= cur.history.length - 1;
   $('#btnSave').classList.toggle('primary', isDirty(cur));
-  const active = document.querySelector('#fileList .file.active');
-  if (active) {
-    const dot = active.querySelector('.dot');
-    if (isDirty(cur) && !dot) active.insertBefore(h('span', { class: 'dot', title: 'modified' }, '●'), active.children[1] || null);
-    if (!isDirty(cur) && dot) dot.remove();
-  }
 }
 function renderAll() {
   invalidate();
@@ -2642,7 +2701,7 @@ function onKey(e) {
     if (!$('#popup').classList.contains('hidden')) { closePopup(); return; }
   }
   if (ctrl && key.toLowerCase() === 's') { e.preventDefault(); saveFile(); return; }
-  if (ctrl && key.toLowerCase() === 'p') { e.preventDefault(); $('#fileFilter').focus(); $('#fileFilter').select(); return; }
+  if (ctrl && key.toLowerCase() === 'p') { e.preventDefault(); $('#fileFilter').focus(); openFileList(); return; }
   if (ctrl && key.toLowerCase() === 'f' && !sourceOpen) { e.preventDefault(); $('#outlineFind').focus(); $('#outlineFind').select(); return; }
   if (ctrl && e.shiftKey && key.toLowerCase() === 'x') { e.preventDefault(); if (sourceOpen) closeSource(); else openSource(); return; }
   if (key === 'F1') { e.preventDefault(); showHelp(); return; }
@@ -2825,11 +2884,13 @@ async function init() {
   $('#btnHelp').addEventListener('click', showHelp);
   $('#btnExpandAll').addEventListener('click', () => setAllCollapsed(false));
   $('#btnCollapseAll').addEventListener('click', () => setAllCollapsed(true));
-  $('#fileFilter').addEventListener('input', renderFileList);
-  $('#fileFilter').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { const first = document.querySelector('#fileList .file'); if (first) first.click(); }
-    if (e.key === 'Escape') { e.target.value = ''; renderFileList(); $('#outline').focus(); }
-  });
+  $('#fileFilter').addEventListener('focus', openFileList);
+  $('#fileFilter').addEventListener('blur', closeFileList);
+  $('#fileFilter').addEventListener('input', () => { if (!fileListOpen()) openFileList(); fileActive = 0; renderFileList(); });
+  $('#fileFilter').addEventListener('keydown', onFileKey);
+  $('#btnAddGlobal').addEventListener('click', () => { if (cur && cur.doc) pickTask(root()); });
+  addDropTarget($('#globalsHead'), { kind: 'globals' });
+  addDropTarget($('#globals'), { kind: 'globals' });
   $('#outlineFind').addEventListener('input', (e) => { findText = e.target.value.trim(); renderOutline(); });
   $('#outlineFind').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
