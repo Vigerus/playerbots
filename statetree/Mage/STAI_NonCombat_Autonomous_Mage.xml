@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="8">
+<StateTree version="9">
   <Comment>NonCombat subtree for Mage bots on their own, without a leader (run by STAI_NonCombat_Mage.xml): keeps itself
     up (decurse, buffs, conjured water and food, eat, rest), loots its kills, equips better items, sells junk when the bags are full, learns
-    new spells at its trainer, else grinds</Comment>
+    new spells at its trainer, else quests (grinding is off for now: STAI_NonCombat_Grind_Mage.xml is kept for the
+    utility choice between the two)</Comment>
   <GlobalTasks>
     <Task class="BuffProvider_GlobalTask">
       <Comment>watches the buffs of the bot: needs, onMissingBuff</Comment>
@@ -188,7 +189,7 @@
     </Tasks>
   </State>
   <State name="Train">
-    <Comment>new spells the bot can afford: to its class trainer before hunting on</Comment>
+    <Comment>new spells the bot can afford: to its class trainer before questing on</Comment>
     <EnterConditions>
       <Condition class="Condition_Compare" binding="Root|TrainerProvider_GlobalTask::newSpells"/>
     </EnterConditions>
@@ -206,11 +207,11 @@
       </Transition>
     </Transitions>
   </State>
-  <State name="Grind">
-    <Comment>the activity: hunting until upkeep is needed again</Comment>
+  <State name="Quest">
+    <Comment>the activity: questing until upkeep is needed again</Comment>
     <Tasks>
       <Task class="Task_RunSubtree">
-        <Subtree filename="statetree/Mage/STAI_NonCombat_Grind_Mage.xml"/>
+        <Subtree filename="statetree/Mage/STAI_NonCombat_Questing_Mage.xml"/>
       </Task>
     </Tasks>
     <Transitions>

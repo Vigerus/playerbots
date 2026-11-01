@@ -24,6 +24,10 @@
 #include "playerbot/StateTree/Tasks/Leveling/Task_LearnSpells.h"
 #include "playerbot/StateTree/Providers/Leveling/VendorProvider_GlobalTask.h"
 #include "playerbot/StateTree/Tasks/Leveling/Task_SellJunk.h"
+#include "playerbot/StateTree/Providers/Leveling/QuestProvider_GlobalTask.h"
+#include "playerbot/StateTree/Tasks/Leveling/Task_AcceptQuests.h"
+#include "playerbot/StateTree/Tasks/Leveling/Task_TurnInQuests.h"
+#include "playerbot/StateTree/Tasks/Leveling/Task_UseObject.h"
 #include "playerbot/StateTree/Tasks/Items/Task_EquipItem.h"
 #include "playerbot/StateTree/Providers/Leveling/LevelingProvider_GlobalTask.h"
 #include "playerbot/StateTree/Providers/Combat/MeleeProvider_GlobalTask.h"
@@ -81,6 +85,10 @@ namespace ai
         factory.RegisterTask("Task_LearnSpells", { &Task_LearnSpells::Validate, &Task_LearnSpells::Create });
         factory.RegisterTask("VendorProvider_GlobalTask", { &VendorProvider_GlobalTask::Validate, &VendorProvider_GlobalTask::Create });
         factory.RegisterTask("Task_SellJunk", { &Task_SellJunk::Validate, &Task_SellJunk::Create });
+        factory.RegisterTask("QuestProvider_GlobalTask", { &QuestProvider_GlobalTask::Validate, &QuestProvider_GlobalTask::Create });
+        factory.RegisterTask("Task_AcceptQuests", { &Task_AcceptQuests::Validate, &Task_AcceptQuests::Create });
+        factory.RegisterTask("Task_TurnInQuests", { &Task_TurnInQuests::Validate, &Task_TurnInQuests::Create });
+        factory.RegisterTask("Task_UseObject", { &Task_UseObject::Validate, &Task_UseObject::Create });
         factory.RegisterTask("Task_EquipItem", { &Task_EquipItem::Validate, &Task_EquipItem::Create });
         factory.RegisterTask("LevelingProvider_GlobalTask", { &LevelingProvider_GlobalTask::Validate, &LevelingProvider_GlobalTask::Create });
         factory.RegisterTask("CurseProvider_GlobalTask", { &CurseProvider_GlobalTask::Validate, &CurseProvider_GlobalTask::Create });

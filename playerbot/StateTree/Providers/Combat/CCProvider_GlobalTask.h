@@ -37,10 +37,13 @@ namespace ai
     // the first marked unit (in the order of the bot's rti cc list) that is alive, hostile, in sight, not under crowd
     // control yet (polymorph, frost, sap, gouge, shackle, ... or one of the <Aura> spells) and not the target the
     // group kills first (the first living target marked with one of the bot's "rti" icons, default skull) needs crowd
-    // control:
+    // control. With <Unmarked> and no such mark, one unmarked unit fighting the bot is crowd-controlled while two or
+    // more fight it: never the bot's own target, only a creature the spell can affect (its creature types), the one with
+    // the most health; none while a unit already has that spell's aura (one at a time):
     //   <Global>
     //     <Task class="CCProvider_GlobalTask">
-    //       <Aura spellid="..."/>     optional: these auras also count as crowd-controlled (any rank)
+    //       <Aura spellid="..."/>      optional: these auras also count as crowd-controlled (any rank)
+    //       <Unmarked spellid="118"/>  optional: the spell for an unmarked unit (any rank), e.g. Polymorph
     //     </Task>
     //   </Global>
     // Ticked (nothing broadcasts mark changes or deaths): checks every 250ms; onCCNeeded fires when the target
@@ -49,7 +52,13 @@ namespace ai
     class CCProvider_GlobalTask : public STAI_DataProviderBase, public ISTAI_DebugSpells
     {
     public:
-        explicit CCProvider_GlobalTask(std::vector<uint32> auras) : auras(std::move(auras)) {}
+        struct Settings
+        {
+            std::vector<uint32> auras;      // first ranks
+            uint32 unmarkedSpell = 0;       // first rank, 0 without <Unmarked>
+        };
+
+        explicit CCProvider_GlobalTask(Settings settings) : auras(std::move(settings.auras)), unmarkedSpell(settings.unmarkedSpell) {}
 
         static void Validate(const STAI_TaskConfig& config);
         static std::unique_ptr<STAI_TaskBase> Create(const STAI_TaskConfig& config);
@@ -70,13 +79,15 @@ namespace ai
         virtual std::vector<uint32> GetDebugSpells(const STAI_TaskContext& context) const override { return auras; }
 
     private:
-        static std::vector<uint32> ParseAuras(const STAI_TaskConfig& config);
+        static Settings ParseSettings(const STAI_TaskConfig& config);
         // the living units marked with the icons (rti / rti cc), in the icons' order
         static std::vector<Unit*> GetMarkedUnits(const STAI_TaskContext& context, const std::vector<std::string>& icons);
         bool IsCrowdControlled(Unit* unit, Player* bot) const;
         ObjectGuid FindTarget(const CCProvider_GlobalTaskContext& context) const;
+        ObjectGuid FindUnmarkedTarget(const CCProvider_GlobalTaskContext& context, Unit* killFirst) const;
         void Update(CCProvider_GlobalTaskContext& context) const;
 
         std::vector<uint32> auras;  // first ranks
+        uint32 unmarkedSpell;
     };
 }

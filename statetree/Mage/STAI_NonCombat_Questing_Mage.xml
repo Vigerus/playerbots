@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StateTree version="9">
+  <Comment>Questing subtree for Mage bots on their own (run by STAI_NonCombat_Autonomous_Mage.xml): turns in completed
+    quests (a hub's together), accepts the quests of givers around, then works on the open quest with the nearest
+    objective: pulls its creatures, uses its game objects (the Loot state of the Autonomous tree loots the kills);
+    the fight is the Combat tree's</Comment>
+  <GlobalTasks>
+    <Task class="QuestProvider_GlobalTask">
+      <Comment>the plan: pickUp / giverLocation / giver, handIn / takerLocation / taker, quest / objectiveLocation /
+        objectiveEntries / objectTarget, onQuestsChanged</Comment>
+      <Range value="1500"/>
+      <Levels below="5" above="2"/>
+      <Near value="80"/>
+      <Hub value="60"/>
+      <ObjectRange value="40"/>
+    </Task>
+    <Task class="HuntProvider_GlobalTask">
+      <Comment>what to pull: only the creatures the open quests need (pullTarget), the closest safe one; adds are taken on
+        while the simulated fight is won 70% of the time (winChance, unsafe)</Comment>
+      <Range value="50"/>
+      <SafeRadius value="10"/>
+      <MinWinChance value="0.7"/>
+      <EntriesOnly value="true"/>
+      <Binding local="entries" external="Root|QuestProvider_GlobalTask::objectiveEntries"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Quest Taker" priority="30" kind="location">
+      <Comment>movement goal: to the spawn of the taker of the completed quests</Comment>
+      <Radius value="8"/>
+      <Binding local="location" external="Root|QuestProvider_GlobalTask::takerLocation"/>
+      <Conditions>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn"/>
+      </Conditions>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Quest Taker Range" priority="31" kind="range">
+      <Comment>movement goal: next to the taker once it is near (the quest window: 5 yards)</Comment>
+      <Range max="5"/>
+      <Binding local="target" external="Root|QuestProvider_GlobalTask::taker"/>
+      <Conditions>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn"/>
+      </Conditions>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Quest Giver" priority="28" kind="location">
+      <Comment>movement goal: to the spawn of the giver with quests for the bot</Comment>
+      <Radius value="8"/>
+      <Binding local="location" external="Root|QuestProvider_GlobalTask::giverLocation"/>
+      <Conditions>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::pickUp"/>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn" inverted="true"/>
+      </Conditions>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Quest Giver Range" priority="29" kind="range">
+      <Comment>movement goal: next to the giver once it is near</Comment>
+      <Range max="5"/>
+      <Binding local="target" external="Root|QuestProvider_GlobalTask::giver"/>
+      <Conditions>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::pickUp"/>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn" inverted="true"/>
+      </Conditions>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Pull Range" priority="32" kind="range">
+      <Comment>movement goal: in spell range and sight of the quest creature to pull, while not on the way to a giver / taker</Comment>
+      <Range max="spell"/>
+      <Binding local="target" external="Root|HuntProvider_GlobalTask::pullTarget"/>
+      <Conditions>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn" inverted="true"/>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::pickUp" inverted="true"/>
+      </Conditions>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Object Range" priority="33" kind="range">
+      <Comment>movement goal: next to the quest game object (interaction distance)</Comment>
+      <Range max="4"/>
+      <Binding local="target" external="Root|QuestProvider_GlobalTask::objectTarget"/>
+      <Conditions>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn" inverted="true"/>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::pickUp" inverted="true"/>
+      </Conditions>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Objective Area" priority="20" kind="location">
+      <Comment>movement goal: to the next spawn point of the quest's objective while nothing is there to pull or use</Comment>
+      <Radius value="10"/>
+      <Binding local="location" external="Root|QuestProvider_GlobalTask::objectiveLocation"/>
+      <Conditions>
+        <Condition class="Condition_Compare" binding="Root|HuntProvider_GlobalTask::pullTarget" inverted="true"/>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::objectTarget" inverted="true"/>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn" inverted="true"/>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::pickUp" inverted="true"/>
+      </Conditions>
+    </Task>
+  </GlobalTasks>
+  <State name="Hand In">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn"/>
+      <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::taker"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Quest Taker Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_TurnInQuests">
+        <Binding local="taker" external="Root|QuestProvider_GlobalTask::taker"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Go Hand In">
+    <Comment>on the way to the taker: selects again every second</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::handIn"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Quest Taker Range]::onArrived" target="Root|Hand In"/>
+    </Transitions>
+  </State>
+  <State name="Pick Up">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::pickUp"/>
+      <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::giver"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Quest Giver Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_AcceptQuests">
+        <Levels below="5" above="2"/>
+        <Binding local="giver" external="Root|QuestProvider_GlobalTask::giver"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Go Pick Up">
+    <Comment>on the way to the giver: selects again every second</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::pickUp"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Quest Giver Range]::onArrived" target="Root|Pick Up"/>
+    </Transitions>
+  </State>
+  <State name="Use Object">
+    <Comment>a sparkling quest object next to the bot: opened / used, a chest looted</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::objectTarget"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Object Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_UseObject">
+        <Binding local="target" external="Root|QuestProvider_GlobalTask::objectTarget"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Pull">
+    <Comment>the opener on a quest creature: once it is cast the unit fights the bot and the Combat tree takes over</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|HuntProvider_GlobalTask::pullTarget"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Pull Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_CastSpell" spellid="Frostbolt">
+        <Comment>Frostbolt from level 4, Fireball before</Comment>
+        <Fallback spellid="Fireball"/>
+        <Binding local="target" external="Root|HuntProvider_GlobalTask::pullTarget"/>
+      </Task>
+    </Tasks>
+  </State>
+  <State name="Search">
+    <Comment>walking to the quest creature, the object or the objective's next spawn point: selects again every second
+      (a failed Pull, or an arrival before this state started, fires no delegate)</Comment>
+    <EnterConditions>
+      <Any>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::objectiveLocation"/>
+        <Condition class="Condition_Compare" binding="Root|QuestProvider_GlobalTask::objectTarget"/>
+        <Condition class="Condition_Compare" binding="Root|HuntProvider_GlobalTask::pullTarget"/>
+      </Any>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Pull Range]::onArrived" target="Root|Pull"/>
+      <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Object Range]::onArrived" target="Root|Use Object"/>
+      <Transition trigger="OnDelegate" source="Root|HuntProvider_GlobalTask::onPullTarget" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|QuestProvider_GlobalTask::onQuestsChanged" target="Root"/>
+    </Transitions>
+  </State>
+  <State name="No Quests">
+    <Comment>nothing to turn in, accept or work on within reach; grinding stays off while questing is tried on its own</Comment>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="5000"/>
+      </Task>
+    </Tasks>
+  </State>
+</StateTree>

@@ -84,6 +84,17 @@
       "settingsHelp": "`<Aura spellid=\"...\"/>` per aura, optional",
       "taskAttributes": {},
       "settings": {
+        "Unmarked": {
+          "attributes": {
+            "spellid": {
+              "examples": [
+                "118"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
         "Aura": {
           "attributes": {
             "spellid": {
@@ -731,6 +742,23 @@
           ]
         },
         {
+          "name": "unsafe",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "winChance",
+          "type": "float",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
           "name": "huntLocation",
           "type": "STAI_Location",
           "traits": [
@@ -742,6 +770,14 @@
           "type": "STAI_Location",
           "traits": [
             "testable"
+          ]
+        },
+        {
+          "name": "entries",
+          "type": "std::vector<uint32>",
+          "traits": [
+            "testable",
+            "container"
           ]
         }
       ],
@@ -784,7 +820,8 @@
           "attributes": {
             "value": {
               "examples": [
-                "12"
+                "12",
+                "10"
               ]
             }
           },
@@ -813,6 +850,29 @@
           "repeat": false,
           "seen": true
         },
+        "MinWinChance": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "0.7",
+                "0.75"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "EntriesOnly": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "true"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
         "Elite": {
           "attributes": {
             "value": {
@@ -825,7 +885,7 @@
           "seen": false
         }
       },
-      "uses": 1
+      "uses": 2
     },
     "InstanceProvider_GlobalTask": {
       "cppClass": "InstanceProvider_GlobalTask",
@@ -1689,6 +1749,7 @@
                 "spell",
                 "8",
                 "3",
+                "4",
                 "35",
                 "25",
                 "melee"
@@ -1747,7 +1808,192 @@
           "seen": false
         }
       },
-      "uses": 87
+      "uses": 94
+    },
+    "QuestProvider_GlobalTask": {
+      "cppClass": "QuestProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/Leveling/QuestProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "pickUp",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "available",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "giverLocation",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "giver",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "handIn",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "completed",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "takerLocation",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "taker",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "open",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "logFree",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "quest",
+          "type": "std::string",
+          "traits": [
+            "text",
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "objectiveLocation",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "objectiveEntries",
+          "type": "std::vector<uint32>",
+          "traits": [
+            "testable",
+            "container"
+          ]
+        },
+        {
+          "name": "objectTarget",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [
+        "onQuestsChanged"
+      ],
+      "description": "Global task that plans a solo bot's questing from its quest log and the quest givers of its map: - pick up: the nearest creature (spawn within Range) offering a quest the bot can take, of a fitting level, for one player, without a timer ...",
+      "doc": "Global task that plans a solo bot's questing from its quest log and the quest givers of its map: - pick up: the nearest creature (spawn within Range) offering a quest the bot can take, of a fitting level, for one player, without a timer, an escort or an area / event objective, whose objectives and taker exist on the bot's map; pickUp while the log has room and the giver is within Near, or there is nothing open to work on - objectives: for every incomplete quest the creatures to kill, the creatures / game objects dropping its items and the game objects to use; the quest whose next unvisited spawn point is nearest is worked on (nearest first is the order quests are done in); objectiveEntries holds every open quest's creatures, so a kill on the way counts too - hand in: the nearest taker of a completed quest; handIn once no open quest is turned in at the same place (takers within Hub of it), so quests of one hub are handed in together, or when the taker is within Near, or nothing is left to work on A giver or taker the bot stayed within 30 yards of for 30s while it stayed chosen is ignored for 10 minutes.",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "1500"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Levels": {
+          "attributes": {
+            "below": {
+              "examples": [
+                "5"
+              ]
+            },
+            "above": {
+              "examples": [
+                "2"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Near": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "80"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Hub": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "60"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "ObjectRange": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "40"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 1
     },
     "STAI_FinishTreeTask": {
       "cppClass": "STAI_FinishTreeTask",
@@ -2051,6 +2297,45 @@
       "settings": {},
       "uses": 9
     },
+    "Task_AcceptQuests": {
+      "cppClass": "Task_AcceptQuests",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Leveling/Task_AcceptQuests.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "giver",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "Accepts every quest of the giver the bot wants (QuestProvider_GlobalTask::IsWanted) while the log has room, as the quest window's Accept button does (CMSG_QUESTGIVER_ACCEPT_QUEST: the core checks the distance and CanTakeQuest) ...",
+      "doc": "Accepts every quest of the giver the bot wants (QuestProvider_GlobalTask::IsWanted) while the log has room, as the quest window's Accept button does (CMSG_QUESTGIVER_ACCEPT_QUEST: the core checks the distance and CanTakeQuest). The tree's movement goal (range on the giver) brings the bot there:",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {
+        "Levels": {
+          "attributes": {
+            "below": {
+              "examples": [
+                "5"
+              ]
+            },
+            "above": {
+              "examples": [
+                "2"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 1
+    },
     "Task_AcceptResurrection": {
       "cppClass": "Task_AcceptResurrection",
       "global": false,
@@ -2194,7 +2479,7 @@
           "seen": true
         }
       },
-      "uses": 94
+      "uses": 95
     },
     "Task_CastTotem": {
       "cppClass": "Task_CastTotem",
@@ -2293,8 +2578,8 @@
         }
       ],
       "delegates": [],
-      "description": "buys every green spell the bot's money pays for at the trainer, cheapest first, as the Train button does (`CMSG_TRAINER_BUY_SPELL`: the core checks distance, level and money) ...",
-      "doc": "buys every green spell the bot's money pays for at the trainer, cheapest first, as the Train button does (`CMSG_TRAINER_BUY_SPELL`: the core checks distance, level and money); not tickable, Succeeded when it learned a spell, Failed otherwise",
+      "description": "buys every green spell the bot's money pays for at the trainer, cheapest first, as the Train button does (`CMSG_TRAINER_BUY_SPELL`: the core checks distance, level and money), then waits up to 3s for the trainer's teaching casts ...",
+      "doc": "buys every green spell the bot's money pays for at the trainer, cheapest first, as the Train button does (`CMSG_TRAINER_BUY_SPELL`: the core checks distance, level and money), then waits up to 3s for the trainer's teaching casts; Succeeded when it learned a spell or nothing is left to learn, Failed otherwise (out of reach, no money, nothing learned in time)",
       "settingsHelp": "`<Binding local=\"trainer\" external=\"Root|TrainerProvider_GlobalTask::trainer\"/>`",
       "taskAttributes": {},
       "settings": {},
@@ -2559,6 +2844,28 @@
       "settings": {},
       "uses": 2
     },
+    "Task_TurnInQuests": {
+      "cppClass": "Task_TurnInQuests",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Leveling/Task_TurnInQuests.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "taker",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "Turns in every quest of the log the creature takes that is done, as the client's Complete Quest button does (CMSG_QUESTGIVER_REQUEST_REWARD, then CMSG_QUESTGIVER_CHOOSE_REWARD: the core checks the distance and the objectives) ...",
+      "doc": "Turns in every quest of the log the creature takes that is done, as the client's Complete Quest button does (CMSG_QUESTGIVER_REQUEST_REWARD, then CMSG_QUESTGIVER_CHOOSE_REWARD: the core checks the distance and the objectives). A reward choice goes to the item the bot can use with the highest stat weight of its class and spec, else the one that sells best. The tree's movement goal (range on the taker) brings the bot there:",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 1
+    },
     "Task_UseItem": {
       "cppClass": "Task_UseItem",
       "global": false,
@@ -2592,6 +2899,28 @@
       },
       "uses": 13
     },
+    "Task_UseObject": {
+      "cppClass": "Task_UseObject",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Leveling/Task_UseObject.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "target",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "Uses a quest game object as the client does: a locked one by the bot's opening spell for its lock (cast at it), else CMSG_GAMEOBJ_USE ...",
+      "doc": "Uses a quest game object as the client does: a locked one by the bot's opening spell for its lock (cast at it), else CMSG_GAMEOBJ_USE; a chest's loot window is then emptied like a corpse's (Task_Loot). The tree's movement goal (range, interact) brings the bot there:",
+      "settingsHelp": "",
+      "taskAttributes": {},
+      "settings": {},
+      "uses": 1
+    },
     "Task_Wait": {
       "cppClass": "Task_Wait",
       "global": false,
@@ -2613,6 +2942,7 @@
                 "1",
                 "100",
                 "10000",
+                "5000",
                 "200"
               ]
             },
@@ -2626,7 +2956,7 @@
           "seen": true
         }
       },
-      "uses": 64
+      "uses": 68
     },
     "TeamProvider_GlobalTask": {
       "cppClass": "TeamProvider_GlobalTask",

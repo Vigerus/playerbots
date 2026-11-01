@@ -5,6 +5,7 @@
 #include "playerbot/StateTree/Providers/Combat/MeleeProvider_GlobalTask.h"
 
 #include "Entities/Corpse.h"
+#include "Entities/GameObject.h"
 #include "Entities/Player.h"
 #include "Entities/Transports.h"
 #include "Grids/CellImpl.h"
@@ -118,6 +119,11 @@ WorldObject* PlayerbotMovement::FindTarget(Player* bot, ObjectGuid guid, bool de
     {
         Corpse* corpse = dead ? bot->GetMap()->GetCorpse(guid) : nullptr;
         return corpse && corpse->IsInWorld() ? corpse : nullptr;
+    }
+    if (guid.IsGameObject())
+    {
+        GameObject* go = bot->GetMap()->GetGameObject(guid);
+        return go && go->IsInWorld() && go->IsSpawned() ? go : nullptr;
     }
     Unit* unit = guid == bot->GetObjectGuid() ? bot : bot->GetMap()->GetUnit(guid);
     if (!unit || !unit->IsInWorld() || sServerFacade.IsAlive(unit) == dead)

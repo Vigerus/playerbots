@@ -71,7 +71,7 @@ namespace ai
     //     </Task>
     //   </Global>
     // kind: location (STAI_Location, any map: a path across dungeon portals), position (STAI_Position on the bot's map),
-    // range (a unit or a corpse). interruptCast="true": moves also while the bot casts. Ticked: submits the goal every
+    // range (a unit, a corpse or a game object). interruptCast="true": moves also while the bot casts. Ticked: submits the goal every
     // update while its conditions pass and its spot is set; the movement reports back. A node reads the goal by name:
     //   <Condition binding="Root|MovementGoal_GlobalTask[Heal Range]::inRange"/>
     class MovementGoal_GlobalTask : public STAI_DataProviderBase

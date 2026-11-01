@@ -55,7 +55,7 @@ Plain XML comments inside a task's settings stay where they are (the server igno
 
 ### `<StateTree version="2">`
 
-The root element. `version`: the oldest server that can load the file, 2 or higher (2 to 8 share this format); a
+The root element. `version`: the oldest server that can load the file, 2 or higher (2 to 9 share this format); a
 server skips files above its `STAI_TreeAsset::Version` (README: Versions). Children: `<Comment>`, at most one `<GlobalTasks>`, then the top level `<State>`s (at least one).
 The top level states are the children of the implicit **Root** state: paths start with `Root|`.
 

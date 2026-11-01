@@ -21,7 +21,9 @@
       <Comment>watches the bot and its group for dispellable curses (no &lt;Observe&gt; / &lt;Ignore&gt;: every curse): whoNeeds, onNeedsHelp</Comment>
     </Task>
     <Task class="CCProvider_GlobalTask">
-      <Comment>the bot's crowd-control mark (rti cc, default moon) when it is not the kill target (rti): whoNeeds, onCCNeeded</Comment>
+      <Comment>the bot's crowd-control mark (rti cc, default moon) when it is not the kill target (rti), else one unmarked
+        add while two or more fight the bot (Polymorph: humanoid, beast, critter): whoNeeds, onCCNeeded</Comment>
+      <Unmarked spellid="118"/>
     </Task>
     <Task class="TargetProvider_GlobalTask">
       <Comment>the unit to attack: the first living rti mark, else the dps assist choice: target, onTargetChanged;

@@ -5,11 +5,14 @@
 #include "playerbot/StateTree/STAI_TaskFactory.h"
 #include "playerbot/StateTree/Providers/Leveling/STAI_SpawnIndex.h"
 
+#include "Combat/CombatWinChanceSubsystem.h"
 #include "Entities/Creature.h"
+#include "Groups/Group.h"
 #include "Globals/ObjectMgr.h"
 #include "Grids/CellImpl.h"
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
+#include "World/World.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -26,6 +29,8 @@ namespace
     constexpr uint32 visitedForgetMs = 10 * MINUTE * IN_MILLISECONDS;
     constexpr uint32 keepTargetMs = 30 * IN_MILLISECONDS;          // a unit not pulled by then is unreachable
     constexpr uint32 ignoreTargetMs = 5 * MINUTE * IN_MILLISECONDS;
+    constexpr uint32 lostFightMs = MINUTE * IN_MILLISECONDS;       // a unit the simulation lost to is not tried again before
+    constexpr float allyRange = 40.0f;                              // group members this close fight along
 
     float ParseFloatSetting(const STAI_TaskConfig& config, const std::string& name, const std::string& attribute, float fallback)
     {
@@ -48,6 +53,7 @@ HuntProvider_GlobalTask::Settings HuntProvider_GlobalTask::ParseSettings(const S
     settings.levelsBelow = uint32(ParseFloatSetting(config, "Levels", "below", float(settings.levelsBelow)));
     settings.levelsAbove = uint32(ParseFloatSetting(config, "Levels", "above", float(settings.levelsAbove)));
     settings.safeRadius = ParseFloatSetting(config, "SafeRadius", "value", settings.safeRadius);
+    settings.minWinChance = ParseFloatSetting(config, "MinWinChance", "value", settings.minWinChance);
     settings.huntRange = ParseFloatSetting(config, "HuntRange", "value", settings.huntRange);
     settings.areaRadius = ParseFloatSetting(config, "AreaRadius", "value", settings.areaRadius);
 
@@ -55,6 +61,11 @@ HuntProvider_GlobalTask::Settings HuntProvider_GlobalTask::ParseSettings(const S
     if (elite != "true" && elite != "false")
         throw std::runtime_error("<Elite value=\"" + elite + "\">: expected true or false");
     settings.elite = elite == "true";
+
+    const std::string entriesOnly = STAI_TaskFactory::GetSetting(config, "EntriesOnly").value_or("false");
+    if (entriesOnly != "true" && entriesOnly != "false")
+        throw std::runtime_error("<EntriesOnly value=\"" + entriesOnly + "\">: expected true or false");
+    settings.entriesOnly = entriesOnly == "true";
 
     if (settings.range <= 0.0f)
         throw std::runtime_error("Range must be greater than 0");
@@ -93,7 +104,7 @@ bool HuntProvider_GlobalTask::IsHuntable(const FactionTemplateEntry* botFaction,
         faction && !faction->IsFriendlyTo(*botFaction);
 }
 
-bool HuntProvider_GlobalTask::CanHunt(Player* bot, Creature* creature) const
+bool HuntProvider_GlobalTask::CanHunt(Player* bot, Creature* creature, const std::vector<uint32>& entries) const
 {
     if (!creature->IsInWorld() || !sServerFacade.IsAlive(creature) || creature->IsInCombat())
         return false;
@@ -105,7 +116,13 @@ bool HuntProvider_GlobalTask::CanHunt(Player* bot, Creature* creature) const
     if (!settings.elite && creature->GetCreatureInfo()->Rank != CREATURE_ELITE_NORMAL)
         return false;
 
-    if (!FitsLevel(bot, creature->GetLevel(), creature->GetLevel()))
+    // a quest target is hunted whatever its level
+    if (settings.entriesOnly)
+    {
+        if (std::find(entries.begin(), entries.end(), creature->GetEntry()) == entries.end())
+            return false;
+    }
+    else if (!FitsLevel(bot, creature->GetLevel(), creature->GetLevel()))
         return false;
 
     // tapped by another player or group
@@ -115,18 +132,19 @@ bool HuntProvider_GlobalTask::CanHunt(Player* bot, Creature* creature) const
     return bot->CanAttack(creature) && !bot->IsFriend(creature);
 }
 
-bool HuntProvider_GlobalTask::IsSafeToPull(Player* bot, Creature* creature) const
+std::vector<Creature*> HuntProvider_GlobalTask::PullAdds(Player* bot, Creature* creature) const
 {
     CreatureList around;
     MaNGOS::AnyUnitInObjectRangeCheck check(creature, settings.safeRadius);
     MaNGOS::CreatureListSearcher<MaNGOS::AnyUnitInObjectRangeCheck> searcher(around, check);
     Cell::VisitGridObjects(creature, searcher, settings.safeRadius);
 
-    // a neutral creature does not join; an aggressive one that is not fighting yet would
+    // a neutral creature or a corpse does not join; an aggressive one that is not fighting yet would
+    std::vector<Creature*> adds;
     for (Creature* other : around)
-        if (other != creature && !other->IsInCombat() && other->GetOwnerGuid().IsEmpty() && other->IsEnemy(bot))
-            return false;
-    return true;
+        if (other != creature && sServerFacade.IsAlive(other) && !other->IsInCombat() && other->GetOwnerGuid().IsEmpty() && other->IsEnemy(bot))
+            adds.push_back(other);
+    return adds;
 }
 
 void HuntProvider_GlobalTask::UpdateTarget(HuntProvider_GlobalTaskContext& context) const
@@ -135,6 +153,7 @@ void HuntProvider_GlobalTask::UpdateTarget(HuntProvider_GlobalTaskContext& conte
     const ObjectGuid previous = context.pullTarget;
     context.pullTarget = ObjectGuid();
     context.candidates = 0;
+    context.unsafe.clear();
 
     if (!bot->IsInWorld() || !sServerFacade.IsAlive(bot))
         return;
@@ -156,7 +175,7 @@ void HuntProvider_GlobalTask::UpdateTarget(HuntProvider_GlobalTaskContext& conte
     if (!previous.IsEmpty() && !isIgnored(previous))
     {
         Creature* kept = bot->GetMap()->GetCreature(previous);
-        if (kept && CanHunt(bot, kept) && bot->IsWithinDistInMap(kept, settings.range))
+        if (kept && CanHunt(bot, kept, context.entries) && bot->IsWithinDistInMap(kept, settings.range))
         {
             context.pullTarget = previous;
             context.candidates = 1;
@@ -171,18 +190,70 @@ void HuntProvider_GlobalTask::UpdateTarget(HuntProvider_GlobalTaskContext& conte
 
     std::vector<Creature*> candidates;
     for (Creature* creature : found)
-        if (CanHunt(bot, creature) && !isIgnored(creature->GetObjectGuid()))
+        if (CanHunt(bot, creature, context.entries) && !isIgnored(creature->GetObjectGuid()))
             candidates.push_back(creature);
     context.candidates = uint32(candidates.size());
 
     std::sort(candidates.begin(), candidates.end(), [bot](Creature* a, Creature* b) { return bot->GetDistance(a) < bot->GetDistance(b); });
     for (Creature* creature : candidates)
     {
-        if (bot->IsWithinLOSInMap(creature) && IsSafeToPull(bot, creature))
+        // a quest target out of sight (indoors, upstairs) is still chosen: the pull's range goal walks into sight
+        if (!settings.entriesOnly && !bot->IsWithinLOSInMap(creature))
+        {
+            if (context.unsafe.empty())
+                context.unsafe = creature->GetName() + std::string(": not in sight");
+            continue;
+        }
+        const std::vector<Creature*> adds = PullAdds(bot, creature);
+        if (!adds.empty() && settings.minWinChance <= 0.0f)
+        {
+            if (context.unsafe.empty())
+                context.unsafe = creature->GetName() + std::string(": ") + adds.front()->GetName() + " " +
+                    std::to_string(int(creature->GetDistance(adds.front()))) + " yd from it";
+            continue;
+        }
+        if (adds.empty() || settings.minWinChance <= 0.0f)
         {
             context.pullTarget = creature->GetObjectGuid();
             break;
         }
+
+        // with adds: the simulated fight decides (one at a time, the nearest unit first)
+        if (!context.sim || context.simTarget != creature->GetObjectGuid())
+        {
+            CombatWinChanceSubsystem* simulator = sWorld.GetSubsystem<CombatWinChanceSubsystem>();
+            if (!simulator)
+                break;
+            const float distance = bot->GetDistance(creature);
+            std::vector<CombatSimUnit> allies = { CombatSimUnit::Of(bot, distance) };
+            if (Group* group = bot->GetGroup())
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                    if (Player* member = ref->getSource())
+                        if (member != bot && member->IsInWorld() && sServerFacade.IsAlive(member) && bot->IsWithinDistInMap(member, allyRange))
+                            allies.push_back(CombatSimUnit::Of(member, distance));
+            std::vector<CombatSimUnit> enemies = { CombatSimUnit::Of(creature) };
+            for (Creature* add : adds)
+                enemies.push_back(CombatSimUnit::Of(add));
+            context.sim = simulator->Request(std::move(allies), std::move(enemies));
+            context.simTarget = creature->GetObjectGuid();
+        }
+        if (!context.sim->IsDone())
+        {
+            context.unsafe = creature->GetName() + std::string(": simulating the fight");
+            break;
+        }
+
+        context.winChance = context.sim->winChance;
+        context.sim.reset();
+        const std::string chance = std::to_string(int(context.winChance * 100.0f)) + "% with " + std::to_string(adds.size()) + " adds";
+        if (context.winChance >= settings.minWinChance)
+        {
+            context.pullTarget = creature->GetObjectGuid();
+            break;
+        }
+        context.ignored.push_back({ creature->GetObjectGuid(), context.nowMs + lostFightMs });
+        if (context.unsafe.empty())
+            context.unsafe = creature->GetName() + std::string(": ") + chance;
     }
 
     if (context.pullTarget != previous)
@@ -215,7 +286,8 @@ void HuntProvider_GlobalTask::UpdateHuntLocation(HuntProvider_GlobalTaskContext&
         if (known != huntable.end())
             return known->second;
 
-        const bool result = IsHuntable(botFaction, bot->GetLevel(), ObjectMgr::GetCreatureTemplate(entry), settings.levelsBelow, settings.levelsAbove, settings.elite);
+        const bool result = settings.entriesOnly ? std::find(context.entries.begin(), context.entries.end(), entry) != context.entries.end() :
+            IsHuntable(botFaction, bot->GetLevel(), ObjectMgr::GetCreatureTemplate(entry), settings.levelsBelow, settings.levelsAbove, settings.elite);
         huntable[entry] = result;
         return result;
     };
@@ -317,8 +389,11 @@ const std::vector<STAI_PropertyDef>& HuntProvider_GlobalTask::GetProperties() co
     {
         STAI_PropertyDef::Of("pullTarget", &HuntProvider_GlobalTaskContext::pullTarget),
         STAI_PropertyDef::Of("candidates", &HuntProvider_GlobalTaskContext::candidates),
+        STAI_PropertyDef::Of("unsafe", &HuntProvider_GlobalTaskContext::unsafe),
+        STAI_PropertyDef::Of("winChance", &HuntProvider_GlobalTaskContext::winChance),
         STAI_PropertyDef::Of("huntLocation", &HuntProvider_GlobalTaskContext::huntLocation),
         STAI_PropertyDef::Of("area", &HuntProvider_GlobalTaskContext::area),
+        STAI_PropertyDef::Of("entries", &HuntProvider_GlobalTaskContext::entries),
     };
     return properties;
 }

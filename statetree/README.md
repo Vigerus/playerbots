@@ -35,7 +35,7 @@ that runs a subtree that did not load, falls back to Default; without a Default 
 `STAI_Dead.xml` is still the Dead tree of every class but Shaman.
 
 Versions: `<StateTree version="...">` is the oldest server that can load the file, `STAI_TreeAsset::Version` the newest
-version a server loads (now 8; versions 2 to 8 share the format). A file of a newer version is skipped with a log line
+version a server loads (now 9; versions 2 to 9 share the format). A file of a newer version is skipped with a log line
 (not an error), so trees using new node classes can be deployed before the server that has them: the bots of those
 classes run the Default trees until the new server starts. Raise `STAI_TreeAsset::Version` (and `TREE_VERSION` in the
 editor) when trees start using something new, and give those trees the new version; the Default trees stay at 2. Files are read at
