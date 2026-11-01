@@ -3,6 +3,8 @@
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/StateTree/STAI_TaskFactory.h"
 
+#include "Entities/Bag.h"
+
 #include <stdexcept>
 
 using namespace ai;
@@ -20,24 +22,77 @@ namespace
     }
 }
 
-uint32 InventoryProvider_GlobalTask::ParseLow(const STAI_TaskConfig& config)
+uint32 InventoryProvider_GlobalTask::ParseCount(const STAI_TaskConfig& config, const std::string& name, const char* fallback)
 {
-    const std::string text = STAI_TaskFactory::GetSetting(config, "Low").value_or("5");
+    const std::string text = STAI_TaskFactory::GetSetting(config, name).value_or(fallback);
     char* end = nullptr;
     const unsigned long value = std::strtoul(text.c_str(), &end, 10);
     if (end == text.c_str() || *end)
-        throw std::runtime_error("<Low value=\"" + text + "\">: expected a count");
+        throw std::runtime_error("<" + name + " value=\"" + text + "\">: expected a count");
     return uint32(value);
 }
 
 void InventoryProvider_GlobalTask::Validate(const STAI_TaskConfig& config)
 {
-    ParseLow(config);
+    ParseCount(config, "Low", "5");
+    ParseCount(config, "Free", "2");
 }
 
 std::unique_ptr<STAI_TaskBase> InventoryProvider_GlobalTask::Create(const STAI_TaskConfig& config)
 {
-    return std::make_unique<InventoryProvider_GlobalTask>(ParseLow(config));
+    return std::make_unique<InventoryProvider_GlobalTask>(ParseCount(config, "Low", "5"), ParseCount(config, "Free", "2"));
+}
+
+void InventoryProvider_GlobalTask::ForEachBagItem(Player* bot, const std::function<void(Item*)>& visit)
+{
+    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+        if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+            visit(item);
+
+    for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
+        if (Bag* bag = static_cast<Bag*>(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bagSlot)))
+            for (uint32 slot = 0; slot < bag->GetBagSize(); ++slot)
+                if (Item* item = bag->GetItemByPos(uint8(slot)))
+                    visit(item);
+}
+
+uint32 InventoryProvider_GlobalTask::CountFreeSlots(Player* bot)
+{
+    uint32 free = 0;
+    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+        if (!bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+            ++free;
+
+    for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
+        if (Bag* bag = static_cast<Bag*>(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bagSlot)))
+            free += bag->GetFreeSlots();
+    return free;
+}
+
+bool InventoryProvider_GlobalTask::IsSellable(const Item* item)
+{
+    const ItemPrototype* proto = item->GetProto();
+    if (!proto || !proto->SellPrice || item->IsBag())
+        return false;
+
+    switch (proto->Class)
+    {
+        case ITEM_CLASS_QUEST:
+        case ITEM_CLASS_CONSUMABLE:
+        case ITEM_CLASS_CONTAINER:
+        case ITEM_CLASS_REAGENT:
+        case ITEM_CLASS_KEY:
+            return false;
+        default:
+            break;
+    }
+
+    if (proto->Quality == ITEM_QUALITY_POOR)
+        return true;
+
+    // the bot does not equip or use loot yet: spare gear and materials are money
+    const bool gearOrGoods = proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR || proto->Class == ITEM_CLASS_TRADE_GOODS;
+    return gearOrGoods && proto->Quality <= ITEM_QUALITY_UNCOMMON;
 }
 
 void InventoryProvider_GlobalTask::Update(InventoryProvider_GlobalTaskContext& context) const
@@ -49,13 +104,21 @@ void InventoryProvider_GlobalTask::Update(InventoryProvider_GlobalTaskContext& c
     context.lowDrink = context.drink < low;
     if ((context.lowFood || context.lowDrink) && !wasLow)
         context.onLowSupplies.Broadcast();
+
+    const bool wasFull = context.bagsFull;
+    context.freeSlots = CountFreeSlots(context.bot);
+    context.sellable = 0;
+    ForEachBagItem(context.bot, [&context](Item* item) { if (IsSellable(item)) ++context.sellable; });
+    context.bagsFull = context.freeSlots < free && context.sellable;
+    if (context.bagsFull && !wasFull)
+        context.onBagsFull.Broadcast();
 }
 
 EActionRunStatus InventoryProvider_GlobalTask::OnEnterState(STAI_TaskContext& baseContext) const
 {
     TRACE_CPU_PROFILER_ENTRY_SCOPE(InventoryProvider_GlobalTask::OnEnterState);
     InventoryProvider_GlobalTaskContext& context = ContextAs<InventoryProvider_GlobalTaskContext>(baseContext);
-    context.lowFood = context.lowDrink = false;
+    context.lowFood = context.lowDrink = context.bagsFull = false;
     context.sinceCheckMs = 0;
     Update(context);
     return EActionRunStatus::Running;
@@ -82,12 +145,19 @@ const std::vector<STAI_PropertyDef>& InventoryProvider_GlobalTask::GetProperties
         STAI_PropertyDef::Of("drink", &InventoryProvider_GlobalTaskContext::drink),
         STAI_PropertyDef::Of("lowFood", &InventoryProvider_GlobalTaskContext::lowFood),
         STAI_PropertyDef::Of("lowDrink", &InventoryProvider_GlobalTaskContext::lowDrink),
+        STAI_PropertyDef::Of("freeSlots", &InventoryProvider_GlobalTaskContext::freeSlots),
+        STAI_PropertyDef::Of("sellable", &InventoryProvider_GlobalTaskContext::sellable),
+        STAI_PropertyDef::Of("bagsFull", &InventoryProvider_GlobalTaskContext::bagsFull),
     };
     return properties;
 }
 
 const std::vector<STAI_DelegateDef>& InventoryProvider_GlobalTask::GetDelegates() const
 {
-    static const std::vector<STAI_DelegateDef> delegates = { STAI_DelegateDef::Of("onLowSupplies", &InventoryProvider_GlobalTaskContext::onLowSupplies) };
+    static const std::vector<STAI_DelegateDef> delegates =
+    {
+        STAI_DelegateDef::Of("onLowSupplies", &InventoryProvider_GlobalTaskContext::onLowSupplies),
+        STAI_DelegateDef::Of("onBagsFull", &InventoryProvider_GlobalTaskContext::onBagsFull),
+    };
     return delegates;
 }

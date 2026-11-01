@@ -40,7 +40,7 @@ const KNOWN_ATTRS = {
   Transition: ['trigger', 'source', 'event', 'target', 'priority', 'delay', 'enabled'],
 };
 // the newest <StateTree version> the server loads (STAI_TreeAsset::Version)
-const TREE_VERSION = 5;
+const TREE_VERSION = 6;
 const TEMPLATE = '<?xml version="1.0" encoding="utf-8"?>\n<StateTree version="2">\n  <Comment>new state tree</Comment>\n' +
   '  <State name="Idle">\n    <Tasks>\n      <Task class="Task_Wait">\n        <Delay value="0"/>\n      </Task>\n' +
   '    </Tasks>\n  </State>\n</StateTree>\n';

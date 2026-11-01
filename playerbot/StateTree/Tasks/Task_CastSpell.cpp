@@ -118,6 +118,7 @@ EActionRunStatus Task_CastSpell::OnEnterState(STAI_TaskContext& baseContext) con
     context.castTarget.Clear();
     context.resultAtStart = false;
     context.result = -1;
+    context.refused.clear();
     StartLog(context);
 
     // the target first, then whoNeeds: members to help, or units to act on (attack, crowd control); the dead ones
@@ -164,17 +165,27 @@ EActionRunStatus Task_CastSpell::OnEnterState(STAI_TaskContext& baseContext) con
         return LogStatus(context, EActionRunStatus::Succeeded);
 
     if (!spellId)
+    {
+        context.refused = "no rank known";
         return LogStatus(context, EActionRunStatus::Failed);
+    }
 
     for (Unit* target : targets)
     {
-        if (!context.ai->CanCastSpell(spellId, target, 0, true))
+        SpellCastResult check = SPELL_CAST_OK;
+        if (!context.ai->CanCastSpell(spellId, target, 0, true, nullptr, false, false, false, &check))
+        {
+            context.refused = "rank " + std::to_string(spellId) + " check result " + std::to_string(int(check));
             continue;
+        }
 
         // before the cast: an instant spell's spell go arrives during CastSpell
         context.castStartMs = WorldTimer::getMSTime();
         if (!context.ai->CastSpell(spellId, target))
+        {
+            context.refused = "rank " + std::to_string(spellId) + " cast refused";
             continue;
+        }
 
         context.spellId = spellId;
         context.castTarget = target->GetObjectGuid();

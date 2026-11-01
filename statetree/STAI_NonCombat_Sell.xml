@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StateTree version="6">
+  <Comment>Selling subtree for every class (run by the classes' Autonomous trees while InventoryProvider_GlobalTask::bagsFull):
+    walks to the nearest vendor and sells the junk; finishes once it sold</Comment>
+  <GlobalTasks>
+    <Task class="VendorProvider_GlobalTask">
+      <Comment>the nearest vendor: vendorLocation, vendor (its guid once near)</Comment>
+      <Range value="2000"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Vendor" priority="30" kind="location">
+      <Comment>movement goal: to the vendor's spawn</Comment>
+      <Radius value="8"/>
+      <Binding local="location" external="Root|VendorProvider_GlobalTask::vendorLocation"/>
+    </Task>
+    <Task class="MovementGoal_GlobalTask" name="Vendor Range" priority="31" kind="range">
+      <Comment>movement goal: next to the vendor once it is near (the vendor window's interaction range)</Comment>
+      <Range max="4"/>
+      <Binding local="target" external="Root|VendorProvider_GlobalTask::vendor"/>
+    </Task>
+  </GlobalTasks>
+  <State name="Sell Junk">
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|VendorProvider_GlobalTask::vendor"/>
+      <Condition class="Condition_Compare" binding="Root|MovementGoal_GlobalTask[Vendor Range]::inRange"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_SellJunk">
+        <Binding local="vendor" external="Root|VendorProvider_GlobalTask::vendor"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnStateSucceeded" target="Succeeded"/>
+    </Transitions>
+  </State>
+  <State name="Go To Vendor">
+    <Comment>on the way: selects again every second</Comment>
+    <Tasks>
+      <Task class="Task_Wait">
+        <Delay value="1000"/>
+      </Task>
+    </Tasks>
+  </State>
+</StateTree>

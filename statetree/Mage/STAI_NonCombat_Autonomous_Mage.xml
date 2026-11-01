@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<StateTree version="5">
+<StateTree version="6">
   <Comment>NonCombat subtree for Mage bots on their own, without a leader (run by STAI_NonCombat_Mage.xml): keeps itself
-    up (decurse, buffs, conjured water and food, eat, rest), loots its kills, learns new spells at its trainer, else grinds</Comment>
+    up (decurse, buffs, conjured water and food, eat, rest), loots its kills, sells junk when the bags are full, learns
+    new spells at its trainer, else grinds</Comment>
   <GlobalTasks>
     <Task class="BuffProvider_GlobalTask">
       <Comment>watches the buffs of the bot: needs, onMissingBuff</Comment>
@@ -31,8 +32,10 @@
     </Task>
     <Task class="ManaProvider_GlobalTask"/>
     <Task class="InventoryProvider_GlobalTask">
-      <Comment>food / drink in the bags: lowFood, lowDrink (below 5), onLowSupplies</Comment>
+      <Comment>food / drink in the bags: lowFood, lowDrink (below 5), onLowSupplies; bagsFull (below 2 free slots with
+        something to sell), onBagsFull</Comment>
       <Low value="5"/>
+      <Free value="2"/>
     </Task>
     <Task class="TrainerProvider_GlobalTask">
       <Comment>spells the bot can learn and afford at its class trainer: newSpells, onNewSpells (the Train subtree goes there)</Comment>
@@ -87,6 +90,24 @@
     <Transitions>
       <Transition trigger="OnDelegate" source="Root|MovementGoal_GlobalTask[Loot]::onArrived" target="Root|Loot"/>
       <Transition trigger="OnDelegate" source="Root|LootProvider_GlobalTask::onLootable" target="Root"/>
+    </Transitions>
+  </State>
+  <State name="Sell">
+    <Comment>full bags: to the nearest vendor and sell the junk (conjured water, loot and quest items need the room)</Comment>
+    <EnterConditions>
+      <Condition class="Condition_Compare" binding="Root|InventoryProvider_GlobalTask::bagsFull"/>
+    </EnterConditions>
+    <Tasks>
+      <Task class="Task_RunSubtree">
+        <Subtree filename="statetree/STAI_NonCombat_Sell.xml"/>
+      </Task>
+    </Tasks>
+    <Transitions>
+      <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
+        <Conditions>
+          <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>
+        </Conditions>
+      </Transition>
     </Transitions>
   </State>
   <State name="Check Missing Buffs">
@@ -192,6 +213,7 @@
       <Transition trigger="OnDelegate" source="Root|CurseProvider_GlobalTask::onNeedsHelp" target="Root|Check Decurse"/>
       <Transition trigger="OnDelegate" source="Root|TrainerProvider_GlobalTask::onNewSpells" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|InventoryProvider_GlobalTask::onLowSupplies" target="Root"/>
+      <Transition trigger="OnDelegate" source="Root|InventoryProvider_GlobalTask::onBagsFull" target="Root"/>
       <Transition trigger="OnDelegate" source="Root|HealthProvider_GlobalTask::onHealthChanged" target="Root">
         <Conditions>
           <Condition class="Condition_Compare" binding="Root|HealthProvider_GlobalTask::healthPct" compare="lesser" value="60"/>

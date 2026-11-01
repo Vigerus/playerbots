@@ -23,6 +23,7 @@ namespace ai
         uint32 castStartMs = 0;
         bool resultAtStart = false;         // instant / channeled: successful once started
         int8 result = -1;                   // the spell went off: -1 not known yet, 0 no, 1 yes
+        std::string refused;                // why nothing was cast (the History entry of a failed run)
     };
 
     // Casts a spell on its target, else on the first of its whoNeeds it can reach, then waits for the cast and the
@@ -97,7 +98,7 @@ namespace ai
         {
             const Task_CastSpellContext& cast = ContextAs<Task_CastSpellContext>(context);
             if (!cast.spellId)
-                return GetDebugInfo();
+                return cast.refused.empty() ? GetDebugInfo() : GetDebugInfo() + ": " + cast.refused;
             const std::string info = "Cast " + STAI_SpellMarkup(cast.spellId);
             return cast.causeSpellId ? info + " (cause " + STAI_SpellMarkup(cast.causeSpellId) + ")" : info;
         }

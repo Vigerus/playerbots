@@ -1080,14 +1080,39 @@
             "number",
             "testable"
           ]
+        },
+        {
+          "name": "freeSlots",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "sellable",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "bagsFull",
+          "type": "bool",
+          "traits": [
+            "number",
+            "testable"
+          ]
         }
       ],
       "delegates": [
-        "onLowSupplies"
+        "onLowSupplies",
+        "onBagsFull"
       ],
-      "description": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`); delegate `onLowSupplies`",
-      "doc": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`); delegate `onLowSupplies`",
-      "settingsHelp": "`<Low value=\"5\"/>`",
+      "description": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags), `sellable` (stacks a vendor buys ...",
+      "doc": "global task, ticked (every 2s): property `food` / `drink` (what `Task_EatAndDrink` would use, stacks counted), `lowFood` / `lowDrink` (below `Low`), `freeSlots` (backpack and bags), `sellable` (stacks a vendor buys: grey items, white / green weapons, armor and trade goods; never quest items, consumables, containers, reagents or keys), `bagsFull` (fewer than `Free` free slots with something sellable); delegates `onLowSupplies`, `onBagsFull`",
+      "settingsHelp": "`<Low value=\"5\"/>`, `<Free value=\"2\"/>`",
       "taskAttributes": {},
       "settings": {
         "Low": {
@@ -1095,6 +1120,17 @@
             "value": {
               "examples": [
                 "5"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        },
+        "Free": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "2"
               ]
             }
           },
@@ -1595,7 +1631,7 @@
           "seen": false
         }
       },
-      "uses": 85
+      "uses": 87
     },
     "STAI_FinishTreeTask": {
       "cppClass": "STAI_FinishTreeTask",
@@ -1948,7 +1984,7 @@
       ],
       "delegates": [],
       "description": "casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target ...",
-      "doc": "casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target, or every target is skipped by `<SkipAura>` (so the state waits its retry delay instead of being selected again at once)",
+      "doc": "casts the spell on `target`, else the first `whoNeeds` unit it can reach; waits for the cast and the GCD; Succeeded also without a living target, Failed when the bot knows none of its spells, reaches no living target, or every target is skipped by `<SkipAura>` (so the state waits its retry delay instead of being selected again at once); a run that cast nothing says why in its History entry (`no rank known`, `rank <id> check result <SpellCastResult>`, `rank <id> cast refused`)",
       "settingsHelp": "`spellid=\"...\"` on the `<Task>` (spell id, or a name: the bot's highest rank), `<Binding local=\"target\" .../>` and / or `<Binding local=\"whoNeeds\" .../>`, or `<Target value=\"self\"/>` (the bot first); `<Target value=\"dead\"/>`: only dead targets (resurrections; a corpse guid of `HealProvider_GlobalTask::dead` is cast at as the corpse, `PlayerbotAI::CastSpellOnCorpse`); `<Fallback spellid=\"...\"/>` per spell, cast instead while the bot knows none of the spells before it (Flash Heal, then Heal, then Lesser Heal); `<SkipAura spellid=\"...\"/>` (targets with that aura, any rank and caster, are skipped: Weakened Soul) / `<SkipAura own=\"true\"/>` (targets with the bot's own aura of the cast spell: Renew); `<Binding local=\"causes\" .../>` (optional, `DispelProvider_GlobalTask` / `CurseProvider_GlobalTask` / `InterruptProvider_GlobalTask::causes`: its History entry and, while it runs, its task info in the debug views read `Cast <spell> (cause <spell>)`, the aura the dispel removes or the spell the interrupt stops on the cast target, both shown with their icons)",
       "taskAttributes": {
         "spellid": {
@@ -2210,7 +2246,7 @@
           "seen": true
         }
       },
-      "uses": 41
+      "uses": 42
     },
     "Task_SelfResurrect": {
       "cppClass": "Task_SelfResurrect",
@@ -2236,6 +2272,28 @@
           "seen": true
         }
       },
+      "uses": 1
+    },
+    "Task_SellJunk": {
+      "cppClass": "Task_SellJunk",
+      "global": false,
+      "header": "playerbot/StateTree/Tasks/Task_SellJunk.h",
+      "base": "STAI_TaskBase",
+      "properties": [
+        {
+          "name": "vendor",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "sells the bags' sellable items (`InventoryProvider_GlobalTask::IsSellable`) to the vendor as the client does (`CMSG_SELL_ITEM`) ...",
+      "doc": "sells the bags' sellable items (`InventoryProvider_GlobalTask::IsSellable`) to the vendor as the client does (`CMSG_SELL_ITEM`); not tickable, Succeeded when it sold something, Failed otherwise, its History entry tells how many and the money",
+      "settingsHelp": "`<Binding local=\"vendor\" external=\"Root|VendorProvider_GlobalTask::vendor\"/>`",
+      "taskAttributes": {},
+      "settings": {},
       "uses": 1
     },
     "Task_Shoot": {
@@ -2396,7 +2454,7 @@
           "seen": true
         }
       },
-      "uses": 63
+      "uses": 64
     },
     "TeamProvider_GlobalTask": {
       "cppClass": "TeamProvider_GlobalTask",
@@ -2693,6 +2751,55 @@
       "taskAttributes": {},
       "settings": {},
       "uses": 9
+    },
+    "VendorProvider_GlobalTask": {
+      "cppClass": "VendorProvider_GlobalTask",
+      "global": true,
+      "header": "playerbot/StateTree/Providers/VendorProvider_GlobalTask.h",
+      "base": "STAI_DataProviderBase",
+      "properties": [
+        {
+          "name": "vendorLocation",
+          "type": "STAI_Location",
+          "traits": [
+            "testable"
+          ]
+        },
+        {
+          "name": "vendorDistance",
+          "type": "uint32",
+          "traits": [
+            "number",
+            "testable"
+          ]
+        },
+        {
+          "name": "vendor",
+          "type": "ObjectGuid",
+          "traits": [
+            "testable"
+          ]
+        }
+      ],
+      "delegates": [],
+      "description": "global task, ticked (every second, the nearest spawn chosen again every 30s while no vendor is at hand): the nearest vendor on the bot's map that is not hostile to it ...",
+      "doc": "global task, ticked (every second, the nearest spawn chosen again every 30s while no vendor is at hand): the nearest vendor on the bot's map that is not hostile to it; property `vendorLocation`, `vendorDistance`, `vendor` (its guid within 50 yards)",
+      "settingsHelp": "`<Range value=\"2000\"/>` (yards)",
+      "taskAttributes": {},
+      "settings": {
+        "Range": {
+          "attributes": {
+            "value": {
+              "examples": [
+                "2000"
+              ]
+            }
+          },
+          "repeat": false,
+          "seen": true
+        }
+      },
+      "uses": 1
     },
     "WarriorProvider_GlobalTask": {
       "cppClass": "WarriorProvider_GlobalTask",
